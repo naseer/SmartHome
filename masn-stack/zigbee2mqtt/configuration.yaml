@@ -1,0 +1,24 @@
+# Zigbee2MQTT -- /opt/stack/zigbee2mqtt/data/configuration.yaml
+# Connects to the SLZB-06 (network coordinator, central floor 1) over TCP, and to Mosquitto.
+# Fill the SLZB-06 IP + MQTT creds, then enable the zigbee2mqtt service in docker-compose.yml.
+
+homeassistant: true              # HA MQTT discovery
+permit_join: false               # turn on ONLY while pairing devices, then off
+
+frontend:
+  port: 8080
+
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883  # bridged -> reach broker by service name
+  user: 'CHANGE_ME_MQTT_USER'
+  password: 'CHANGE_ME_MQTT_PASSWORD'
+
+serial:
+  # SLZB-06 over TCP (serial-over-IP). 6638 = SLZB-06 Zigbee socket port.
+  port: tcp://CHANGE_ME_SLZB06_IP:6638
+  adapter: ember                 # EFR32MG24/MG21 (SLZB-06x). Use zstack for CC2652 variants.
+
+advanced:
+  channel: 25                    # keep clear of Wi-Fi 2.4 GHz and the Thread channel
+  # network_key is auto-generated on first run -- BACK IT UP afterwards (data/configuration.yaml)

@@ -1,0 +1,14 @@
+# Paste into /opt/stack/homeassistant/config/configuration.yaml after HA's first run.
+# HA is network_mode host -> postgres + mosquitto are reachable on 127.0.0.1.
+
+recorder:
+  db_url: postgresql://hauser:CHANGE_ME@127.0.0.1:5432/homeassistant
+  # purge_keep_days: 30   # optional: trim history
+
+# MQTT: easiest is the UI (Settings > Devices & Services > Add > MQTT, host 127.0.0.1:1883,
+# the MQTT_USER/MQTT_PASSWORD from .env). Or configure here with secrets:
+# mqtt:
+#   broker: 127.0.0.1
+#   port: 1883
+#   username: !secret mqtt_user
+#   password: !secret mqtt_password

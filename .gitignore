@@ -1,0 +1,9 @@
+# Secrets and local state -- NEVER commit
+.env
+**/passwd
+masn-stack/mosquitto/data/
+masn-stack/mosquitto/log/
+masn-stack/zigbee2mqtt/data/
+
+# OS cruft
+.DS_Store

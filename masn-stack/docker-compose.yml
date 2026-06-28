@@ -1,0 +1,108 @@
+# masn home-server stack -- /opt/stack/docker-compose.yml
+# Phase 0 (tomorrow): homeassistant + mosquitto + postgres come up clean.
+# frigate / zigbee2mqtt / snapserver are scaffolded but COMMENTED -- enable as hardware arrives.
+#
+# Network model: HA is network_mode host (needs mDNS/SSDP). mosquitto + postgres publish ONLY to
+# 127.0.0.1 so host-mode HA can reach them on localhost, without exposing them on the LAN.
+# Bridged services (z2m) reach mosquitto by service name (mosquitto:1883) on the compose network.
+
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    network_mode: host              # mDNS/SSDP device discovery
+    # --- ENABLE WHEN THE ZBT-2 THREAD DONGLE ARRIVES ---
+    # privileged: true              # simplest path for radios + Bluetooth; tighten later
+    # devices:                      # stable by-id path, never ttyACM*
+    #   - /dev/serial/by-id/usb-...ZBT2-thread...:/dev/ttyThread   # Thread (OTBR/HA)
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./homeassistant/config:/config
+      - /run/dbus:/run/dbus:ro
+    depends_on: [mosquitto, postgres]
+
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"       # localhost only (host-mode HA reaches it here)
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
+  postgres:
+    container_name: postgres
+    image: postgres:16
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"       # localhost only (host-mode HA recorder reaches it here)
+    environment:
+      POSTGRES_DB: homeassistant
+      POSTGRES_USER: "${PG_USER}"
+      POSTGRES_PASSWORD: "${PG_PASSWORD}"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  # ============================================================================
+  # ENABLE IN PHASE 3 (cameras present). OpenVINO detect on the HD 630 iGPU.
+  # ============================================================================
+  # frigate:
+  #   container_name: frigate
+  #   image: ghcr.io/blakeblackshear/frigate:stable
+  #   restart: unless-stopped
+  #   stop_grace_period: 30s
+  #   shm_size: "512mb"
+  #   devices:
+  #     - /dev/dri/renderD128         # HD 630: OpenVINO detect + VAAPI decode
+  #   group_add:
+  #     - "993"                       # render GID -- CONFIRM via `getent group render`
+  #   volumes:
+  #     - /etc/localtime:/etc/localtime:ro
+  #     - ./frigate/config:/config
+  #     - /mnt/nas/frigate:/media/frigate   # NAS: recordings/snapshots/exports
+  #     - type: tmpfs                 # cache LOCAL in RAM, never on NAS
+  #       target: /tmp/cache
+  #       tmpfs: { size: "1g" }
+  #   ports:
+  #     - "8971:8971"                 # authenticated UI
+  #     - "8554:8554"                 # RTSP restream
+  #     - "8555:8555/tcp"
+  #     - "8555:8555/udp"             # WebRTC
+  #   environment:
+  #     FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"
+  #     LIBVA_DRIVER_NAME: "iHD"
+  #   depends_on: [mosquitto]
+
+  # ============================================================================
+  # ENABLE WHEN THE SLZB-06 ZIGBEE COORDINATOR IS ONLINE (central, floor 1).
+  # Connects to the SLZB-06 over TCP -- no USB device passthrough (see zigbee2mqtt/configuration.yaml)
+  # ============================================================================
+  # zigbee2mqtt:
+  #   container_name: zigbee2mqtt
+  #   image: ghcr.io/koenkk/zigbee2mqtt:latest
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./zigbee2mqtt/data:/app/data
+  #     - /run/udev:/run/udev:ro
+  #   ports:
+  #     - "8080:8080"                 # Z2M web UI
+  #   environment:
+  #     TZ: "${TZ}"
+  #   depends_on: [mosquitto]
+
+  # ============================================================================
+  # ENABLE IN PHASE 5 (speakers wired).
+  # ============================================================================
+  # snapserver:
+  #   container_name: snapserver
+  #   image: ghcr.io/badaix/snapcast:latest
+  #   restart: unless-stopped
+  #   network_mode: host              # multicast/discovery for snapclients
+  #   volumes:
+  #     - ./snapserver/snapserver.conf:/etc/snapserver.conf
+
+volumes:
+  postgres:
