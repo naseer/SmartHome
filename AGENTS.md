@@ -71,6 +71,9 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 4. **Stand up stack (agent, SSH to fresh masn)**: fill `masn-stack/.env`, run
    `masn-stack/setup-masn.sh` (Docker, `/opt/stack`, mosquitto user, NAS fstab, `compose up` core).
    HA onboarding at `http://<masn-ip>:8123`; paste `homeassistant/configuration-snippet.yaml`.
+5. **Link Nabu Casa (user, HA UI)**: Settings → Home Assistant Cloud → sign in. Subscription is
+   already active (set up 2026-06-25); this connects the running instance. Unlocks remote UI +
+   mobile push + cloud TTS/STT. Built-in `cloud:` integration — nothing to add to compose.
 
 ## masn-stack usage
 

@@ -186,7 +186,7 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Cameras | PoE + Frigate (local NVR) | Bandwidth needs wired/Wi-Fi, not Thread; no cloud/subscription |
 | Camera AI | Frigate + OpenVINO on HD 630 iGPU (baseline) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; Orin stays on LLM duty |
 | GPU relief valve (owned Quadro P620) | Optional; install only if iGPU contention appears | Splits decode/detect/transcode across two chips. Lean: P620 does detection (TensorRT); iGPU keeps decode + Quick Sync transcode. Free; +~40W. See 3.3 |
-| Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance | Ring-like mobile UX; secure, no port-forwarding; covers all users |
+| Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance -- SUBSCRIPTION ACTIVE (2026-06-25); link in HA after first boot | Ring-like mobile UX; secure, no port-forwarding; covers all users |
 | Network core | UniFi: UCG-Max gateway (router + controller + firewall/IDS) + 3x U7 Pro APs (wired PoE backhaul). SELL the ASUS BT10 to offset | BT10's weak VLAN/firewall software undermines the camera/IoT segmentation this build depends on. UniFi gives first-class, verifiable VLANs in one dashboard; wired ceiling APs beat mesh backhaul in a wired house |
 | Switching/VLANs | UniFi USW-Pro-Max-16-PoE; controller runs ON the UCG-Max (no self-hosted container) | 16 PoE ports size for 3 APs + 4 cams + doorbell; 2.5G + 10G SFP+ for the NAS; one ecosystem/dashboard with the gateway + APs |
 | Audio | Reuse NuTone speaker wiring -> Snapcast multi-zone | Home-run while walls open; zone later |
