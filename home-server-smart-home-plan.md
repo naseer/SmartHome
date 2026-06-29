@@ -306,8 +306,11 @@ Camera notes (Frigate):
 Two devices, both on the ZBT-2 + Z2M (no Aqara/ThirdReality hub, no cloud):
 - Aqara Dual Relay T2 = the "button". WIRING (per Aqara manual):
   1. Confirm the opener's two wall-button terminals: short them with a paperclip -> door moves.
-  2. Power the T2: LIN <- live (120V), N <- neutral (module needs mains; tap the opener's outlet
-     circuit via a junction box -- electrician if unsure).
+  2. Power the T2: LIN <- live (120V), N <- neutral. The T2 is mains-powered (no battery), but
+     needs NO separate PSU -- use the opener's existing 120V. MOUNT AT THE OPENER HEAD (mains +
+     button terminals are both there; the wall button is low-voltage only -- can't power it there).
+     Easiest: a plug pigtail + outlet splitter into the ceiling opener outlet (no hardwiring).
+     Or a junction-box tap of the outlet circuit (electrician if unsure).
   3. REMOVE THE RED JUMPER (between LIN and LOUT) -> this is what enables DRY (voltage-free) contact.
   4. Dry-contact output (channel 1) = terminals LOUT and L1. Wire the opener's two button terminals
      across LOUT <-> L1 (opener COM -> LOUT; opener trigger -> L1). No voltage injected.
