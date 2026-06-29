@@ -304,9 +304,15 @@ Camera notes (Frigate):
 ### Garage door note (hub-free Zigbee)
 
 Two devices, both on the ZBT-2 + Z2M (no Aqara/ThirdReality hub, no cloud):
-- Aqara Dual Relay T2 = the "button": power it L+N, set the channel to DRY-CONTACT mode, wire the
-  relay output (COM/NO) across the two garage wall-button terminals (parallel with the button;
-  no voltage injected). Dual-channel -> one T2 can drive two doors.
+- Aqara Dual Relay T2 = the "button". WIRING (per Aqara manual):
+  1. Confirm the opener's two wall-button terminals: short them with a paperclip -> door moves.
+  2. Power the T2: LIN <- live (120V), N <- neutral (module needs mains; tap the opener's outlet
+     circuit via a junction box -- electrician if unsure).
+  3. REMOVE THE RED JUMPER (between LIN and LOUT) -> this is what enables DRY (voltage-free) contact.
+  4. Dry-contact output (channel 1) = terminals LOUT and L1. Wire the opener's two button terminals
+     across LOUT <-> L1 (opener COM -> LOUT; opener trigger -> L1). No voltage injected.
+  Dual-channel -> one T2 can drive two doors. Videos: yt ToJHXnb9BR8 (garage), WADio-jD1Ug (wiring)
+  -- ignore their Aqara-app pairing; we pair to Z2M instead (wiring is identical).
 - ThirdReality tilt sensor = the "state": mount on the top door panel (vertical=closed,
   horizontal=open); reports `contact`. One per door. Disable the buzzer; set the sensitivity dip.
 - Make the relay MOMENTARY: a Zigbee relay latches, but a garage button pulses. Use an HA
