@@ -1,6 +1,7 @@
 # masn home-server stack -- /opt/stack/docker-compose.yml
 # Phase 0 (tomorrow): homeassistant + mosquitto + postgres come up clean.
-# frigate / zigbee2mqtt / snapserver are scaffolded but COMMENTED -- enable as hardware arrives.
+# frigate / zigbee2mqtt are scaffolded but COMMENTED -- enable as hardware arrives.
+# (Audio = NuTone IM-3303 + a standalone WiiM at the AUX; no audio container on masn.)
 #
 # Network model: HA is network_mode host (needs mDNS/SSDP). mosquitto + postgres publish ONLY to
 # 127.0.0.1 so host-mode HA can reach them on localhost, without exposing them on the LAN.
@@ -93,16 +94,8 @@ services:
   #     TZ: "${TZ}"
   #   depends_on: [mosquitto]
 
-  # ============================================================================
-  # ENABLE IN PHASE 5 (speakers wired).
-  # ============================================================================
-  # snapserver:
-  #   container_name: snapserver
-  #   image: ghcr.io/badaix/snapcast:latest
-  #   restart: unless-stopped
-  #   network_mode: host              # multicast/discovery for snapclients
-  #   volumes:
-  #     - ./snapserver/snapserver.conf:/etc/snapserver.conf
+  # Audio: NO snapserver. The NuTone IM-3303 is reused as-is, fed by a standalone WiiM at its
+  # AUX input (whole-house mono, lo-fi accepted). Nothing audio-related runs on masn.
 
 volumes:
   postgres:

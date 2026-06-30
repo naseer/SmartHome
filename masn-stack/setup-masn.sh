@@ -23,7 +23,7 @@ echo ">> [2/6] Create ${STACK_DIR} and copy configs (incl. dotfiles)"
 sudo mkdir -p "$STACK_DIR"
 sudo cp -r ./. "$STACK_DIR"/
 cd "$STACK_DIR"
-sudo mkdir -p homeassistant/config frigate/config mosquitto/config mosquitto/data mosquitto/log zigbee2mqtt/data snapserver
+sudo mkdir -p homeassistant/config frigate/config mosquitto/config mosquitto/data mosquitto/log zigbee2mqtt/data
 
 echo ">> [3/6] Require + secure .env"
 [ -f .env ] || { echo "!! .env missing -- copy .env.example to .env and fill it first"; exit 1; }
@@ -54,4 +54,4 @@ sudo docker compose up -d homeassistant mosquitto postgres
 echo
 echo ">> DONE. HA onboarding at http://<masn-ip>:8123"
 echo "   Then paste homeassistant/configuration-snippet.yaml into config/configuration.yaml (recorder->postgres)."
-echo "   Enable frigate / zigbee2mqtt / snapserver in docker-compose.yml as hardware arrives."
+echo "   Enable frigate / zigbee2mqtt in docker-compose.yml as hardware arrives."

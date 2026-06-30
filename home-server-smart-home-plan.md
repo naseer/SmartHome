@@ -189,7 +189,7 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance -- SUBSCRIPTION ACTIVE (2026-06-25); link in HA after first boot | Ring-like mobile UX; secure, no port-forwarding; covers all users |
 | Network core | UniFi: UCG-Max gateway (router + controller + firewall/IDS) + 3x U7 Pro APs (wired PoE backhaul). SELL the ASUS BT10 to offset | BT10's weak VLAN/firewall software undermines the camera/IoT segmentation this build depends on. UniFi gives first-class, verifiable VLANs in one dashboard; wired ceiling APs beat mesh backhaul in a wired house |
 | Switching/VLANs | UniFi USW-Pro-Max-16-PoE; controller runs ON the UCG-Max (no self-hosted container) | 16 PoE ports size for 3 APs + 4 cams + doorbell; 2.5G + 10G SFP+ for the NAS; one ecosystem/dashboard with the gateway + APs |
-| Audio | Reuse NuTone speaker wiring -> Snapcast multi-zone | Home-run while walls open; zone later |
+| Audio | Keep NuTone IM-3303 as-is; feed a WiiM streamer into its mono AUX | No wiring/speaker changes (lo-fi accepted); whole-house mono; casting + HA via WiiM. Snapcast dropped |
 | Dashboard | Pi 4 + old monitor, Chromium kiosk | Free; reuse existing hardware |
 | Asterisk | Dropped | Legacy; PoE doorbell + HA Assist cover door/intercom comms |
 
@@ -344,16 +344,24 @@ Brand fallback: ecobee includes a Power Extender Kit (PEK) that creates C from 4
 but is Wi-Fi + cloud-leaning -- only switch to it if you'd rather have a vendor-integrated
 fix than a $25 adapter. Avoid Nest (cloud-dependent, weak local Matter).
 
-### 6.5 Audio (multi-room Snapcast)
+### 6.5 Audio (keep NuTone IM-3303; feed AUX with a smart streamer)
+
+DECIDED: NO new wiring, NO speaker changes, lo-fi accepted. Keep the existing NuTone IM-3303
+radio-intercom as the whole-house distribution brain (its room volume knobs = per-room on/off)
+and make its mono AUX input "smart" with one network streamer. This drops the whole
+Snapcast/amp/home-run plan -- one box replaces all of it.
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
-| Multi-zone amplifier (6-12 ch) | 1 | $350 | $350 | e.g., Dayton MA1240a class; or per-zone small amps |
-| Banana plugs / speaker wire / connectors | 1 lot | $60 | $60 | Termination at AV closet |
-| Replacement in-ceiling speakers (optional) | TBD | $40 | TBD | Only if NuTone speakers are too low-fi |
-| NuTone speakers + in-wall wire | - | reuse | $0 | Pending condition check |
-| Snapclients | - | run on masn | $0 | One snapclient instance per zone |
-| | | | **~$410+** | Depends on speaker reuse |
+| WiiM Mini network streamer | 1 | $90 | $90 | Line-out (3.5mm) -> NuTone AUX (3.5mm->RCA; AUX is mono). AirPlay 2 / Chromecast / Spotify Connect + HA integration. WiiM Pro (~$150) if you want RCA out + better DAC |
+| NuTone AUX assembly (only if missing) | 0-1 | $30 | $0 | Some IM-3303s need NuTone's AUX module to expose the input -- check first |
+| NuTone master + speakers + wiring | - | reuse | $0 | Whole-house mono, single source. Requires the master still works |
+| | | | **~$90** | Single mono zone; per-room control via existing knobs |
+
+Notes:
+- Single whole-house source (mono, lo-fi) -- accepted. No independent per-room streams.
+- Snapcast / multi-zone amp / speaker home-runs DROPPED (not needed for a single AUX-fed zone).
+- Verify on-site: AUX input present (else add the NuTone AUX assembly) + master is functional.
 
 ### 6.6 Dashboard
 
@@ -562,14 +570,15 @@ Power/UPS notes:
 - Wi-Fi: NO radio in the rack (metal kills signal). The UCG-Max is Wi-Fi-less by design; Wi-Fi
   comes from the 3 ceiling U7 Pro APs (one per floor), each on its own in-wall Cat6 PoE run.
 
-### BoM grand total (excluding optional speaker replacement)
+### BoM grand total
 
-Approx. **$4,960** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,640** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Max + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$985 net after BT10 resale, all-UniFi), NAS (~$1,130, DXP4800 Pro
-4-bay starting 2x12 TB), rack + power (~$590), cameras (~$460), and audio (~$410). Reuse of Pi 4,
+4-bay starting 2x12 TB), rack + power (~$590), cameras (~$460), and audio (~$90 -- NuTone reused
++ a WiiM at the AUX; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
 BT10 offsets ~$400 of the UniFi switch-over. Bulk storage + Jellyfin on the UGREEN NAS (mirror, 2
 bays free to grow); continuous recording via dual-stream; everything on one UPS (PoE/cameras/APs included).
@@ -596,15 +605,12 @@ Pull more than you think you need. Cat6 to:
 - 1-2 spare drops per room (cheap insurance)
 - Thermostat location: if reachable while walls are open, pull fresh 18/5 thermostat cable
   to guarantee a C-wire (+ spare). Otherwise plan on a Fast-Stat/Venstar add-a-wire adapter.
-- Unfinished basement (easy access): land all home-runs in/near Utility; PRE-WIRE speaker
-  pairs + 1-2 spare Cat6 to the future Rec Room area, capped + labeled, for a later media zone.
+- Unfinished basement (easy access): land all home-runs in/near Utility; 1-2 spare Cat6 to the
+  future Rec Room area, capped + labeled, for a later media zone.
 
-Speaker wiring (the irreversible part):
-
-- Home-run EACH room's speaker pair back to the AV closet, labeled per room.
-- Do this even if starting single-zone; enables multi-zone later with no drywall work.
-- Do not daisy-chain or parallel speakers off one channel (impedance risk).
-- Audition one NuTone speaker before deciding reuse vs replace.
+Speaker wiring: DROPPED. Audio reuses the existing NuTone IM-3303 + its speakers/wiring as-is,
+fed by a WiiM streamer at the AUX (see 6.5). No new speaker home-runs. (If you ever want true
+multi-zone hi-fi later, that's a separate project -- pull speaker pairs then.)
 
 ---
 
@@ -617,9 +623,9 @@ masn (Ubuntu 24.04, headless + NoMachine on-demand)
     +-- home-assistant    (restart: unless-stopped)
     +-- frigate           (OpenVINO on /dev/dri iGPU; active cache local, continuous recordings -> NAS via NFS/SMB)
     +-- mosquitto         (MQTT broker; shared by Z2M + HA)
-    +-- zigbee2mqtt       (owns the Zigbee dongle; bridges Zigbee -> MQTT -> HA)
-    +-- snapserver        (+ per-zone snapclients -> multi-zone amp)
+    +-- zigbee2mqtt       (connects to the SLZB-06 over TCP; bridges Zigbee -> MQTT -> HA)
     +-- postgres          (HA recorder DB)
+    (snapserver DROPPED -- audio is the NuTone IM-3303 fed by a standalone WiiM at the AUX, see 6.5)
 |
 +-- ZBT-2 (USB on masn) -> Thread Border Router (OTBR/HA)
 +-- SLZB-06 (network, central floor 1) -> Zigbee coordinator (Z2M over TCP)
@@ -794,7 +800,7 @@ Three cooperating pieces:
   thumbnail, clip preview, tap-to-clip/live, and Dismiss/Silence/Snooze actions. One form
   per camera instead of hand-built automations.
 - Doorbell press -> its own notification ("Someone's at the door") + snapshot, plus an
-  optional Snapcast announcement through the house speakers.
+  optional TTS announcement through the NuTone speakers (HA -> WiiM -> AUX).
 
 ### Remote access: Nabu Casa (chosen)
 
@@ -1039,18 +1045,18 @@ Notes:
       `smartctl -a /dev/sda` returns SMART. (Backup discipline resumes once real data exists.)
       clean-install Ubuntu Server + switch
       BIOS SATA to AHCI together, OR convert in place. Restore from NAS; rebuild container
-      stack (HA, Frigate, Mosquitto, Snapcast, Postgres; no Jellyfin, no Omada -- UniFi controller
+      stack (HA, Frigate, Mosquitto, Postgres; no Snapcast, no Jellyfin, no Omada -- UniFi controller
       is on the UCG-Max); migrate Jellyfin
       onto the NAS (`/dev/dri` Quick Sync); point Frigate recordings at the NAS, cache local.
       Set HA `restart: unless-stopped`. See the Phase 0 Runbook (section 17).
-- [ ] Phase 2 (during construction): pull Cat6 + speaker home runs (incl. 3 ceiling AP drops,
-      one per floor); install UCG-Max + USW-Pro-Max-16-PoE + 3x U7 Pro APs; adopt all in the
-      UniFi controller; set up VLANs (Trusted/Cameras/IoT) + inter-VLAN firewall rules.
+- [ ] Phase 2 (during construction): pull Cat6 (incl. 3 ceiling AP drops, one per floor) -- NO
+      speaker home-runs (NuTone reused); install UCG-Max + USW-Pro-Max-16-PoE + 3x U7 Pro APs;
+      adopt all in the UniFi controller; set up VLANs (Trusted/Cameras/IoT) + inter-VLAN firewall rules.
 - [ ] Phase 3: install PoE cameras + doorbell; stand up Frigate with OpenVINO/iGPU detection
       (if contention: add the owned P620 per 3.3; Hailo-8L only if neither suffices); wire into HA;
       enable Nabu Casa; configure Frigate Notifications blueprint + household user sharing.
 - [ ] Phase 4: ZBT-2 Thread Border Router; commission Matter/Thread switches + devices.
-- [ ] Phase 5: audio -- terminate speaker home runs; multi-zone amp + Snapcast zones.
+- [ ] Phase 5: audio -- WiiM Mini into the NuTone IM-3303 AUX (verify AUX module + master work).
 - [ ] Phase 6: Pi 4 kiosk dashboard on old monitor; motion-based screen power.
 - [ ] Phase 7: Orin voice/AI -- Ollama + faster-whisper (+ Piper); wire HA Assist via
       Wyoming; add voice satellite(s); set up Companion app control + phone-as-sensor.
@@ -1059,8 +1065,9 @@ Notes:
 
 ## 15. Open Items / To Confirm
 
-- [ ] NuTone/M&S model number; does the master have a line/AUX input? Are room units bare
-      speakers or speaker+electronics (talk-back modules)?
+- [x] Audio system identified: NuTone IM-3303 (3-wire intercom, up to 9 rooms, mono AUX).
+      DECISION: keep as-is, feed AUX with a WiiM (see 6.5). TO CONFIRM ON-SITE: AUX module
+      present (else add NuTone AUX assembly) + master unit still functional.
 - [x] OptiPlex 5050 chassis form factor: confirmed SFF -> existing SSD for OS in-box, bulk on NAS (the
       SFF's single bay can't mirror continuous footage).
 - [x] Media library / disk growth: resolved -- NAS RAID1 holds media + recordings + backups,
@@ -1098,7 +1105,7 @@ Notes:
 - WD Blue 1TB SATA SSD (OS + Frigate cache / app data)
 - Intel HD 630 iGPU (Frigate decode + OpenVINO detection; transcode moved to NAS)
 - Quadro P620 (optional GPU relief valve -- detection or transcode offload; see 3.3)
-- NuTone speakers + in-wall wiring (pending condition check)
+- NuTone IM-3303 system (master + speakers + wiring) -- reused as-is, fed by a WiiM at the AUX (6.5)
 - Jetson AGX Orin (always-on local LLM/VLM inference, kept separate from HA)
 - RTX 5070 Linux box (opportunistic, sometimes-available; preferred LLM/VLM endpoint + batch
   vision/AV1 jobs, with auto-fallback to the Orin -- see 12)
@@ -1194,7 +1201,8 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
 4c. Re-mount the NAS shares via `/etc/fstab` (recordings + media + backups).
 4d. Rebuild the container stack from compose: home-assistant (`restart: unless-stopped`),
     frigate (OpenVINO `/dev/dri`, cache local, recordings -> NAS), mosquitto, zigbee2mqtt,
-    snapserver, postgres (restore the dump). NO Jellyfin on masn; NO Omada/UniFi controller (UniFi runs on the UCG-Max).
+    postgres (restore the dump). NO Snapcast (audio = NuTone + WiiM), NO Jellyfin on masn,
+    NO Omada/UniFi controller (UniFi runs on the UCG-Max).
 4e. Plug in BOTH radios on USB extension cables (out of the rack, spaced apart, USB 2.0). Pass
     each by its `/dev/serial/by-id/` path: ZBT-2 (Thread) -> OTBR/HA, Zigbee dongle -> the
     zigbee2mqtt container. Confirm both enumerate; set Zigbee + Thread to separate 2.4 GHz channels.
@@ -1320,14 +1328,8 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
 
-  snapserver:
-    container_name: snapserver
-    image: ghcr.io/badaix/snapcast:latest
-    restart: unless-stopped
-    network_mode: host             # multicast/discovery for snapclients
-    volumes:
-      - ./snapserver/snapserver.conf:/etc/snapserver.conf
-
+  # No snapserver: audio = NuTone IM-3303 fed by a standalone WiiM at the AUX (see 6.5) -- no
+  # masn-side audio container.
   # No network-controller container: UniFi controller runs on the UCG-Max gateway.
 
 volumes:

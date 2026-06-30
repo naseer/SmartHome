@@ -22,7 +22,7 @@ house. Local-first, no-cloud-by-default, security-first. Reproducible infra in `
   |          |                                                                    |
   +-- ZBT-2 (Thread Border Router, USB)                              Zigbee mesh (Z2M over TCP)
   +-- HD 630 iGPU (Frigate/OpenVINO detect)                          Thread mesh via 9 TP-Link
-  +-- Docker: HA, Mosquitto, Postgres, (Frigate, Z2M, Snapcast)         mains switches (routers)
+  +-- Docker: HA, Mosquitto, Postgres, (Frigate, Z2M)                  mains switches (routers)
 ```
 
 Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 retired (sold).
@@ -31,7 +31,8 @@ Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 re
 
 | Component | Role | Location |
 |-----------|------|----------|
-| **masn** — OptiPlex 5050 SFF (i7-7700, 32 GB) | App server: Home Assistant, Frigate, MQTT, Postgres, Snapcast | Basement rack |
+| **masn** — OptiPlex 5050 SFF (i7-7700, 32 GB) | App server: Home Assistant, Frigate, MQTT, Postgres | Basement rack |
+| **NuTone IM-3303** + WiiM streamer | Whole-house audio (reused as-is; WiiM feeds its AUX; casting + HA) | Existing house wiring |
 | **NAS** — UGREEN DXP4800 Pro (ZFS) | Bulk storage: recordings, media, family Photos/Drive, backups; runs Jellyfin + Immich/Nextcloud | Basement rack |
 | **UCG-Max** | Router + firewall/IDS + UniFi controller | Basement rack |
 | **USW-Pro-Max-16-PoE** | Switching, VLANs, PoE (cameras + APs); 2.5G + 10G SFP+ | Basement rack |
@@ -62,6 +63,8 @@ Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 re
 - **Family photos/files:** Immich + Nextcloud on the NAS; **Google stays primary** (off-site copy).
 - **Remote access:** Home Assistant via **Nabu Casa**; Jellyfin + admin via **Tailscale per-host**
   (no port-forwarding, no whole-subnet route — VLAN segmentation preserved).
+- **Audio:** cast/AirPlay/Spotify → **WiiM** → NuTone IM-3303 **AUX** → whole-house speakers
+  (existing wiring, mono, lo-fi by choice). No multi-zone amp or Snapcast.
 
 ## Repo layout
 
@@ -70,11 +73,11 @@ home-server-smart-home-plan.md   master plan: decisions, BoM, runbook
 AGENTS.md                        orientation for agents/sessions
 README.md                        this file
 masn-stack/                      reproducible Docker stack + Phase 0 scripts
-  docker-compose.yml             HA+Mosquitto+Postgres active; Frigate/Z2M/Snapcast staged
+  docker-compose.yml             HA+Mosquitto+Postgres active; Frigate/Z2M staged
   .env.example                   copy -> .env (gitignored), fill, chmod 600
   copy-media.sh                  media -> NAS + verify (run before the wipe)
   setup-masn.sh                  Docker + /opt/stack + NAS mounts + compose up
-  mosquitto/ zigbee2mqtt/ frigate/ homeassistant/ snapserver/   service configs
+  mosquitto/ zigbee2mqtt/ frigate/ homeassistant/   service configs
 ```
 
 ## Status (2026-06-25)

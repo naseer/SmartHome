@@ -8,7 +8,7 @@ quick "what/where/how" so a fresh session can continue without re-deriving conte
 
 Two intertwined projects:
 1. **`masn` revamp** — a Dell OptiPlex 5050 SFF home server (i7-7700, 32 GB) re-platformed to a
-   clean Ubuntu Server + Docker stack (Home Assistant, Frigate, MQTT, Postgres, Snapcast).
+   clean Ubuntu Server + Docker stack (Home Assistant, Frigate, MQTT, Postgres).
 2. **Smart-home build** for a 3-floor / 3200 sqft house (50 Westacott Crescent, Ajax ON).
 
 Bias throughout: **local-first / no-cloud, security-first, test-before-commit, reproducible infra.**
@@ -81,9 +81,10 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 
 ## masn-stack usage
 
-- `docker-compose.yml`: **HA + Mosquitto + Postgres active**; Frigate / Zigbee2MQTT / Snapcast are
-  COMMENTED — enable each as its hardware arrives (cameras / SLZB-06 / speakers). Mosquitto+Postgres
-  bind to `127.0.0.1` only (host-mode HA reaches them; LAN can't). NFS mounts use `nofail`.
+- `docker-compose.yml`: **HA + Mosquitto + Postgres active**; Frigate / Zigbee2MQTT are
+  COMMENTED — enable each as its hardware arrives (cameras / SLZB-06). Audio = NuTone IM-3303 + a
+  standalone WiiM at the AUX (no audio container on masn). Mosquitto+Postgres bind to `127.0.0.1`
+  only (host-mode HA reaches them; LAN can't). NFS mounts use `nofail`.
 - `.env.example` → copy to `.env`, fill, `chmod 600` (gitignored). Never commit real secrets.
 - `copy-media.sh`, `setup-masn.sh`: review before running; need sudo. Idempotent-ish.
 
