@@ -28,14 +28,15 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - Original plan: NAS up → copy media → AHCI + clean install → bring stack online (resumes once disk replaced).
 - **Greenfield**: user confirmed NO irreplaceable data on masn → backup-before-wipe gate WAIVED,
   EXCEPT copy the media library to the NAS first (see runbook).
-- Storage: **1× 12 TB now, mirror added in a few months** (Google stays the off-site copy meanwhile).
+- Storage: **1× 14 TB now, mirror added in a few months** (Google stays the off-site copy meanwhile).
 
 ## Key architecture decisions (quick ref — full rationale in the plan)
 
 - **Host**: reuse the 5050 (`masn`), 32 GB; clean-install Ubuntu Server; switch BIOS SATA
   **RAID On → AHCI** (currently RAID On). OS disk = WD Blue 1 TB SATA (`sda`).
-- **Storage / NAS**: UGREEN **DXP4800 Pro**, run **ZFS**; 1× **12 TB Seagate IronWolf Pro** now →
-  add 2nd later for a mirror (`zpool attach`, in place). Frigate cache stays LOCAL on masn's SSD;
+- **Storage / NAS**: UGREEN **DXP4800 Pro**, run **ZFS**; 1× **14 TB Toshiba N300 (HDWG21E)** now
+  (the 1st IronWolf Pro 12 TB was DOA — clicking — and returned) → add 2nd 14 TB later for a
+  mirror (`zpool attach`, in place). Frigate cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
 - **Network**: ALL-**UniFi** — UCG-Max gateway + USW-Pro-Max-16-PoE + 3× U7 Pro APs (wired PoE,
   one/floor). ASUS BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
@@ -99,7 +100,7 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 ## Pending / next
 
 - **2026-06-26**: execute Phase 0.
-- Add 2nd 12 TB → mirror (a few months); resume regular NAS backups once real data exists.
+- Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
 - Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Max + 16-PoE + 3× U7 Pro),
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
   Sinopé Zigbee thermostat, Aqara T2 + ThirdReality tilt sensor.

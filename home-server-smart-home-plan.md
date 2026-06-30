@@ -112,7 +112,7 @@ chosen over 16 GB for headroom across all containers plus Frigate decode buffers
 
 Decision: masn keeps its existing 1TB SATA SSD for OS + Frigate active cache (NVMe not
 needed, see below); all bulk data (continuous
-recordings, Jellyfin media, family Photos/Drive, masn backups) lives on a 4-bay NAS (start 2x12 TB mirror). This is driven by
+recordings, Jellyfin media, family Photos/Drive, masn backups) lives on a 4-bay NAS (start 2x14 TB mirror). This is driven by
 the move to CONTINUOUS recording -- which a single SFF drive can't protect (one bay, no
 mirror), and which makes the always-on footage valuable enough to want redundancy. The NAS
 also does double duty (media, backups, local-first Drive/Photos) -- see 6.7.
@@ -383,7 +383,7 @@ Notes:
 
 ### 6.7 Bulk storage (NAS -- continuous recording + media + backups)
 
-Decision: 4-bay NAS, start with a 2x12 TB mirror, because (a) continuous recording makes the
+Decision: 4-bay NAS, start with a 2x14 TB mirror, because (a) continuous recording makes the
 always-on footage worth protecting and the SFF can't mirror (one bay), and (b) the NAS earns
 its cost across multiple roles, not just recording:
 
@@ -391,7 +391,7 @@ its cost across multiple roles, not just recording:
   Sizing: 4 cameras, 15-day retention. At ~4-6 Mbps/camera H.265 main stream this is ~2.6-3.9 TB
   (rule of thumb: 1 Mbps continuous ~= 10.8 GB/day). ~4 TB typical. Use H.265 + a sane
   per-camera bitrate to keep it in this range. Footage (~4 TB) + family Photos/Drive (1-3 TB)
-  drives the 12 TB mirror choice below (8 TB would be too tight once media is added).
+  drives the 14 TB mirror choice below (8 TB would be too tight once media is added).
 - Jellyfin server + media library -- runs ON the NAS (data-local; i3-1315U Iris Xe Quick Sync
   incl. AV1 decode). Moved off masn so the HD 630 only does Frigate decode + detection. See note below.
 - masn backup target -- HA config, Docker volumes, Postgres dumps (3-2-1 off-box copy).
@@ -411,24 +411,25 @@ is LAN-only (reached via HA/Tailscale, never port-forwarded), the vendor's cloud
 surface is largely neutralized, so the choice is driven by no-lock + value + OS quality.
 
 Recommended: UGREEN NASync DXP4800 Pro (4-bay, Intel Core i3-1315U 13th-gen x86, 10GbE +
-2.5GbE), starting with 2 x 12 TB NAS-rated drives (WD Red Plus / Seagate IronWolf -- CMR,
-24/7-rated) as a mirror = 12 TB usable, 2 bays left free for growth. 12 TB (not 8) because the
+2.5GbE), starting with 2 x 14 TB NAS-rated drives (Toshiba N300 / WD Red Plus -- CMR,
+24/7-rated) as a mirror = 14 TB usable, 2 bays left free for growth. 14 TB (was 12; +2 TB for ~$10)
+because the
 NAS now also holds 1-3 TB of family Photos/Drive on top of ~4 TB footage. x86 = escape hatch: run
 UGOS now, or wipe to TrueNAS SCALE later. The Pro was chosen over the Plus (Pentium 8505) and
 the base (N100) because Prime Day pricing made the delta insignificant -- the i3 (6C/8T, 2
 P-cores, up to 96 GB RAM) is free 10-year runway. Same chassis/bays/NVMe/10GbE across Plus/Pro;
 only CPU + RAM ceiling differ. If the Pro's premium ever exceeds ~$130, the Plus is the value pick.
 
-Expansion path (4-bay, no forklift): start 2x12 mirror -> when data grows, ADD a 2nd 2x12 pair
--> 24 TB usable (stripe of mirrors), no swap, no wasted drives. Alternatively rebuild to a
-4-drive RAIDZ1 (36 TB, 1-drive redundancy) or RAIDZ2 (24 TB, 2-drive). NOTE: a mirror cannot
+Expansion path (4-bay, no forklift): start 2x14 mirror -> when data grows, ADD a 2nd 2x14 pair
+-> 28 TB usable (stripe of mirrors), no swap, no wasted drives. Alternatively rebuild to a
+4-drive RAIDZ1 (42 TB, 1-drive redundancy) or RAIDZ2 (28 TB, 2-drive). NOTE: a mirror cannot
 be converted in place to RAIDZ -- the "add a 2nd mirror pair" path avoids any rebuild.
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | UGREEN NASync DXP4800 Pro (4-bay, i3-1315U) | 1 | $650 | $650 | No drive lock-in; x86 (UGOS or TrueNAS); i3 Iris Xe Quick Sync hosts Jellyfin; 10GbE; 2 bays free. Prime Day price; Plus ~$130 less |
-| NAS HDD 12 TB Toshiba N300 (HDWG21C, CMR) | 2 | $240 | $480 | CHOSEN after the IronWolf Pro DOA (2026-06-29). CMR, 7200 RPM, 300 TB/yr (3yr warranty). PHASING: buy 1 NOW (single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror via `zpool attach` (in place). BURN-IN each (SMART long + surface scan) before trusting. For the mirror, use a DIFFERENT batch, or mix brands (N300 + WD Red Plus) to decorrelate batch/brand risk. Mirror = 12 TB usable |
-| | | | **~$1,130** | UPS moved to the shared rack -- see 6.9 |
+| NAS HDD 14 TB Toshiba N300 (HDWG21E, CMR) | 2 | $250 | $500 | CHOSEN after the IronWolf Pro DOA (2026-06-29); 14 TB (was 12) since +2 TB was only ~$10. CMR, 7200 RPM, 300 TB/yr (3yr warranty). PHASING: buy 1 NOW (single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror via `zpool attach` (in place). The 2nd MUST also be 14 TB (mirror = smaller disk). BURN-IN each (SMART long + surface scan) before trusting. For the mirror, use a DIFFERENT batch, or mix brands (N300 + WD Red Plus) to decorrelate batch/brand risk. Mirror = 14 TB usable |
+| | | | **~$1,150** | UPS moved to the shared rack -- see 6.9 |
 
 Running Jellyfin on the NAS:
 - UGOS: Jellyfin via app center or Docker; pass `/dev/dri` for Quick Sync HW transcode.
@@ -461,12 +462,12 @@ Sizing notes (continuous recording):
 - Per camera per day ~= bitrate(Mbps) x 10.8 GB. DECIDED config = 4 cams, 15-day retention:
   - Main stream ~4 Mbps (4MP H.265): ~173 GB/day -> ~2.6 TB over 15 days.
   - Main stream ~6 Mbps: ~259 GB/day -> ~3.9 TB over 15 days.
-  - ~4 TB typical for footage; family Photos/Drive (1-3 TB) + media ride on top -> 12 TB mirror.
+  - ~4 TB typical for footage; family Photos/Drive (1-3 TB) + media ride on top -> 14 TB mirror.
 - Use DUAL-STREAM: continuous low-res substream + full-res main only on events. Tiered
   retention: `record.retain` (continuous, e.g. 15d) separate from alerts/detections
   (e.g. 30d). Frigate auto-prunes oldest first; the share never fills.
-- 12 TB usable (2x12 mirror) is the recommended start (footage + family data + media); add a
-  2nd 2x12 pair later for 24 TB. Mirror usable = one drive's capacity.
+- 14 TB usable (2x14 mirror) is the recommended start (footage + family data + media); add a
+  2nd 2x14 pair later for 28 TB. Mirror usable = one drive's capacity.
 
 Alternatives to UGREEN:
 - Asustor (Intel models, ADM): most mature appliance OS after Synology; no drive lock-in.
@@ -574,12 +575,12 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$4,665** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,685** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Max + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
-thermostat + dual radios + hub-free Zigbee garage), network (~$985 net after BT10 resale, all-UniFi), NAS (~$1,130, DXP4800 Pro
-4-bay starting 2x12 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
+thermostat + dual radios + hub-free Zigbee garage), network (~$985 net after BT10 resale, all-UniFi), NAS (~$1,150, DXP4800 Pro
+4-bay starting 2x14 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
 BT10 offsets ~$400 of the UniFi switch-over. Bulk storage + Jellyfin on the UGREEN NAS (mirror, 2
@@ -1033,7 +1034,7 @@ Notes:
 - [ ] Phase 0b (prereq): stand up the NAS FIRST (it is the backup target). Assemble the 18U
       rack (3 vented shelves, PDU, patch panel, 1500VA UPS at bottom); rack masn, UGREEN NAS,
       UniFi UCG-Max + USW-Pro-Max-16-PoE switch, modem; everything on the UPS. Configure NAS
-      2x12 TB mirror (4-bay, 2 bays free); export NFS/SMB shares (backups, recordings, media).
+      2x14 TB mirror (4-bay, 2 bays free); export NFS/SMB shares (backups, recordings, media).
 - [ ] Phase 0c (prereq): BACK UP masn to the NAS (HA, Jellyfin, Docker volumes, Postgres dump,
       /etc, media). Verify the backups are readable on the NAS before touching masn.
 - [ ] Phase 0d (prereq): masn revamp. CHOSEN PATH: GREENFIELD -- user confirms NO irreplaceable
@@ -1088,10 +1089,10 @@ Notes:
       vs mortise (one tall rectangular faceplate, needs conversion / mortise smart lock).
 - [ ] Security: rekey/replace ALL exterior locks (front, garage-entry, back/side). Decide
       how many to make smart (recommend front + garage-entry; rekey the rest).
-- [x] Storage approach: UGREEN NAS (DXP4800 Pro, 4-bay, start 2x12 TB mirror, no drive lock) for
+- [x] Storage approach: UGREEN NAS (DXP4800 Pro, 4-bay, start 2x14 TB mirror, no drive lock) for
       continuous recordings + media + family Photos/Drive + backups + Jellyfin; existing SSD in masn for OS + Frigate
-      cache. Continuous recording via dual-stream + tiered retention. Grow by adding a 2nd 2x12
-      pair (-> 24 TB) when needed. Keep Frigate cache local; export NFS/SMB. UGOS now / TrueNAS later.
+      cache. Continuous recording via dual-stream + tiered retention. Grow by adding a 2nd 2x14
+      pair (-> 28 TB) when needed. Keep Frigate cache local; export NFS/SMB. UGOS now / TrueNAS later.
 - [ ] Run extended SMART self-test on `/dev/sda` for active surface-scan confirmation.
 - [ ] RTX 5070 box: stand up Ollama/vLLM (OpenAI-compatible) when available; build the
       health-check fallback router (5070 -> Orin -> cloud) in front of Frigate GenAI / HA;
@@ -1141,8 +1142,8 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
 ### Step 1 -- Stand up the NAS (the backup target)
 
 1. Rack the gear (can be a bench setup first if the rack isn't built): NAS + UPS powered.
-2. Disks. TARGET = 2x12 TB MIRROR. CHOSEN PLAN: start with 1x12 TB now, add the 2nd disk to
-   form the mirror in a few months once the setup is stable. Same 12 TB usable meanwhile; NO
+2. Disks. TARGET = 2x14 TB MIRROR (Toshiba N300 HDWG21E). CHOSEN PLAN: start with 1x14 TB now,
+   add the 2nd (also 14 TB) in a few months once stable. Same 14 TB usable meanwhile; NO
    redundancy until then.
    !! BUILD STATUS 2026-06-29: NAS arrived, but the 1st IronWolf Pro 12 TB was DOA (clicking =
       mechanical failure) on first power-up. Returned/RMA'd. BUILD BLOCKED until a working disk
@@ -1150,9 +1151,9 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
       masn -- it still holds the only copy of the 382 GB media library; no valid NAS target yet.
       Burn-in the replacement (SMART long + surface scan) before trusting it.
    - Use ZFS/TrueNAS so the mirror is added IN PLACE later: create a single-disk pool now, then
-     `zpool attach` the 2nd 12 TB later (auto-resilvers, no re-copy). On UGOS, confirm a single
+     `zpool attach` the 2nd 14 TB later (auto-resilvers, no re-copy). On UGOS, confirm a single
      "Basic" volume can convert to RAID1 by adding a disk WITHOUT a backup/restore -- if not,
-     prefer ZFS, or you'll re-copy 12 TB later.
+     prefer ZFS, or you'll re-copy 14 TB later.
    - SMART short test + health check the disk before trusting it (full surface scan can run after).
    - Schedule MONTHLY ZFS scrubs: single-disk can't self-heal, but scrubs still DETECT bit-rot.
    - SINGLE-DISK SAFETY RULES (until the mirror exists):
@@ -1161,7 +1162,7 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
      * masn wipe (Phase 0d): the NAS is your only backup copy, so KEEP masn's ORIGINAL SSD intact
        as the 2nd copy through the migration. Clean-install onto the new disk/NVMe, run the new
        stack ~1-2 weeks to verify, and only THEN wipe/reuse the original SSD.
-   4-bay: leave 2 bays empty now; grow later by adding a 2nd 2x12 mirror pair (-> 24 TB usable).
+   4-bay: leave 2 bays empty now; grow later by adding a 2nd 2x14 mirror pair (-> 28 TB usable).
 3. Create shares + users per the access-control design (see 6.8): `backups`, `recordings`
    (Frigate svc + admin only), `media` (Jellyfin svc), `family-shared` (group `family`),
    per-member private folders, and a PASSPHRASE-encrypted `sensitive-docs` folder. No guest
