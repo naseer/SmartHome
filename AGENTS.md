@@ -19,9 +19,13 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - `masn-stack/` — reproducible Docker stack + Phase 0 scripts (see below).
 - `AGENTS.md` (this file), `.gitignore`.
 
-## Status (as of 2026-06-25)
+## Status (as of 2026-06-29)
 
-- NAS arrives **2026-06-26**. Phase 0 (bring masn online) runs then.
+- **BLOCKED:** NAS arrived, but the 1st IronWolf Pro 12 TB was **DOA (clicking)** on first power-up
+  (2026-06-29). Returned/RMA'd. Phase 0 is paused until a working disk arrives. Do NOT wipe masn
+  (it holds the only copy of the 382 GB media library; no valid NAS backup target yet). Burn-in the
+  replacement before trusting it.
+- Original plan: NAS up → copy media → AHCI + clean install → bring stack online (resumes once disk replaced).
 - **Greenfield**: user confirmed NO irreplaceable data on masn → backup-before-wipe gate WAIVED,
   EXCEPT copy the media library to the NAS first (see runbook).
 - Storage: **1× 12 TB now, mirror added in a few months** (Google stays the off-site copy meanwhile).

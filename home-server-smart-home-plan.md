@@ -1135,6 +1135,11 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
 2. Disks. TARGET = 2x12 TB MIRROR. CHOSEN PLAN: start with 1x12 TB now, add the 2nd disk to
    form the mirror in a few months once the setup is stable. Same 12 TB usable meanwhile; NO
    redundancy until then.
+   !! BUILD STATUS 2026-06-29: NAS arrived, but the 1st IronWolf Pro 12 TB was DOA (clicking =
+      mechanical failure) on first power-up. Returned/RMA'd. BUILD BLOCKED until a working disk
+      is in hand. Caught at burn-in on an empty array (the system worked as intended). Do NOT wipe
+      masn -- it still holds the only copy of the 382 GB media library; no valid NAS target yet.
+      Burn-in the replacement (SMART long + surface scan) before trusting it.
    - Use ZFS/TrueNAS so the mirror is added IN PLACE later: create a single-disk pool now, then
      `zpool attach` the 2nd 12 TB later (auto-resilvers, no re-copy). On UGOS, confirm a single
      "Basic" volume can convert to RAID1 by adding a disk WITHOUT a backup/restore -- if not,
