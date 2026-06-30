@@ -417,7 +417,7 @@ be converted in place to RAIDZ -- the "add a 2nd mirror pair" path avoids any re
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | UGREEN NASync DXP4800 Pro (4-bay, i3-1315U) | 1 | $650 | $650 | No drive lock-in; x86 (UGOS or TrueNAS); i3 Iris Xe Quick Sync hosts Jellyfin; 10GbE; 2 bays free. Prime Day price; Plus ~$130 less |
-| NAS HDD 12 TB Seagate IronWolf Pro (ST12000NT001, CMR) | 2 | $240 | $480 | CHOSEN (on sale): CMR, 300 TB/yr, 5yr warranty + 3yr Rescue. PHASING: buy 1 NOW ($240, single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror via `zpool attach` (in place). Buy the 2nd from a DIFFERENT batch; burn-in before trusting data. Mirror = 12 TB usable |
+| NAS HDD 12 TB Toshiba N300 (HDWG21C, CMR) | 2 | $240 | $480 | CHOSEN after the IronWolf Pro DOA (2026-06-29). CMR, 7200 RPM, 300 TB/yr (3yr warranty). PHASING: buy 1 NOW (single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror via `zpool attach` (in place). BURN-IN each (SMART long + surface scan) before trusting. For the mirror, use a DIFFERENT batch, or mix brands (N300 + WD Red Plus) to decorrelate batch/brand risk. Mirror = 12 TB usable |
 | | | | **~$1,130** | UPS moved to the shared rack -- see 6.9 |
 
 Running Jellyfin on the NAS:
