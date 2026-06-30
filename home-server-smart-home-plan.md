@@ -354,14 +354,16 @@ Snapcast/amp/home-run plan -- one box replaces all of it.
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | WiiM Mini network streamer | 1 | $90 | $90 | Line-out (3.5mm) -> NuTone AUX (3.5mm->RCA; AUX is mono). AirPlay 2 / Chromecast / Spotify Connect + HA integration. WiiM Pro (~$150) if you want RCA out + better DAC |
-| NuTone AUX assembly (only if missing) | 0-1 | $30 | $0 | Some IM-3303s need NuTone's AUX module to expose the input -- check first |
+| NuTone AUX-to-RCA/3.5mm adapter | 1 | $25 | $25 | REQUIRED: the IM-3303 has no visible AUX jack -- "AUX/CD" is a SOURCE on the master, but the physical input is a proprietary connector on the master that this adapter breaks out to RCA/3.5mm. e.g. "Steve's NuTone Shop / M&S AUX adapter" (compatible IM-3303) |
 | NuTone master + speakers + wiring | - | reuse | $0 | Whole-house mono, single source. Requires the master still works |
-| | | | **~$90** | Single mono zone; per-room control via existing knobs |
+| | | | **~$115** | Single mono zone; per-room control via existing knobs |
 
 Notes:
 - Single whole-house source (mono, lo-fi) -- accepted. No independent per-room streams.
 - Snapcast / multi-zone amp / speaker home-runs DROPPED (not needed for a single AUX-fed zone).
-- Verify on-site: AUX input present (else add the NuTone AUX assembly) + master is functional.
+- Connection: confirm the master's source selector has an AUX/CD position; the AUX connector is on
+  the master (may need to pull it off the wall -- KILL POWER first). WiiM line-out -> adapter ->
+  master AUX; select AUX on the master. Verify the master unit still works.
 
 ### 6.6 Dashboard
 
@@ -572,13 +574,13 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$4,640** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,665** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Max + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$985 net after BT10 resale, all-UniFi), NAS (~$1,130, DXP4800 Pro
-4-bay starting 2x12 TB), rack + power (~$590), cameras (~$460), and audio (~$90 -- NuTone reused
-+ a WiiM at the AUX; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
+4-bay starting 2x12 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
++ WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
 BT10 offsets ~$400 of the UniFi switch-over. Bulk storage + Jellyfin on the UGREEN NAS (mirror, 2
 bays free to grow); continuous recording via dual-stream; everything on one UPS (PoE/cameras/APs included).
