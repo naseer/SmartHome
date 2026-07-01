@@ -38,7 +38,7 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   (the 1st IronWolf Pro 12 TB was DOA — clicking — and returned) → add 2nd 14 TB later for a
   mirror (`zpool attach`, in place). Frigate cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
-- **Network**: ALL-**UniFi** — UCG-Max gateway + USW-Pro-Max-16-PoE + 3× U7 Pro APs (wired PoE,
+- **Network**: ALL-**UniFi** — UCG-Fiber gateway + USW-Pro-Max-16-PoE + 3× U7 Pro APs (wired PoE,
   one/floor). ASUS BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
   Trusted / Cameras / IoT (Cameras+IoT firewalled off the NAS).
 - **Radios** (two, each dedicated): **SLZB-06** = Zigbee coordinator, network-attached, mounted
@@ -101,6 +101,6 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 
 - **2026-06-26**: execute Phase 0.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
-- Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Max + 16-PoE + 3× U7 Pro),
+- Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Fiber + 16-PoE + 3× U7 Pro),
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
   Sinopé Zigbee thermostat, Aqara T2 + ThirdReality tilt sensor.

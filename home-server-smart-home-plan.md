@@ -187,8 +187,8 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Camera AI | Frigate + OpenVINO on HD 630 iGPU (baseline) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; Orin stays on LLM duty |
 | GPU relief valve (owned Quadro P620) | Optional; install only if iGPU contention appears | Splits decode/detect/transcode across two chips. Lean: P620 does detection (TensorRT); iGPU keeps decode + Quick Sync transcode. Free; +~40W. See 3.3 |
 | Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance -- SUBSCRIPTION ACTIVE (2026-06-25); link in HA after first boot | Ring-like mobile UX; secure, no port-forwarding; covers all users |
-| Network core | UniFi: UCG-Max gateway (router + controller + firewall/IDS) + 3x U7 Pro APs (wired PoE backhaul). SELL the ASUS BT10 to offset | BT10's weak VLAN/firewall software undermines the camera/IoT segmentation this build depends on. UniFi gives first-class, verifiable VLANs in one dashboard; wired ceiling APs beat mesh backhaul in a wired house |
-| Switching/VLANs | UniFi USW-Pro-Max-16-PoE; controller runs ON the UCG-Max (no self-hosted container) | 16 PoE ports size for 3 APs + 4 cams + doorbell; 2.5G + 10G SFP+ for the NAS; one ecosystem/dashboard with the gateway + APs |
+| Network core | UniFi: UCG-Fiber gateway (router + controller + firewall/IDS) + 3x U7 Pro APs (wired PoE backhaul). SELL the ASUS BT10 to offset | BT10's weak VLAN/firewall software undermines the camera/IoT segmentation this build depends on. UniFi gives first-class, verifiable VLANs in one dashboard; wired ceiling APs beat mesh backhaul in a wired house |
+| Switching/VLANs | UniFi USW-Pro-Max-16-PoE; controller runs ON the UCG-Fiber (no self-hosted container) | 16 PoE ports size for 3 APs + 4 cams + doorbell; 2.5G + 10G SFP+ for the NAS; one ecosystem/dashboard with the gateway + APs |
 | Audio | Keep NuTone IM-3303 as-is; feed a WiiM streamer into its mono AUX | No wiring/speaker changes (lo-fi accepted); whole-house mono; casting + HA via WiiM. Snapcast dropped |
 | Dashboard | Pi 4 + old monitor, Chromium kiosk | Free; reuse existing hardware |
 | Asterisk | Dropped | Legacy; PoE doorbell + HA Assist cover door/intercom comms |
@@ -198,10 +198,10 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 ## 5. Network Design
 
 ```
-Internet
-   |
-[ UniFi UCG-Max ]  (router + firewall/IDS + UniFi controller)
-   |
+3 Gbps FIBER ONT
+   | (SFP+ or 10G/5G RJ45 handoff -- must be >2.5G to pass the full 3 Gbps)
+[ UniFi UCG-Fiber ]  (router + firewall/IDS + UniFi controller; 10G SFP+ WAN, 5 Gbps IDS/IPS)
+   | 10G SFP+ DAC
 [ UniFi USW-Pro-Max-16-PoE ]   (VLANs + PoE; 2.5G + 10G SFP+)
    |     |        |        |         |            |
  masn  NAS   Pi4 kiosk  4x PoE cam  doorbell   3x U7 Pro AP
@@ -210,9 +210,12 @@ Internet
 
 All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi served by 3 ceiling
 U7 Pro APs on wired PoE backhaul (3200 sqft / 3 floors), NOT mesh. ASUS BT10 retired (sold).
+WAN: 3 Gbps fiber -> UCG-Fiber SFP+ WAN (the Max's 2.5G WAN / 2.3G IPS would cap the plan).
+Confirm the ONT hands off at >2.5G (SFP+ or 10G/5G RJ45). Note: individual 1G devices won't see
+3 Gbps -- benefit is household aggregate + the 2.5G/10G NAS.
 
 VLAN plan (UniFi "Networks"; tagged per-port on the switch + per-SSID on the APs; inter-VLAN
-firewall rules on the UCG-Max):
+firewall rules on the UCG-Fiber):
 
 | VLAN | Members | Internet | Can reach NAS? |
 |------|---------|----------|----------------|
@@ -248,15 +251,16 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
-| UniFi Cloud Gateway Max (UCG-Max) | 1 | $199 | $199 | Router + firewall/IDS + runs the UniFi controller. Replaces ASUS routing. No built-in Wi-Fi (rack location -> APs do Wi-Fi) |
-| UniFi USW-Pro-Max-16-PoE | 1 | $379 | $379 | 12x1G PoE+ + 4x2.5G PoE++ + 2x10G SFP+, 180W. Powers APs + cameras; 2.5G/10G for NAS. 1U rackmount |
+| UniFi Cloud Gateway Fiber (UCG-Fiber) | 1 | $279 | $279 | Router + firewall/IDS + runs the UniFi controller. CHOSEN over UCG-Max ($199) for the 3 Gbps FIBER plan: 10G SFP+ WAN takes the fiber ONT handoff; 5 Gbps IDS/IPS delivers the full 3G with security ON (Max caps ~2.3-2.5G). BASE, no storage (Frigate->NAS, not UniFi Protect). No Wi-Fi -> APs do it |
+| 10G SFP+ DAC (gateway <-> switch) | 1 | $20 | $20 | Links UCG-Fiber 10G SFP+ LAN to a switch SFP+ port -> carries the 3G WAN into the LAN at 10G |
+| UniFi USW-Pro-Max-16-PoE | 1 | $379 | $379 | 12x1G PoE+ + 4x2.5G PoE++ + 2x10G SFP+, 180W. Powers APs + cameras; one SFP+ to the gateway, one free for NAS 10G. 1U rackmount |
 | UniFi U7 Pro AP (Wi-Fi 7, PoE) | 3 | $189 | $567 | One per floor (3200 sqft/3 floors), ceiling-mount, wired PoE backhaul |
 | Cat6 cable (1000 ft box) | 1 | $120 | $120 | Home runs incl. AP drops to each floor |
 | Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | AV-closet termination |
 | Cable tester / crimper / punch-down | 1 lot | $40 | $40 | If not already owned |
 | 10GBASE-T SFP+ module (OPTIONAL) | 0-1 | $60 | $0 | Only if NAS at 10G via SFP+; else NAS on a 2.5G port (plenty). Runs hot |
-| UniFi controller | - | on UCG-Max | $0 | No self-hosted container (was Docker on masn) |
-| | | | **~$1,385** | Less ASUS BT10 resale (~$400 credit) -> net ~$985 |
+| UniFi controller | - | on UCG-Fiber | $0 | No self-hosted container (was Docker on masn) |
+| | | | **~$1,485** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,085 |
 
 ### 6.3 Cameras
 
@@ -517,14 +521,14 @@ Encryption (for the few truly-sensitive files, e.g. financial/legal):
 ### 6.9 Rack & power (consolidated cabinet)
 
 One spot (Utility room AV/network closet) houses masn, the UGREEN NAS, the UniFi USW-Pro-Max-16-PoE
-switch + UCG-Max gateway, the patch panel, and the modem -- all on one UPS. The 3 U7 Pro APs are
+switch + UCG-Fiber gateway, the patch panel, and the fiber ONT -- all on one UPS. The 3 U7 Pro APs are
 NOT in the rack (ceiling-mounted, one per floor, fed by in-wall Cat6 from the switch).
 Open-frame/vented, NOT a sealed cabinet (everything here runs 24/7 and makes heat).
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | 18U 4-post open-frame rack (~600mm deep) | 1 | $170 | $170 | StarTech/NavePoint/Kendall Howard class. 18U (not 15U) for shelf clearances; 4-post for shelf weight; vented-door cabinet only if actively cooled. Go 20U if running the NAS upright |
-| 4-post vented shelf, ~400mm+ deep | 3 | $25 | $75 | For masn (SFF), NAS, and modem + UCG-Max (side by side). Depth >= 300mm so the SFF (~292mm deep) doesn't overhang. Lay SFF FLAT (~2-3U), vents clear, velcro-strap it down |
+| 4-post vented shelf, ~400mm+ deep | 3 | $25 | $75 | For masn (SFF), NAS, and fiber ONT + UCG-Fiber (side by side). Depth >= 300mm so the SFF (~292mm deep) doesn't overhang. Lay SFF FLAT (~2-3U), vents clear, velcro-strap it down |
 | 1U rackmount PDU | 1 | $40 | $40 | Feeds from the UPS |
 | 1U patch panel + 1U cable manager | 1 | $50 | $50 | Terminates the Cat6 home runs |
 | UPS 1500VA PURE SINE WAVE + USB | 1 | $240 | $240 | CyberPower CP1500PFCLCD (or APC BR1500MS). PURE sine wave required (active-PFC PSUs misbehave on simulated sine). Powers EVERYTHING incl. PoE switch -> cameras + internet stay up; USB to masn + NAS for graceful shutdown. Battery swap ~3-5 yr |
@@ -545,8 +549,8 @@ U11  Shelf B (vented, deep): UGREEN NAS    (upright -> +2U, go 20U)
 U10   NAS
 U9    clearance / airflow
 U8   airflow gap
-U7   Shelf C (vented): modem + UCG-Max gateway (side by side)
-U6    modem/gateway clearance
+U7   Shelf C (vented): fiber ONT + UCG-Fiber gateway (side by side)
+U6    fiber ONT/gateway clearance
 U5   airflow gap
 U4   PDU (1U)                              <- fed from UPS
 U3   UPS 1500VA (2U rackmount)
@@ -554,14 +558,14 @@ U2    UPS (heavy -> bottom)
 U1    spare / floor clearance
 ```
 
-Shelves needed: 3 x 4-post vented shelves (>=400mm deep) for masn, NAS, modem+UCG-Max.
+Shelves needed: 3 x 4-post vented shelves (>=400mm deep) for masn, NAS, fiber ONT+UCG-Fiber.
 Everything else (patch panel, brush, switch, PDU, UPS) mounts directly on the rails.
 Space-saver: masn (flat, ~290mm) + NAS (~105mm) fit side-by-side on one wide shelf (saves
 ~3U -> fits 15U) at the cost of tighter airflow between them.
 
 Power/UPS notes:
 - Consolidated continuous draw ~250-290W (masn ~60, NAS ~40, switch ~25, PoE load: 4 cams ~35 +
-  3 U7 Pro APs ~66, UCG-Max + modem ~35). 1500VA/~900-1000W still rides outages with meaningful
+  3 U7 Pro APs ~66, UCG-Fiber + fiber ONT ~35). 1500VA/~900-1000W still rides outages with meaningful
   runtime + graceful shutdown; APs + cameras + internet all stay up on battery.
 - PURE (true) sine wave is required, not optional: masn's and the NAS's active-PFC PSUs can
   stutter/shut off on a simulated-sine UPS at the moment of transfer to battery. Pick
@@ -570,16 +574,16 @@ Power/UPS notes:
   priority. This is why 1500VA, not 900VA.
 - UPS at the bottom (battery weight). Battery life halves ~every 8-10C above 25C -> keep the
   rack ventilated; replace UPS battery ~every 3-5 yrs.
-- Wi-Fi: NO radio in the rack (metal kills signal). The UCG-Max is Wi-Fi-less by design; Wi-Fi
+- Wi-Fi: NO radio in the rack (metal kills signal). The UCG-Fiber is Wi-Fi-less by design; Wi-Fi
   comes from the 3 ceiling U7 Pro APs (one per floor), each on its own in-wall Cat6 PoE run.
 
 ### BoM grand total
 
-Approx. **$4,685** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,785** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
-Photos/Drive backup on it; ALL-UniFi network -- UCG-Max + 16-PoE switch + 3x U7 Pro APs, BT10
+Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
-thermostat + dual radios + hub-free Zigbee garage), network (~$985 net after BT10 resale, all-UniFi), NAS (~$1,150, DXP4800 Pro
+thermostat + dual radios + hub-free Zigbee garage), network (~$1,085 net after BT10 resale, all-UniFi w/ UCG-Fiber for 3G), NAS (~$1,150, DXP4800 Pro
 4-bay starting 2x14 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
@@ -633,7 +637,7 @@ masn (Ubuntu 24.04, headless + NoMachine on-demand)
 +-- ZBT-2 (USB on masn) -> Thread Border Router (OTBR/HA)
 +-- SLZB-06 (network, central floor 1) -> Zigbee coordinator (Z2M over TCP)
 
-(Network management UI runs on the UniFi UCG-Max, not masn -- no controller container.)
+(Network management UI runs on the UniFi UCG-Fiber, not masn -- no controller container.)
 
 (Jellyfin runs on the UGREEN NAS, not masn -- see 6.7. masn no longer transcodes.)
 +-- /dev/dri (iGPU: Frigate decode + OpenVINO detection) passed to containers
@@ -1033,7 +1037,7 @@ Notes:
 - [x] Phase 0a (prereq): RAM to 32 GB -- DONE (verified healthy).
 - [ ] Phase 0b (prereq): stand up the NAS FIRST (it is the backup target). Assemble the 18U
       rack (3 vented shelves, PDU, patch panel, 1500VA UPS at bottom); rack masn, UGREEN NAS,
-      UniFi UCG-Max + USW-Pro-Max-16-PoE switch, modem; everything on the UPS. Configure NAS
+      UniFi UCG-Fiber + USW-Pro-Max-16-PoE switch, fiber ONT; everything on the UPS. Configure NAS
       2x14 TB mirror (4-bay, 2 bays free); export NFS/SMB shares (backups, recordings, media).
 - [ ] Phase 0c (prereq): BACK UP masn to the NAS (HA, Jellyfin, Docker volumes, Postgres dump,
       /etc, media). Verify the backups are readable on the NAS before touching masn.
@@ -1049,11 +1053,11 @@ Notes:
       clean-install Ubuntu Server + switch
       BIOS SATA to AHCI together, OR convert in place. Restore from NAS; rebuild container
       stack (HA, Frigate, Mosquitto, Postgres; no Snapcast, no Jellyfin, no Omada -- UniFi controller
-      is on the UCG-Max); migrate Jellyfin
+      is on the UCG-Fiber); migrate Jellyfin
       onto the NAS (`/dev/dri` Quick Sync); point Frigate recordings at the NAS, cache local.
       Set HA `restart: unless-stopped`. See the Phase 0 Runbook (section 17).
 - [ ] Phase 2 (during construction): pull Cat6 (incl. 3 ceiling AP drops, one per floor) -- NO
-      speaker home-runs (NuTone reused); install UCG-Max + USW-Pro-Max-16-PoE + 3x U7 Pro APs;
+      speaker home-runs (NuTone reused); install UCG-Fiber + USW-Pro-Max-16-PoE + 3x U7 Pro APs;
       adopt all in the UniFi controller; set up VLANs (Trusted/Cameras/IoT) + inter-VLAN firewall rules.
 - [ ] Phase 3: install PoE cameras + doorbell; stand up Frigate with OpenVINO/iGPU detection
       (if contention: add the owned P620 per 3.3; Hailo-8L only if neither suffices); wire into HA;
@@ -1205,7 +1209,7 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
 4d. Rebuild the container stack from compose: home-assistant (`restart: unless-stopped`),
     frigate (OpenVINO `/dev/dri`, cache local, recordings -> NAS), mosquitto, zigbee2mqtt,
     postgres (restore the dump). NO Snapcast (audio = NuTone + WiiM), NO Jellyfin on masn,
-    NO Omada/UniFi controller (UniFi runs on the UCG-Max).
+    NO Omada/UniFi controller (UniFi runs on the UCG-Fiber).
 4e. Plug in BOTH radios on USB extension cables (out of the rack, spaced apart, USB 2.0). Pass
     each by its `/dev/serial/by-id/` path: ZBT-2 (Thread) -> OTBR/HA, Zigbee dongle -> the
     zigbee2mqtt container. Confirm both enumerate; set Zigbee + Thread to separate 2.4 GHz channels.
@@ -1333,7 +1337,7 @@ services:
 
   # No snapserver: audio = NuTone IM-3303 fed by a standalone WiiM at the AUX (see 6.5) -- no
   # masn-side audio container.
-  # No network-controller container: UniFi controller runs on the UCG-Max gateway.
+  # No network-controller container: UniFi controller runs on the UCG-Fiber gateway.
 
 volumes:
   postgres:

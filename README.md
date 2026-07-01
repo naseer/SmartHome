@@ -9,10 +9,10 @@ house. Local-first, no-cloud-by-default, security-first. Reproducible infra in `
 ## Infrastructure layout
 
 ```
-                              Internet
-                                 |
-                       [ UniFi UCG-Max ]            router + firewall/IDS + UniFi controller
-                                 |
+                        3 Gbps fiber ONT
+                                 | (SFP+/10G handoff)
+                       [ UniFi UCG-Fiber ]            router + firewall/IDS + controller (10G SFP+ WAN)
+                                 | 10G SFP+ DAC
                   [ UniFi USW-Pro-Max-16-PoE ]      VLANs + PoE  (2.5G ports + 10G SFP+)
    ______________________________|________________________________________________
   |          |          |            |           |              |                   |
@@ -34,7 +34,7 @@ Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 re
 | **masn** — OptiPlex 5050 SFF (i7-7700, 32 GB) | App server: Home Assistant, Frigate, MQTT, Postgres | Basement rack |
 | **NuTone IM-3303** + WiiM streamer | Whole-house audio (reused as-is; WiiM feeds its AUX; casting + HA) | Existing house wiring |
 | **NAS** — UGREEN DXP4800 Pro (ZFS) | Bulk storage: recordings, media, family Photos/Drive, backups; runs Jellyfin + Immich/Nextcloud | Basement rack |
-| **UCG-Max** | Router + firewall/IDS + UniFi controller | Basement rack |
+| **UCG-Fiber** | Router + firewall/IDS + UniFi controller | Basement rack |
 | **USW-Pro-Max-16-PoE** | Switching, VLANs, PoE (cameras + APs); 2.5G + 10G SFP+ | Basement rack |
 | **3× U7 Pro APs** | Wi-Fi 7, wired PoE backhaul | Ceiling, one per floor |
 | **SLZB-06** | Zigbee coordinator (Zigbee2MQTT over TCP) | Central, floor 1 |
