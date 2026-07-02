@@ -228,9 +228,13 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
    open walls during construction instead.
 1. WIRE IT (new): ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed
    from the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
-   performs ~as well as ceiling. WALL-MOUNT MODEL: U7 PRO WALL (full Wi-Fi 7 tri-band, ~1500 sqft,
-   directional -- purpose-built for a wall jack; face it toward the floor's OPEN area, not a corner).
-   NOT the U7 In-Wall (dual-band, no 6 GHz, room-sized -- a per-room/desk AP, not a floor AP).
+   performs ~as well as ceiling IF mounted HIGH. WALL-MOUNT MODEL: U7 PRO WALL (full Wi-Fi 7 tri-band,
+   ~1500 sqft, directional -- purpose-built for a wall; face it toward the floor's OPEN area, not a
+   corner). Don't wall-mount a round U7 PRO (omni pattern fires ~half into the wall behind) -- keep
+   the Pro for CEILINGS; use it wall-mounted only if you want omni coverage AROUND that spot (rooms
+   on multiple sides). NOT the U7 In-Wall (dual-band, no 6 GHz, room-sized -- per-room/desk AP).
+   HEIGHT: Cat5 jacks sit at outlet height (~1 ft) = poor AP spot -> run the drop UP the wall and
+   mount the AP HIGH (near ceiling). Height matters more than model.
 2. MoCA (Ethernet over existing COAX -- house HAS coax): 2.5G MoCA adapter pair -> true wired
    backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
    - Coexists with the CURRENT CABLE internet (same coax): install a MoCA POINT-OF-ENTRY FILTER
