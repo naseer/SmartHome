@@ -312,7 +312,7 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | UniFi USW-Pro-Max-16-PoE | 1 | $379 | $379 | 12x1G PoE+ + 4x2.5G PoE++ + 2x10G SFP+, 180W. Powers APs + cameras; one SFP+ to the gateway, one free for NAS 10G. 1U rackmount |
 | UniFi U7 Pro / U7 Pro Wall AP (Wi-Fi 7, PoE) | 3 | $199 | $597 | One per floor (3200 sqft/3 floors), wired PoE backhaul. U7 PRO WALL for wall-jack mounts (Cat5 lands at wall boxes -- directional, purpose-built); U7 Pro if reaching a central ceiling. NOT U7 In-Wall (no 6 GHz, room-sized) |
 | Cat6 cable (1000 ft box) | 1 | $120 | $120 | Home runs incl. AP drops to each floor |
-| Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | AV-closet termination |
+| Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | Terminate T568B BOTH ends (straight-through; auto-MDIX means no crossover). Untwist <=0.5in to avoid split pairs. PREFER punch-down KEYSTONES/patch panel for in-wall runs (more reliable than crimped plugs on solid wire); if crimping RJ45, use SOLID-rated or PASS-THROUGH plugs. Match the existing end's A/B if already terminated |
 | Cable tester/toner (Noyafa NF-468) + inline PoE tester + crimper/punch-down | 1 lot | $70 | $70 | CHOSEN: NF-468 (~$30 CAD) = continuity/wiremap + TONE-TRACE to ID each ADT drop (one at a time: tone one end, probe the bundle). Inline PoE tester (~$25) reads PoE+ (802.3at). The real 1G+PoE qualify = power the actual AP off a switch PoE+ port (catches split pairs too -- they fail gigabit) |
 | 10GBASE-T SFP+ module (OPTIONAL) | 0-1 | $60 | $0 | Only if NAS at 10G via SFP+; else NAS on a 2.5G port (plenty). Runs hot |
 | UniFi controller | - | on UCG-Fiber | $0 | No self-hosted container (was Docker on masn) |
