@@ -308,7 +308,7 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | UniFi U7 Pro / U7 Pro Wall AP (Wi-Fi 7, PoE) | 3 | $199 | $597 | One per floor (3200 sqft/3 floors), wired PoE backhaul. U7 PRO WALL for wall-jack mounts (Cat5 lands at wall boxes -- directional, purpose-built); U7 Pro if reaching a central ceiling. NOT U7 In-Wall (no 6 GHz, room-sized) |
 | Cat6 cable (1000 ft box) | 1 | $120 | $120 | Home runs incl. AP drops to each floor |
 | Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | AV-closet termination |
-| Cable tester w/ numbered remotes + inline PoE tester + crimper/punch-down | 1 lot | $70 | $70 | BUDGET: generic tester w/ numbered remotes (Noyafa NF-468/NF-8108 class, ~$45) MAPS the ADT bundle to rooms + wiremap. Inline PoE tester (~$25) reads PoE+ (802.3at). Skip the \$379 Klein kit -- the real 1G+PoE test = power the actual AP off a switch PoE+ port (also catches split pairs: they fail gigabit). Klein Scout Pro 3 (~$150 at Home Depot) if you want the nicer tool |
+| Cable tester/toner (Noyafa NF-468) + inline PoE tester + crimper/punch-down | 1 lot | $70 | $70 | CHOSEN: NF-468 (~$30 CAD) = continuity/wiremap + TONE-TRACE to ID each ADT drop (one at a time: tone one end, probe the bundle). Inline PoE tester (~$25) reads PoE+ (802.3at). The real 1G+PoE qualify = power the actual AP off a switch PoE+ port (catches split pairs too -- they fail gigabit) |
 | 10GBASE-T SFP+ module (OPTIONAL) | 0-1 | $60 | $0 | Only if NAS at 10G via SFP+; else NAS on a 2.5G port (plenty). Runs hot |
 | UniFi controller | - | on UCG-Fiber | $0 | No self-hosted container (was Docker on masn) |
 | | | | **~$1,545** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,145 |
