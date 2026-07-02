@@ -208,8 +208,20 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
                                                (wired PoE, one per floor)
 ```
 
-All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi served by 3 ceiling
-U7 Pro APs on wired PoE backhaul (3200 sqft / 3 floors), NOT mesh. ASUS BT10 retired (sold).
+All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi served by 3 U7 Pro
+APs (3200 sqft / 3 floors), wired backhaul preferred. ASUS BT10 retired (sold).
+
+Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best first:
+1. WIRE IT: ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed from
+   the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
+   performs ~as well as ceiling. Or a U7 In-Wall (U7-IW) replacing a wall box where a drop reaches.
+2. MoCA (Ethernet over existing COAX, ~2001 house likely has it): 2.5G MoCA adapter pair -> true
+   wired backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
+3. UniFi WIRELESS MESH -- last resort, ONE unreachable AP only: shared-radio backhaul ~halves
+   throughput + adds latency, so keep it to 1 hop off a WIRED AP (never daisy-chain), 6 GHz
+   backhaul. Wire >=2 of 3; never all-mesh. Stays fully managed (VLANs/dashboard) unlike consumer mesh.
+Do NOT revert to consumer mesh (BT10/Eero/Orbi) for backhaul -- loses the VLAN segmentation.
+Pull cable wherever walls are OPEN NOW (+ a spare drop per AP-candidate) while work is ongoing.
 WAN: 3 Gbps fiber -> UCG-Fiber SFP+ WAN (the Max's 2.5G WAN / 2.3G IPS would cap the plan).
 Confirm the ONT hands off at >2.5G (SFP+ or 10G/5G RJ45). Note: individual 1G devices won't see
 3 Gbps -- benefit is household aggregate + the 2.5G/10G NAS.
