@@ -219,6 +219,11 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
    a central panel (patch it to the switch, or extend to the basement rack); (c) map each far end
    (room/floor, wall jack?); (d) test each run -- continuity + links at 1GbE + passes PoE. Harvest
    the WIRING + enclosure; ignore the ADT brain (proprietary/locked; security = HA + Zigbee sensors).
+   USE CAT5 AS-IS: 1GbE + PoE is plenty for a U7 Pro (Cat6 only buys 2.5G, which a home AP won't
+   saturate). Don't pull Cat6 through the old path as a pull-string unless it's UNSTAPLED (conduit/
+   free-run) -- residential low-voltage is usually stapled, so pulling snaps it and you lose the
+   working Cat5. If a spot genuinely needs 2.5G+ (wired desktop, not APs), pull FRESH Cat6 through
+   open walls during construction instead.
 1. WIRE IT (new): ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed
    from the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
    performs ~as well as ceiling. Or a U7 In-Wall (U7-IW) replacing a wall box where a drop reaches.
