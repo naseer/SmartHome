@@ -230,7 +230,12 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
    a central panel (patch it to the switch, or extend to the basement rack); (c) map each far end
    (room/floor, wall jack?); (d) test each run -- continuity + links at 1GbE + delivers PoE+
    (U7 Pro = 802.3at ~22W; Cat5/5e handles PoE+ fine). Verify SOLID COPPER (not CCA) + ALL 4 PAIRS
-   terminated (split "2-pair-for-phone" runs break gigabit AND PoE+). Harvest
+   terminated (split "2-pair-for-phone" runs break gigabit AND PoE+).
+   TEST BEFORE BUYING THE APs (no UniFi gear needed): (1) NF-468 = wiremap + tone-map; (2) gigabit
+   = any switch/router you own at one end + a laptop at the room jack -> confirm 1000 Mbps (also
+   catches split pairs); (3) PoE = OPTIONAL (a ~$20 PoE+ injector + inline tester) -- if (1)+(2)
+   pass, PoE+ is essentially assured (same conductors, same failure modes). Buy U7 Pro Walls only
+   for the CONFIRMED-good drops; fall back to MoCA/mesh for dead ones. Harvest
    the WIRING + enclosure; ignore the ADT brain (proprietary/locked; security = HA + Zigbee sensors).
    USE CAT5 AS-IS: 1GbE + PoE is plenty for a U7 Pro (Cat6 only buys 2.5G, which a home AP won't
    saturate). Don't pull Cat6 through the old path as a pull-string unless it's UNSTAPLED (conduit/
