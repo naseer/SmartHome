@@ -34,9 +34,11 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 
 - **Host**: reuse the 5050 (`masn`), 32 GB; clean-install Ubuntu Server; switch BIOS SATA
   **RAID On → AHCI** (currently RAID On). OS disk = WD Blue 1 TB SATA (`sda`).
-- **Storage / NAS**: UGREEN **DXP4800 Pro**, run **ZFS**; 1× **14 TB Toshiba N300 (HDWG21E)** now
-  (the 1st IronWolf Pro 12 TB was DOA — clicking — and returned) → add 2nd 14 TB later for a
-  mirror (`zpool attach`, in place). Frigate cache stays LOCAL on masn's SSD;
+- **Storage / NAS**: UGREEN **DXP4800 Pro** on **UGOS with btrfs** (checksums + snapshots +
+  in-place single→RAID1; ext4 rejected. btrfs is the UGOS stand-in for ZFS; TrueNAS+ZFS is the
+  alt). 1× **14 TB Toshiba N300 (HDWG21E)** now (the 1st IronWolf Pro 12 TB was DOA — clicking —
+  and returned) → add 2nd 14 TB later for a mirror (btrfs add-drive→RAID1, in place). Frigate
+  cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
 - **Network**: ALL-**UniFi** — UCG-Fiber gateway + USW-Pro-Max-16-PoE + 3× U7 Pro APs (wired PoE,
   one/floor). ASUS BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
@@ -66,7 +68,7 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 
 ## Phase 0 runbook (tomorrow)
 
-1. **NAS wizard (user, web UI)**: ZFS single-disk pool; shares `media` / `frigate` / `backups` /
+1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). NFS-export
    media/frigate/backups to masn's IP; SMB for family. No guest access. Note NAS IP + export paths.
 2. **Copy media (agent, SSH to CURRENT masn)**: `masn-stack/copy-media.sh` → media to NAS,

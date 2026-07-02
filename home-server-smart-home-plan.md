@@ -432,7 +432,7 @@ be converted in place to RAIDZ -- the "add a 2nd mirror pair" path avoids any re
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | UGREEN NASync DXP4800 Pro (4-bay, i3-1315U) | 1 | $650 | $650 | No drive lock-in; x86 (UGOS or TrueNAS); i3 Iris Xe Quick Sync hosts Jellyfin; 10GbE; 2 bays free. Prime Day price; Plus ~$130 less |
-| NAS HDD 14 TB Toshiba N300 (HDWG21E, CMR) | 2 | $250 | $500 | CHOSEN after the IronWolf Pro DOA (2026-06-29); 14 TB (was 12) since +2 TB was only ~$10. CMR, 7200 RPM, 300 TB/yr (3yr warranty). PHASING: buy 1 NOW (single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror via `zpool attach` (in place). The 2nd MUST also be 14 TB (mirror = smaller disk). BURN-IN each (SMART long + surface scan) before trusting. For the mirror, use a DIFFERENT batch, or mix brands (N300 + WD Red Plus) to decorrelate batch/brand risk. Mirror = 14 TB usable |
+| NAS HDD 14 TB Toshiba N300 (HDWG21E, CMR) | 2 | $250 | $500 | CHOSEN after the IronWolf Pro DOA (2026-06-29); 14 TB (was 12) since +2 TB was only ~$10. CMR, 7200 RPM, 300 TB/yr (3yr warranty). PHASING: buy 1 NOW (single-disk, no redundancy -- Google stays the off-site copy); add the 2nd in a few months once stable -> mirror in place (btrfs add-drive -> RAID1 on UGOS; or `zpool attach` on TrueNAS). The 2nd MUST also be 14 TB (mirror = smaller disk). BURN-IN each (SMART long + surface scan) before trusting. For the mirror, use a DIFFERENT batch, or mix brands (N300 + WD Red Plus) to decorrelate batch/brand risk. Mirror = 14 TB usable |
 | | | | **~$1,150** | UPS moved to the shared rack -- see 6.9 |
 
 Running Jellyfin on the NAS:
@@ -1154,12 +1154,15 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
       is in hand. Caught at burn-in on an empty array (the system worked as intended). Do NOT wipe
       masn -- it still holds the only copy of the 382 GB media library; no valid NAS target yet.
       Burn-in the replacement (SMART long + surface scan) before trusting it.
-   - Use ZFS/TrueNAS so the mirror is added IN PLACE later: create a single-disk pool now, then
-     `zpool attach` the 2nd 14 TB later (auto-resilvers, no re-copy). On UGOS, confirm a single
-     "Basic" volume can convert to RAID1 by adding a disk WITHOUT a backup/restore -- if not,
-     prefer ZFS, or you'll re-copy 14 TB later.
+   - FILE SYSTEM = BTRFS (UGOS offers ext4 or btrfs -- pick BTRFS). It gives checksumming/bit-rot
+     detection + snapshots (ext4 has neither) and in-place single->RAID1 conversion later. (btrfs is
+     the UGOS stand-in for the ZFS we'd have used on TrueNAS.) AVOID btrfs RAID5/6; RAID1 is the target.
+   - Adding the mirror later (no re-copy): add the 2nd 14 TB, convert the pool to RAID1 in place
+     (`btrfs device add` + balance-convert; UGOS wraps this as add-drive -> RAID1). Confirm UGOS
+     does the Basic->RAID1 migration in place; if not, rebuild as RAID1 later (Google is off-site copy).
    - SMART short test + health check the disk before trusting it (full surface scan can run after).
-   - Schedule MONTHLY ZFS scrubs: single-disk can't self-heal, but scrubs still DETECT bit-rot.
+   - Schedule MONTHLY btrfs SCRUBS: single-disk can't self-heal, but scrubs still DETECT bit-rot
+     (once mirrored, RAID1 auto-repairs from the good copy).
    - SINGLE-DISK SAFETY RULES (until the mirror exists):
      * Nothing IRREPLACEABLE may live on the NAS alone. Keep GOOGLE PRIMARY; do NOT run the
        "drop Google" migration yet. Recordings/media/masn-backups are re-creatable -> OK to risk.
