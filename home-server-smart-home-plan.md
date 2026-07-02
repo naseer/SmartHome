@@ -1111,7 +1111,10 @@ Notes:
 - [ ] ASSESS the old ADT box + Cat5 drops (potential FREE AP backhaul, see 5 item 0): confirm
       real Cat5/5e UTP (not alarm wire); find the central termination panel; map each drop's far
       end; test continuity + 1GbE link + PoE. Confirm ADT is dead. Could solve the AP-backhaul
-      problem outright and add spare wired drops.
+      problem outright and add spare wired drops. LOCATION = BASEMENT near the electric panel (same
+      level as the rack) -> drops home-run there = short patch to the switch (or a patch panel at
+      the box + uplink to the main switch). EMI: keep network gear/cabling off the electrical panel,
+      separated from mains, cross at 90. A central floor-1 drop could also feed the SLZB-06.
 - [ ] Attic access above the top floor? (decides attic-run vs MoCA/Cat5 for the top-floor AP)
 - [x] Audio system identified: NuTone IM-3303 (3-wire intercom, up to 9 rooms, mono AUX).
       DECISION: keep as-is, feed AUX with a WiiM (see 6.5). TO CONFIRM ON-SITE: AUX module
