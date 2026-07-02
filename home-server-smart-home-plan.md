@@ -217,7 +217,9 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
    no new cable, no MoCA/injector, no mesh penalty. BEST option if usable. Verify: (a) it's real
    Cat5/5e UTP (8 conductors/4 twisted pairs) NOT 4-wire alarm/station wire; (b) drops HOME-RUN to
    a central panel (patch it to the switch, or extend to the basement rack); (c) map each far end
-   (room/floor, wall jack?); (d) test each run -- continuity + links at 1GbE + passes PoE. Harvest
+   (room/floor, wall jack?); (d) test each run -- continuity + links at 1GbE + delivers PoE+
+   (U7 Pro = 802.3at ~22W; Cat5/5e handles PoE+ fine). Verify SOLID COPPER (not CCA) + ALL 4 PAIRS
+   terminated (split "2-pair-for-phone" runs break gigabit AND PoE+). Harvest
    the WIRING + enclosure; ignore the ADT brain (proprietary/locked; security = HA + Zigbee sensors).
    USE CAT5 AS-IS: 1GbE + PoE is plenty for a U7 Pro (Cat6 only buys 2.5G, which a home AP won't
    saturate). Don't pull Cat6 through the old path as a pull-string unless it's UNSTAPLED (conduit/
