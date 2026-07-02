@@ -459,6 +459,13 @@ expose every device on the LAN (incl. camera/IoT VLANs) and become a pivot point
 LAN-only -- no port-forward, no reverse proxy, no Cloudflare Tunnel (the last is a TOS violation
 for video). Not supporting cast-to-remote-TV / no-VPN clients (out of scope, by choice). Ensure
 Jellyfin HW transcoding is on so remote streams adapt to home upload bandwidth.
+
+REJECTED: UGREENlink (UGREEN cloud remote access, akin to Synology QuickConnect / QNAP
+myQNAPcloud). It's a vendor cloud relay that makes the NAS -- our most sensitive box (family
+photos, personal files, recordings) -- reachable via a third party; that class of feature drove
+the QNAP/Synology ransomware waves. Keep it DISABLED; confirm the NAS is not WAN-exposed (no
+port-forward, no UPnP, admin UI LAN-only). Family remote access = install Tailscale on each
+person's device + join the tailnet (reaches Immich/Nextcloud/Jellyfin securely, no cloud broker).
 - If a subnet route is ever truly needed (a non-Tailscale device): scope it with Tailscale
   ACLs, advertise ONLY the Trusted subnet (never camera/IoT VLANs), prefer a narrow /32 host
   route over the full /24.
