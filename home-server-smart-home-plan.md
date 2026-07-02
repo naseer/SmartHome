@@ -191,6 +191,7 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Thread Border Router | HA Connect ZBT-2 on `masn` (Thread only) | No Google/Apple hub owned; HA-first. Second dongle handles Zigbee |
 | Cameras | PoE + Frigate (local NVR) | Bandwidth needs wired/Wi-Fi, not Thread; no cloud/subscription |
 | Camera AI | Frigate + OpenVINO on HD 630 iGPU (baseline) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; Orin stays on LLM duty |
+| NVR platform | Frigate (NOT a Ubiquiti/UniFi Protect NVR) | Protect locks to UniFi cameras (2-5x cost, no third-party ONVIF), weaker HA integration, less-tunable AI. Frigate = camera-agnostic + HA-native + local + free (already running). All-UniFi was right for NETWORKING, not cameras |
 | GPU relief valve (owned Quadro P620) | Optional; install only if iGPU contention appears | Splits decode/detect/transcode across two chips. Lean: P620 does detection (TensorRT); iGPU keeps decode + Quick Sync transcode. Free; +~40W. See 3.3 |
 | Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance -- SUBSCRIPTION ACTIVE (2026-06-25); link in HA after first boot | Ring-like mobile UX; secure, no port-forwarding; covers all users |
 | Network core | UniFi: UCG-Fiber gateway (router + controller + firewall/IDS) + 3x U7 Pro APs (wired PoE backhaul). SELL the ASUS BT10 to offset | BT10's weak VLAN/firewall software undermines the camera/IoT segmentation this build depends on. UniFi gives first-class, verifiable VLANs in one dashboard; wired ceiling APs beat mesh backhaul in a wired house |
