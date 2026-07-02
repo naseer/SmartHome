@@ -212,8 +212,15 @@ All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi serve
 APs (3200 sqft / 3 floors), wired backhaul preferred. ASUS BT10 retired (sold).
 
 Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best first:
-1. WIRE IT: ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed from
-   the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
+0. REPURPOSE EXISTING CAT5 (old ADT / structured-wiring drops found in the house -- ASSESS FIRST):
+   Cat5 does full GbE + carries PoE at home distances -> real PoE Ethernet backhaul at wall jacks,
+   no new cable, no MoCA/injector, no mesh penalty. BEST option if usable. Verify: (a) it's real
+   Cat5/5e UTP (8 conductors/4 twisted pairs) NOT 4-wire alarm/station wire; (b) drops HOME-RUN to
+   a central panel (patch it to the switch, or extend to the basement rack); (c) map each far end
+   (room/floor, wall jack?); (d) test each run -- continuity + links at 1GbE + passes PoE. Harvest
+   the WIRING + enclosure; ignore the ADT brain (proprietary/locked; security = HA + Zigbee sensors).
+1. WIRE IT (new): ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed
+   from the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
    performs ~as well as ceiling. Or a U7 In-Wall (U7-IW) replacing a wall box where a drop reaches.
 2. MoCA (Ethernet over existing COAX -- house HAS coax): 2.5G MoCA adapter pair -> true wired
    backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
@@ -1101,6 +1108,11 @@ Notes:
 
 ## 15. Open Items / To Confirm
 
+- [ ] ASSESS the old ADT box + Cat5 drops (potential FREE AP backhaul, see 5 item 0): confirm
+      real Cat5/5e UTP (not alarm wire); find the central termination panel; map each drop's far
+      end; test continuity + 1GbE link + PoE. Confirm ADT is dead. Could solve the AP-backhaul
+      problem outright and add spare wired drops.
+- [ ] Attic access above the top floor? (decides attic-run vs MoCA/Cat5 for the top-floor AP)
 - [x] Audio system identified: NuTone IM-3303 (3-wire intercom, up to 9 rooms, mono AUX).
       DECISION: keep as-is, feed AUX with a WiiM (see 6.5). TO CONFIRM ON-SITE: AUX module
       present (else add NuTone AUX assembly) + master unit still functional.
