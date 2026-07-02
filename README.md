@@ -58,7 +58,7 @@ Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 re
 ## Data flows
 
 - **Camera recordings:** cameras → Frigate (detect on iGPU, cache on masn SSD) → finished
-  segments to the NAS over NFS (15-day continuous retention).
+  segments to the NAS over SMB (15-day continuous retention).
 - **Media:** library on the NAS; Jellyfin runs on the NAS (Quick Sync transcode).
 - **Family photos/files:** Immich + Nextcloud on the NAS; **Google stays primary** (off-site copy).
 - **Remote access:** Home Assistant via **Nabu Casa**; Jellyfin + admin via **Tailscale per-host**

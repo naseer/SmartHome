@@ -69,8 +69,8 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 ## Phase 0 runbook (tomorrow)
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
-   `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). NFS-export
-   media/frigate/backups to masn's IP; SMB for family. No guest access. Note NAS IP + export paths.
+   `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS
+   default); masn mounts via cifs. No guest access. Note NAS IP + share names + the SMB user.
 2. **Copy media (agent, SSH to CURRENT masn)**: `masn-stack/copy-media.sh` → media to NAS,
    ~1 h over 1GbE, verify (count + checksum sample) BEFORE the wipe.
 3. **Clean install (user, console)**: BIOS SATA RAID On → **AHCI**; install Ubuntu Server onto
@@ -87,7 +87,7 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - `docker-compose.yml`: **HA + Mosquitto + Postgres active**; Frigate / Zigbee2MQTT are
   COMMENTED — enable each as its hardware arrives (cameras / SLZB-06). Audio = NuTone IM-3303 + a
   standalone WiiM at the AUX (no audio container on masn). Mosquitto+Postgres bind to `127.0.0.1`
-  only (host-mode HA reaches them; LAN can't). NFS mounts use `nofail`.
+  only (host-mode HA reaches them; LAN can't). NAS SMB (cifs) mounts use `nofail`.
 - `.env.example` → copy to `.env`, fill, `chmod 600` (gitignored). Never commit real secrets.
 - `copy-media.sh`, `setup-masn.sh`: review before running; need sudo. Idempotent-ish.
 

@@ -628,7 +628,7 @@ masn (Ubuntu 24.04, headless + NoMachine on-demand)
 |
 +-- Docker:
     +-- home-assistant    (restart: unless-stopped)
-    +-- frigate           (OpenVINO on /dev/dri iGPU; active cache local, continuous recordings -> NAS via NFS/SMB)
+    +-- frigate           (OpenVINO on /dev/dri iGPU; active cache local, continuous recordings -> NAS via SMB)
     +-- mosquitto         (MQTT broker; shared by Z2M + HA)
     +-- zigbee2mqtt       (connects to the SLZB-06 over TCP; bridges Zigbee -> MQTT -> HA)
     +-- postgres          (HA recorder DB)
@@ -1038,7 +1038,7 @@ Notes:
 - [ ] Phase 0b (prereq): stand up the NAS FIRST (it is the backup target). Assemble the 18U
       rack (3 vented shelves, PDU, patch panel, 1500VA UPS at bottom); rack masn, UGREEN NAS,
       UniFi UCG-Fiber + USW-Pro-Max-16-PoE switch, fiber ONT; everything on the UPS. Configure NAS
-      2x14 TB mirror (4-bay, 2 bays free); export NFS/SMB shares (backups, recordings, media).
+      2x14 TB mirror (4-bay, 2 bays free); export SMB shares (backups, recordings, media).
 - [ ] Phase 0c (prereq): BACK UP masn to the NAS (HA, Jellyfin, Docker volumes, Postgres dump,
       /etc, media). Verify the backups are readable on the NAS before touching masn.
 - [ ] Phase 0d (prereq): masn revamp. CHOSEN PATH: GREENFIELD -- user confirms NO irreplaceable
@@ -1173,12 +1173,13 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
 3. Create shares + users per the access-control design (see 6.8): `backups`, `recordings`
    (Frigate svc + admin only), `media` (Jellyfin svc), `family-shared` (group `family`),
    per-member private folders, and a PASSPHRASE-encrypted `sensitive-docs` folder. No guest
-   access anywhere. Export recordings/backups via NFS to masn's IP only; family shares via SMB
-   to the Trusted VLAN. Keep encryption per-folder (not whole-pool) so reboots don't block the
+   access anywhere. All shares over SMB (UGOS default); masn mounts them via `cifs` + a
+   credentials file (chmod 600). Scope share access to masn's account + the Trusted VLAN. Keep encryption per-folder (not whole-pool) so reboots don't block the
    stack; ensure Tailscale lives on the unencrypted system area so you can unlock from your phone.
 4. Wire the UPS USB to the NAS; enable graceful shutdown on battery.
-5. Mount-test from masn: `sudo mount -t nfs <nas>:/backups /mnt/nas-backups` and write a test
-   file. Confirm read-back.
+5. Mount-test from masn (SMB): `sudo mount -t cifs //<nas>/backups /mnt/nas-backups -o
+   credentials=/etc/samba/creds-nas,uid=$(id -u),gid=$(id -g),vers=3.1.1` and write a test file.
+   Confirm read-back. (setup-masn.sh writes the creds file + fstab lines automatically.)
 
 ### Step 2 -- Back up masn -> NAS
 
@@ -1207,7 +1208,7 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
     initramfs-RAID dependency, so this is safe now; only risky on a non-wiped in-place system.)
 4b. Clean-install Ubuntu Server 24.04 (headless) on the existing 1TB SSD. Static IP/DHCP
     reservation matching the old one. Install: openssh-server, docker + compose plugin,
-    NoMachine (on-demand GUI), NFS client.
+    NoMachine (on-demand GUI), cifs-utils (SMB client).
 4c. Re-mount the NAS shares via `/etc/fstab` (recordings + media + backups).
 4d. Rebuild the container stack from compose: home-assistant (`restart: unless-stopped`),
     frigate (OpenVINO `/dev/dri`, cache local, recordings -> NAS), mosquitto, zigbee2mqtt,

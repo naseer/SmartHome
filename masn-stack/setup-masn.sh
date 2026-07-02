@@ -15,7 +15,7 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
     | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
-  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nfs-common
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin cifs-utils
   sudo usermod -aG docker "$USER"
 fi
 
@@ -35,15 +35,22 @@ sudo touch mosquitto/config/passwd
 sudo docker run --rm -v "${STACK_DIR}/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
   mosquitto_passwd -b /mosquitto/config/passwd "$MQTT_USER" "$MQTT_PASSWORD"
 
-echo ">> [5/6] NAS mounts via fstab (idempotent; nofail so boot survives NAS being down)"
+echo ">> [5/6] NAS SMB mounts via fstab (idempotent; nofail so boot survives NAS being down)"
+CREDS="/etc/samba/creds-nas"
+if [ ! -f "$CREDS" ]; then
+  sudo mkdir -p /etc/samba
+  printf 'username=%s\npassword=%s\n' "$NAS_SMB_USER" "$NAS_SMB_PASSWORD" | sudo tee "$CREDS" >/dev/null
+  sudo chmod 600 "$CREDS"
+fi
+OPTS="credentials=${CREDS},uid=$(id -u),gid=$(id -g),file_mode=0664,dir_mode=0775,vers=3.1.1,_netdev,nofail"
 declare -A MOUNTS=(
-  ["/mnt/nas/backups"]="${NAS_BACKUPS_EXPORT}"
-  ["/mnt/nas/frigate"]="${NAS_FRIGATE_EXPORT}"
-  ["/mnt/nas/media"]="${NAS_MEDIA_EXPORT}"
+  ["/mnt/nas/backups"]="${NAS_BACKUPS_SHARE}"
+  ["/mnt/nas/frigate"]="${NAS_FRIGATE_SHARE}"
+  ["/mnt/nas/media"]="${NAS_MEDIA_SHARE}"
 )
 for mp in "${!MOUNTS[@]}"; do
   sudo mkdir -p "$mp"
-  line="${NAS_IP}:${MOUNTS[$mp]} ${mp} nfs defaults,_netdev,nofail 0 0"
+  line="//${NAS_IP}/${MOUNTS[$mp]} ${mp} cifs ${OPTS} 0 0"
   grep -qF " ${mp} " /etc/fstab || echo "$line" | sudo tee -a /etc/fstab > /dev/null
 done
 sudo mount -a || echo "   (NAS not reachable yet -- nofail means it retries on boot)"

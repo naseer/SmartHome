@@ -5,15 +5,28 @@ set -euo pipefail
 
 # ---- EDIT once the NAS is up ----
 NAS_IP="192.168.x.x"
-NAS_MEDIA_EXPORT="/mnt/pool/media"        # NFS export path on the NAS
-# ---------------------------------
+NAS_MEDIA_SHARE="media"                    # SMB share name (the UGOS shared-folder name)
+NAS_SMB_USER="naseer"                      # NAS account with write access to that share
+# ----------------------------------
 
 SRC="/local/mnt/workspace/naseer/jellyfin/"   # trailing slash = copy contents
 MNT="/mnt/nas-media"
+CREDS="/etc/samba/creds-nas"
 
-echo ">> Mounting NAS media share (${NAS_IP}:${NAS_MEDIA_EXPORT}) at ${MNT}"
+command -v mount.cifs >/dev/null || { echo ">> Installing cifs-utils"; sudo apt-get update && sudo apt-get install -y cifs-utils; }
+
+# One-time credentials file (prompts for the SMB password; chmod 600, never in the script/git)
+if [ ! -f "$CREDS" ]; then
+  read -r -s -p ">> NAS SMB password for ${NAS_SMB_USER}: " smbpw; echo
+  sudo mkdir -p /etc/samba
+  printf 'username=%s\npassword=%s\n' "$NAS_SMB_USER" "$smbpw" | sudo tee "$CREDS" >/dev/null
+  sudo chmod 600 "$CREDS"; unset smbpw
+fi
+
+echo ">> Mounting //${NAS_IP}/${NAS_MEDIA_SHARE} at ${MNT}"
 sudo mkdir -p "$MNT"
-mountpoint -q "$MNT" || sudo mount -t nfs "${NAS_IP}:${NAS_MEDIA_EXPORT}" "$MNT"
+mountpoint -q "$MNT" || sudo mount -t cifs "//${NAS_IP}/${NAS_MEDIA_SHARE}" "$MNT" \
+  -o "credentials=${CREDS},uid=$(id -u),gid=$(id -g),file_mode=0664,dir_mode=0775,vers=3.1.1,_netdev,nofail"
 
 echo ">> Source size + file count:"
 du -sh "$SRC"
