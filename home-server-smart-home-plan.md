@@ -308,10 +308,10 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | UniFi U7 Pro / U7 Pro Wall AP (Wi-Fi 7, PoE) | 3 | $199 | $597 | One per floor (3200 sqft/3 floors), wired PoE backhaul. U7 PRO WALL for wall-jack mounts (Cat5 lands at wall boxes -- directional, purpose-built); U7 Pro if reaching a central ceiling. NOT U7 In-Wall (no 6 GHz, room-sized) |
 | Cat6 cable (1000 ft box) | 1 | $120 | $120 | Home runs incl. AP drops to each floor |
 | Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | AV-closet termination |
-| Cable tester / crimper / punch-down | 1 lot | $40 | $40 | If not already owned |
+| Cable tester (Klein VDV Scout Pro 3) + inline PoE tester + crimper/punch-down | 1 lot | $120 | $120 | Scout Pro 3 = wiremap + LENGTH + numbered REMOTES (map the ADT bundle to rooms fast) + finds split pairs. Inline PoE tester ($25) reads PoE type (at=PoE+). Or Pockethernet (~$180) as an all-in-one (wiremap+PoE+speed). Definitive PoE test = power the real AP off a switch PoE+ port |
 | 10GBASE-T SFP+ module (OPTIONAL) | 0-1 | $60 | $0 | Only if NAS at 10G via SFP+; else NAS on a 2.5G port (plenty). Runs hot |
 | UniFi controller | - | on UCG-Fiber | $0 | No self-hosted container (was Docker on masn) |
-| | | | **~$1,515** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,115 |
+| | | | **~$1,595** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,195 |
 
 ### 6.3 Cameras
 
@@ -639,11 +639,11 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$4,815** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,895** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
-thermostat + dual radios + hub-free Zigbee garage), network (~$1,115 net after BT10 resale, all-UniFi w/ UCG-Fiber for 3G), NAS (~$1,150, DXP4800 Pro
+thermostat + dual radios + hub-free Zigbee garage), network (~$1,195 net after BT10 resale, all-UniFi w/ UCG-Fiber for 3G), NAS (~$1,150, DXP4800 Pro
 4-bay starting 2x14 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
