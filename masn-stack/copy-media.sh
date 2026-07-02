@@ -28,10 +28,10 @@ sudo mkdir -p "$MNT"
 mountpoint -q "$MNT" || sudo mount -t cifs "//${NAS_IP}/${NAS_MEDIA_SHARE}" "$MNT" \
   -o "credentials=${CREDS},uid=$(id -u),gid=$(id -g),file_mode=0664,dir_mode=0775,vers=3.1.1,_netdev,nofail"
 
-# SMB/cifs-friendly rsync: content + names + times ONLY. No -a/-H/-A/-X: perms/owner/ACLs/xattrs
-# are unsupported on cifs (cause the lsetxattr "Permission denied" spam) and meaningless since the
-# mount already sets uid/gid/mode. Skip macOS junk (.DS_Store / ._* AppleDouble files).
-RSYNC_OPTS=(-rt --info=progress2 --exclude='.DS_Store' --exclude='._*')
+# Use cp, NOT rsync, for the bulk copy over SMB/cifs. rsync's per-file dance (temp file + rename +
+# setattr = a network round-trip each) is brutally slow over cifs (~8 MB/s for many files), while a
+# streaming cp/dd hits wire speed (~100 MB/s). cp -n resumes (skips already-copied files); cp doesn't
+# preserve Linux owner/perms (good -- avoids the cifs "Permission denied" errors). Skip macOS junk.
 FINDX=(! -name '.DS_Store' ! -name '._*')
 
 echo ">> Source size + file count:"
@@ -39,14 +39,11 @@ du -sh "$SRC"
 SRC_COUNT=$(find "$SRC" -type f "${FINDX[@]}" | wc -l)
 echo "   source files (excl. macOS junk): $SRC_COUNT"
 
-echo ">> Dry run (no changes)…"
-rsync "${RSYNC_OPTS[@]}" --dry-run --stats "$SRC" "$MNT/" | tail -n 15
-
-read -r -p ">> Proceed with the REAL copy? [y/N] " ok
+read -r -p ">> Proceed with the REAL copy (cp, streaming, resumes)? [y/N] " ok
 [ "$ok" = "y" ] || { echo "Aborted."; exit 1; }
 
-echo ">> Copying…"
-rsync "${RSYNC_OPTS[@]}" "$SRC" "$MNT/"
+echo ">> Copying (cp -rn, ~100 MB/s over gigabit)…"
+cp -rn "$SRC" "$MNT/"
 
 echo ">> Verify: file count"
 DST_COUNT=$(find "$MNT" -type f "${FINDX[@]}" | wc -l)
