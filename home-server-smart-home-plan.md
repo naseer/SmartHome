@@ -208,8 +208,19 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
                                                (wired PoE, one per floor)
 ```
 
-All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi served by 3 U7 Pro
-APs (3200 sqft / 3 floors), wired backhaul preferred. ASUS BT10 retired (sold).
+All UniFi -> one dashboard for routing, switching, Wi-Fi, and VLANs. Wi-Fi served by 3 APs
+(3200 sqft / 3 floors), wired backhaul preferred. ASUS BT10 retired (sold).
+
+Per-floor AP placement (matched to the existing Cat5 jacks):
+- Basement: CEILING U7 Pro (open Rec Room -- omnidirectional, easy ceiling run).
+- Main floor / Kitchen: U7 Pro WALL at the existing MID-HEIGHT jack (best-placed drop; face the open area).
+- Upper floor: U7 Pro WALL at a floor-level jack -- run the drop UP the wall, mount HIGH (floor-level = weak).
+
+REJECTED all-in-one gateways (UDR7, UDR-5G-Max): both cap IDS/IPS at 2.3 Gbps -> would throttle
+the 3 Gbps fiber (or force IDS off), the exact reason we skipped the UCG-Max. Their built-in Wi-Fi
+is weaker (2x2) than a U7 Pro, and the gateway belongs in the BASEMENT at the WAN entry, not a
+living floor. The UDR-5G-Max's 5G cellular FAILOVER is nice, but add failover to the UCG-Fiber's
+2nd WAN separately rather than downgrade the whole gateway.
 
 Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best first:
 0. REPURPOSE EXISTING CAT5 (old ADT / structured-wiring drops found in the house -- ASSESS FIRST):
