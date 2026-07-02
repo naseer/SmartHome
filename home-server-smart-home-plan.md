@@ -228,7 +228,9 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
    open walls during construction instead.
 1. WIRE IT (new): ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed
    from the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
-   performs ~as well as ceiling. Or a U7 In-Wall (U7-IW) replacing a wall box where a drop reaches.
+   performs ~as well as ceiling. WALL-MOUNT MODEL: U7 PRO WALL (full Wi-Fi 7 tri-band, ~1500 sqft,
+   directional -- purpose-built for a wall jack; face it toward the floor's OPEN area, not a corner).
+   NOT the U7 In-Wall (dual-band, no 6 GHz, room-sized -- a per-room/desk AP, not a floor AP).
 2. MoCA (Ethernet over existing COAX -- house HAS coax): 2.5G MoCA adapter pair -> true wired
    backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
    - Coexists with the CURRENT CABLE internet (same coax): install a MoCA POINT-OF-ENTRY FILTER
@@ -288,13 +290,13 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | UniFi Cloud Gateway Fiber (UCG-Fiber) | 1 | $279 | $279 | Router + firewall/IDS + runs the UniFi controller. CHOSEN over UCG-Max ($199) for the 3 Gbps FIBER plan: 10G SFP+ WAN takes the fiber ONT handoff; 5 Gbps IDS/IPS delivers the full 3G with security ON (Max caps ~2.3-2.5G). BASE, no storage (Frigate->NAS, not UniFi Protect). No Wi-Fi -> APs do it |
 | 10G SFP+ DAC (gateway <-> switch) | 1 | $20 | $20 | Links UCG-Fiber 10G SFP+ LAN to a switch SFP+ port -> carries the 3G WAN into the LAN at 10G |
 | UniFi USW-Pro-Max-16-PoE | 1 | $379 | $379 | 12x1G PoE+ + 4x2.5G PoE++ + 2x10G SFP+, 180W. Powers APs + cameras; one SFP+ to the gateway, one free for NAS 10G. 1U rackmount |
-| UniFi U7 Pro AP (Wi-Fi 7, PoE) | 3 | $189 | $567 | One per floor (3200 sqft/3 floors), ceiling-mount, wired PoE backhaul |
+| UniFi U7 Pro / U7 Pro Wall AP (Wi-Fi 7, PoE) | 3 | $199 | $597 | One per floor (3200 sqft/3 floors), wired PoE backhaul. U7 PRO WALL for wall-jack mounts (Cat5 lands at wall boxes -- directional, purpose-built); U7 Pro if reaching a central ceiling. NOT U7 In-Wall (no 6 GHz, room-sized) |
 | Cat6 cable (1000 ft box) | 1 | $120 | $120 | Home runs incl. AP drops to each floor |
 | Keystones / patch panel / RJ45 / boots | 1 lot | $80 | $80 | AV-closet termination |
 | Cable tester / crimper / punch-down | 1 lot | $40 | $40 | If not already owned |
 | 10GBASE-T SFP+ module (OPTIONAL) | 0-1 | $60 | $0 | Only if NAS at 10G via SFP+; else NAS on a 2.5G port (plenty). Runs hot |
 | UniFi controller | - | on UCG-Fiber | $0 | No self-hosted container (was Docker on masn) |
-| | | | **~$1,485** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,085 |
+| | | | **~$1,515** | Less ASUS BT10 resale (~$400 credit) -> net ~$1,115 |
 
 ### 6.3 Cameras
 
@@ -622,11 +624,11 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$4,785** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,815** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
-thermostat + dual radios + hub-free Zigbee garage), network (~$1,085 net after BT10 resale, all-UniFi w/ UCG-Fiber for 3G), NAS (~$1,150, DXP4800 Pro
+thermostat + dual radios + hub-free Zigbee garage), network (~$1,115 net after BT10 resale, all-UniFi w/ UCG-Fiber for 3G), NAS (~$1,150, DXP4800 Pro
 4-bay starting 2x14 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
