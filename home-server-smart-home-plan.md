@@ -408,7 +408,9 @@ its cost across multiple roles, not just recording:
     import via Google Takeout -> immich-go (Google Photos API can't reliably pull originals).
   - REMINDER: a mirror is NOT a backup. Here Google is the off-site copy; if Google is ever
     dropped, ADD an off-site backup (encrypted Backblaze B2 ~$6/TB/mo, or a 2nd NAS off-site).
-- Time Machine / PC backups; general SMB/NFS shares.
+- Time Machine / PC backups; general SMB shares. ALL clients use SMB (UGOS default): masn via
+  `cifs`, macOS natively (Finder `smb://<nas>`; Time Machine over SMB -- enable the UGOS
+  Mac/Time-Machine option on that share), family devices via SMB. No NFS anywhere.
 
 Decision: NO Synology -- avoiding its 2025+ drive lock-in. Pick a no-lock box. Since the NAS
 is LAN-only (reached via HA/Tailscale, never port-forwarded), the vendor's cloud-security
