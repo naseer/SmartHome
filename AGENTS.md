@@ -33,7 +33,9 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 ## Key architecture decisions (quick ref — full rationale in the plan)
 
 - **Host**: reuse the 5050 (`masn`), 32 GB; clean-install Ubuntu Server; switch BIOS SATA
-  **RAID On → AHCI** (currently RAID On). OS disk = WD Blue 1 TB SATA (`sda`).
+  **RAID On → AHCI** (currently RAID On; AHCI also needed to see the NVMe). OS disk = **NEW 1 TB
+  NVMe** (~$80). The old WD Blue 1 TB SATA SSD (`sda`) is **WORN OUT** (Media_Wearout=001; cold
+  reads 2.7–4 MB/s) — retire it after the media copy. i7-7700 / 32 GB / HD 630 all fine.
 - **Storage / NAS**: UGREEN **DXP4800 Pro** on **UGOS with btrfs** (checksums + snapshots +
   in-place single→RAID1; ext4 rejected. btrfs is the UGOS stand-in for ZFS; TrueNAS+ZFS is the
   alt). 1× **14 TB Toshiba N300 (HDWG21E)** now (the 1st IronWolf Pro 12 TB was DOA — clicking —

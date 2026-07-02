@@ -108,10 +108,16 @@ Original config (verified via dmidecode, pre-upgrade):
 What was done: installed a matched 32 GB (2 x 16 GB) DDR4 UDIMM kit -- the SFF maximum,
 chosen over 16 GB for headroom across all containers plus Frigate decode buffers.
 
-### 3.2 Disk (reuse existing SSD in-box + NAS for bulk)
+### 3.2 Disk (NEW NVMe for OS -- existing SSD is FAILING -- + NAS for bulk)
 
-Decision: masn keeps its existing 1TB SATA SSD for OS + Frigate active cache (NVMe not
-needed, see below); all bulk data (continuous
+!! REVISED 2026-07-02: The existing WD Blue 1TB SATA SSD (WDS100T2B0A) is FAILING -- cold reads
+measured at 2.7-4.0 MB/s (should be ~500; a cached file read 371 MB/s, which masked the fault in
+normal Jellyfin use). Surfaced by the bulk media read. => DO NOT reuse it for OS/Frigate/HA.
+DECISION FLIP: buy a NEW 1TB NVMe (the "optional" NVMe, now REQUIRED) for the free M.2 slot -> OS
++ Docker + HA + Postgres + Frigate active cache. RETIRE the SATA SSD (keep it connected only long
+enough to copy the media off, then discard). Everything else on masn (i7-7700, 32GB, HD 630) is fine.
+
+Decision: masn OS/cache on a NEW 1TB NVMe; all bulk data (continuous
 recordings, Jellyfin media, family Photos/Drive, masn backups) lives on a 4-bay NAS (start 2x14 TB mirror). This is driven by
 the move to CONTINUOUS recording -- which a single SFF drive can't protect (one bay, no
 mirror), and which makes the always-on footage valuable enough to want redundancy. The NAS
@@ -121,14 +127,14 @@ Storage tiers:
 
 | Tier | Where | Holds |
 |------|-------|-------|
-| Fast / OS | Existing 1TB SATA SSD (NVMe optional) | OS, Docker, HA config, **Frigate active cache (must stay local)** |
+| Fast / OS | NEW 1TB NVMe (M.2 slot); old SATA SSD FAILING, retire it | OS, Docker, HA config, Postgres, **Frigate active cache (must stay local)** |
 | Bulk (RAID1) | UGREEN NAS over the network (NFS/SMB) | Continuous recordings, Jellyfin server + library, masn backups, local-first sync/photos |
 | Off-site (optional) | NAS sync (Nextcloud/Immich) or encrypted bucket | Kept event clips -- local-first alternative to Google Drive |
 
-Do you need the NVMe? No. The existing healthy 1TB SATA SSD is fine for OS + Docker + HA +
-Frigate cache -- these are light writes; the heavy continuous recording stream goes to the
-NAS, not the local disk. SATA vs NVMe is imperceptible for this workload. Buy an NVMe ONLY as
-migration insurance: clean-install on it while leaving the SSD untouched as instant rollback.
+Do you need the NVMe? YES (revised). The old SSD is failing, so a new NVMe is now the OS/cache
+disk, not optional. Light writes (OS/Docker/HA/Postgres) + Frigate active cache live here; the
+heavy continuous recording stream still goes to the NAS. Install onto the NVMe; the failing SATA
+SSD is NOT a rollback (it's dying) -- it's only the temporary source for the media copy.
 
 Frigate-over-network rule: keep Frigate's `cache` dir on the local SSD; point only finished
 `recordings` at the NAS share. The active cache must never write over the network (stalls);
@@ -137,11 +143,11 @@ HDD needed in masn -- bulk goes to the NAS.
 
 Phase 0 disk caveats:
 
-- Switch BIOS SATA Operation from "RAID On" to AHCI BEFORE the clean reinstall.
-  Do NOT toggle this under the live system -- the current initramfs expects RAID mode and
-  would fail to boot. Switch first, then clean-install.
-- Reusing the existing SSD: back up HA + Jellyfin configs first, then AHCI switch + clean
-  reinstall onto it. If you add an optional NVMe instead, the SSD stays as a zero-risk rollback.
+- Switch BIOS SATA Operation from "RAID On" to AHCI BEFORE the clean install. This is now
+  DOUBLY important: in "RAID On"/VMD mode Intel HIDES NVMe drives from the installer, so AHCI is
+  required just to SEE the new NVMe. Switch first, then install.
+- Install onto the NEW NVMe (M.2 slot). Copy the media off the failing SATA SSD first (it's the
+  only reason to keep that disk powered), then remove/discard it.
 - No internal HDD is added (bulk = NAS), so SFF bay/power constraints no longer apply.
 
 Until 3.1 and 3.2 are complete, leave `masn` as-is (HA + Jellyfin keep running).
@@ -296,8 +302,8 @@ All prices are approximate USD estimates for 2026 and will vary.
 |------|-----|-----------|------------|-------|
 | DDR4 32 GB UDIMM kit (2x16 GB) | 1 | -- | DONE | Installed; SFF max. Gate cleared |
 | Detection accelerator | 0-1 | $70 | $0 | START at $0: OpenVINO on HD 630 iGPU. Coral EOL -- skip. If contention: first use the owned P620 (free, see 3.3); Hailo-8L M.2 (~$70) only if neither suffices |
-| M.2 2280 NVMe SSD 1TB (OPTIONAL) | 0-1 | $70 | $0 | Skip -- reuse existing 1TB SATA SSD. Buy only as migration-rollback insurance |
-| | | | **~$0** | RAM done; detection on iGPU/P620; existing SSD reused. Up to ~$140 only if Hailo + rollback NVMe ever added |
+| M.2 2280 NVMe SSD 1TB (REQUIRED) | 1 | $80 | $80 | REVISED 2026-07-02: existing SATA SSD is FAILING (cold reads 2.7-4 MB/s) -> new NVMe is the OS/Docker/HA/Postgres/Frigate-cache disk. Goes in the free M.2 slot. NVMe uses that slot -> a Hailo M.2 (last-resort detector) would conflict, but detection is on the iGPU/P620 anyway |
+| | | | **~$80** | RAM done; detection on iGPU/P620; NEW NVMe replaces the failing SSD. Retire the old SATA SSD after the media copy |
 
 (Existing healthy 1TB SATA SSD is the OS/app/cache tier -- NVMe not needed. Detection runs on
 the HD 630 iGPU via OpenVINO -- no Coral/accelerator to buy up front. Bulk storage --
@@ -644,7 +650,8 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$4,845** spread across phases (RAM done; NVMe dropped -- reusing existing SSD; Coral
+Approx. **$4,925** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
+worn out (Media_Wearout=001), retire it; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber + 16-PoE switch + 3x U7 Pro APs, BT10
 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
@@ -1277,9 +1284,11 @@ Steps 2-3 apply to ALL FUTURE revamps once real HA config + family data exist.
      we intend to run for years): replace the CMOS battery (CR2032), re-apply CPU thermal
      paste, and check/clean the fans. Cheap insurance; the CPU itself rarely fails, these
      consumables do.
-4a. (clean install only) BIOS: set SATA Operation RAID On -> AHCI. (The wipe removes the
-    initramfs-RAID dependency, so this is safe now; only risky on a non-wiped in-place system.)
-4b. Clean-install Ubuntu Server 24.04 (headless) on the existing 1TB SSD. Static IP/DHCP
+4a. (clean install only) BIOS: set SATA Operation RAID On -> AHCI. NOW REQUIRED to see the NEW
+    NVMe (RAID/VMD mode hides NVMe from the installer). Also removes the initramfs-RAID dependency.
+4a1. Install the NEW 1TB NVMe in the free M.2 slot (the old SATA SSD is worn out -- keep it
+     connected ONLY until the media copy finishes, then remove it).
+4b. Clean-install Ubuntu Server 24.04 (headless) on the NEW NVMe. Static IP/DHCP
     reservation matching the old one. Install: openssh-server, docker + compose plugin,
     NoMachine (on-demand GUI), cifs-utils (SMB client).
 4c. Re-mount the NAS shares via `/etc/fstab` (recordings + media + backups).
