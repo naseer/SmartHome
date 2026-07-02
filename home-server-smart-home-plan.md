@@ -215,16 +215,24 @@ Backhaul when ceiling runs are hard (construction reality) -- hierarchy, best fi
 1. WIRE IT: ceiling AP via ATTIC (top floor, if attic accessible); or WALL-MOUNT an AP fed from
    the BASEMENT up a wall cavity (main floor -- easier than its sandwiched ceiling). Wall-high
    performs ~as well as ceiling. Or a U7 In-Wall (U7-IW) replacing a wall box where a drop reaches.
-2. MoCA (Ethernet over existing COAX, ~2001 house likely has it): 2.5G MoCA adapter pair -> true
-   wired backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
+2. MoCA (Ethernet over existing COAX -- house HAS coax): 2.5G MoCA adapter pair -> true wired
+   backhaul at a coax jack, NO new Cat6, NO mesh penalty. Preferred over mesh.
+   - Coexists with the CURRENT CABLE internet (same coax): install a MoCA POINT-OF-ENTRY FILTER
+     where coax enters (at the modem's splitter) + use MoCA-rated splitters (5-1675 MHz; old
+     5-1000 MHz blocks MoCA). When FIBER lands, internet leaves the coax -> MoCA-only, filter optional.
+   - AP power: MoCA gives Ethernet at the jack but NO PoE -> add a small PoE injector + an outlet
+     at each MoCA-fed AP (MoCA adapter -> PoE injector -> U7 Pro).
 3. UniFi WIRELESS MESH -- last resort, ONE unreachable AP only: shared-radio backhaul ~halves
    throughput + adds latency, so keep it to 1 hop off a WIRED AP (never daisy-chain), 6 GHz
    backhaul. Wire >=2 of 3; never all-mesh. Stays fully managed (VLANs/dashboard) unlike consumer mesh.
 Do NOT revert to consumer mesh (BT10/Eero/Orbi) for backhaul -- loses the VLAN segmentation.
 Pull cable wherever walls are OPEN NOW (+ a spare drop per AP-candidate) while work is ongoing.
-WAN: 3 Gbps fiber -> UCG-Fiber SFP+ WAN (the Max's 2.5G WAN / 2.3G IPS would cap the plan).
-Confirm the ONT hands off at >2.5G (SFP+ or 10G/5G RJ45). Note: individual 1G devices won't see
-3 Gbps -- benefit is household aggregate + the 2.5G/10G NAS.
+WAN timeline: CABLE now (coax/DOCSIS); 3 Gbps FIBER coming later -- city work order, up to ~1 yr out.
+UCG-Fiber handles both with NO swap: cable modem -> UCG-Fiber 10G RJ45 WAN today (auto-negotiates);
+fiber ONT -> UCG-Fiber SFP+ WAN when it lands. Bought once (vs UCG-Max-then-replace) to avoid a
+mid-build gateway swap; $80 premium < a rip-and-replace. When fiber lands, confirm the ONT hands
+off at >2.5G (SFP+ or 10G/5G RJ45). Build proceeds NOW on cable; 3 Gbps just turns on with fiber.
+Note: individual 1G devices won't see 3 Gbps -- benefit is household aggregate + the 2.5G/10G NAS.
 
 VLAN plan (UniFi "Networks"; tagged per-port on the switch + per-SSID on the APs; inter-VLAN
 firewall rules on the UCG-Fiber):
