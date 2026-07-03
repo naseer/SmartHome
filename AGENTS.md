@@ -103,7 +103,15 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 
 ## Pending / next
 
-- **2026-06-26**: execute Phase 0.
+- **NEW (2026-07-02): masn OS SSD is WORN OUT** — buy a 1 TB NVMe before the clean install (see 3.2).
+  Media copy off the failing SSD is slow (source-bound ~4-27 MB/s) but running; verify with
+  `rsync --size-only` dry-run when done, restore any unreadable files from other backups.
+- **At reimage**: add the personal-backup cifs mount on masn — share `personal_folder` (Samba `%H`
+  -> `/home/naseer`), auth as **naseer** (separate `/etc/samba/creds-naseer`, chmod 600), mount at
+  `/mnt/nas/personal` with `file_mode=0600,dir_mode=0700`. (For now: rsync over SSH to
+  `naseer@nas:/home/naseer/`.) NAS SMB shares: `media`, `personal_folder` (per-user home),
+  `TimeMachine`, `masjidmapper`. NAS users: naseer(1000), jellyfin, zaid, masjidmapper.
+- Execute Phase 0 once the NVMe is in hand.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
 - Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Fiber + 16-PoE + 3× U7 Pro),
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
