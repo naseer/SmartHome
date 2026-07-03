@@ -343,6 +343,12 @@ Camera notes (Frigate):
 - Reolink Duo 2V (dual-lens, ~180 stitched): good COVERAGE cam (driveway/yard), but weaker for
   detection (objects small/distorted on the ultra-wide frame; needs split config). Use single-
   lens (e.g. RLC-810A/820A/520A) as primary detection cams; at most one Duo for wide coverage.
+- Auto-tracking (PTZ): fixed cams for perimeter/entry (always see the whole scene); optionally ONE
+  PTZ for a wide area (long driveway/yard). Camera-native tracking works with any RTSP; Frigate-
+  driven `onvif_autotracking` needs proper ONVIF PTZ (Dahua/Amcrest more reliable than Reolink).
+- PORCH: previous owner left Arlo cameras -- NOT usable (cloud-locked, no RTSP/ONVIF, account-bound
+  to prev owner, likely battery). Retire them; reuse the LOCATION for a PoE ONVIF cam. Check
+  whether the ADT Cat5 reaches the porch when mapping the drops (see 5 item 0) -> wired feed + PoE.
 
 ### 6.4 Smart home (Matter/Thread)
 
