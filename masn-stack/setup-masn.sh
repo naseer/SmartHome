@@ -22,6 +22,7 @@ fi
 echo ">> [2/6] Create ${STACK_DIR} and copy configs (incl. dotfiles)"
 sudo mkdir -p "$STACK_DIR"
 sudo cp -r ./. "$STACK_DIR"/
+sudo chown -R "$USER:$(id -gn)" "$STACK_DIR"   # own it as the invoking user so `source .env` (600) works
 cd "$STACK_DIR"
 sudo mkdir -p homeassistant/config frigate/config mosquitto/config mosquitto/data mosquitto/log zigbee2mqtt/data
 
@@ -34,6 +35,7 @@ echo ">> [4/6] Create the Mosquitto user (${MQTT_USER})"
 sudo touch mosquitto/config/passwd
 sudo docker run --rm -v "${STACK_DIR}/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
   mosquitto_passwd -b /mosquitto/config/passwd "$MQTT_USER" "$MQTT_PASSWORD"
+sudo chmod 0700 mosquitto/config/passwd   # mosquitto 2.x warns (and will refuse) on world-readable passwd
 
 echo ">> [5/6] NAS SMB mounts via fstab (idempotent; nofail so boot survives NAS being down)"
 CREDS="/etc/samba/creds-nas"
