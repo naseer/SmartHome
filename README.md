@@ -9,23 +9,23 @@ house. Local-first, no-cloud-by-default, security-first. Reproducible infra in `
 ## Infrastructure layout
 
 ```
-                        3 Gbps fiber ONT
-                                 | (SFP+/10G handoff)
-                       [ UniFi UCG-Fiber ]            router + firewall/IDS + controller (10G SFP+ WAN)
-                                 | 10G SFP+ DAC
-                  [ UniFi USW-Pro-Max-16-PoE ]      VLANs + PoE  (2.5G ports + 10G SFP+)
+   FLOOR 2:  Cable modem (coax up from basement)   [later: 3 Gbps fiber ONT -> 10G SFP+ WAN]
+                                 | Ethernet WAN
+                       [ UniFi UDR7 ]              router + firewall/IDS + controller + Wi-Fi 7 (2.3G IDS)
+                                 | 2.5G LAN uplink DOWN to basement
+   BASEMENT:     [ UniFi USW-Pro-Max-16-PoE ]      VLANs + PoE  (2.5G ports + 10G SFP+)
    ______________________________|________________________________________________
   |          |          |            |           |              |                   |
- masn       NAS      Pi kiosk     4x PoE       PoE          3x U7 Pro AP         SLZB-06
-(server)  (storage)              cameras     doorbell      (Wi-Fi 7, 1/floor)   (Zigbee coord,
-  |          |                                              wired PoE backhaul)  central floor 1)
+ masn       NAS      Pi kiosk     4x PoE       PoE          2x U7 Pro AP         SLZB-06
+(server)  (storage)              cameras     doorbell      (Wi-Fi 7, wired PoE)  (Zigbee coord,
+  |          |                                              basement + main floor central floor 1)
   |          |                                                                    |
   +-- ZBT-2 (Thread Border Router, USB)                              Zigbee mesh (Z2M over TCP)
   +-- HD 630 iGPU (Frigate/OpenVINO detect)                          Thread mesh via 9 TP-Link
   +-- Docker: HA, Mosquitto, Postgres, (Frigate, Z2M)                  mains switches (routers)
 ```
 
-Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 retired (sold).
+Wi-Fi is served by the floor-2 UDR7's radio + 2 wired U7 Pro APs (basement + main floor), NOT the rack. ASUS BT10 retired (sold).
 
 ## Core components
 
@@ -34,9 +34,9 @@ Wi-Fi is served by the 3 ceiling APs (one per floor), NOT the rack. ASUS BT10 re
 | **masn** — OptiPlex 5050 SFF (i7-7700, 32 GB) | App server: Home Assistant, Frigate, MQTT, Postgres | Basement rack |
 | **NuTone IM-3303** + WiiM streamer | Whole-house audio (reused as-is; WiiM feeds its AUX; casting + HA) | Existing house wiring |
 | **NAS** — UGREEN DXP4800 Pro (ZFS) | Bulk storage: recordings, media, family Photos/Drive, backups; runs Jellyfin + Immich/Nextcloud | Basement rack |
-| **UCG-Fiber** | Router + firewall/IDS + UniFi controller | Basement rack |
-| **USW-Pro-Max-16-PoE** | Switching, VLANs, PoE (cameras + APs); 2.5G + 10G SFP+ | Basement rack |
-| **3× U7 Pro APs** | Wi-Fi 7, wired PoE backhaul | Ceiling, one per floor |
+| **UDR7 (Dream Router 7)** | Router + firewall/IDS + UniFi controller + Wi-Fi 7 radio (2.3G IDS) | Floor 2, at the modem (own UPS) |
+| **USW-Pro-Max-16-PoE** | Switching, VLANs, PoE (cameras + APs); 2.5G + 10G SFP+; 2.5G uplink to floor-2 gateway | Basement rack |
+| **2× U7 Pro APs** | Wi-Fi 7, wired PoE backhaul | Basement ceiling + main-floor wall |
 | **SLZB-06** | Zigbee coordinator (Zigbee2MQTT over TCP) | Central, floor 1 |
 | **ZBT-2** | Thread Border Router (HA/OTBR) | masn USB, basement |
 | **1500VA pure-sine UPS** | Powers everything incl. PoE (cameras/APs/internet ride outages) | Basement rack |

@@ -42,8 +42,11 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   and returned) → add 2nd 14 TB later for a mirror (btrfs add-drive→RAID1, in place). Frigate
   cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
-- **Network**: ALL-**UniFi** — UCG-Fiber gateway + USW-Pro-Max-16-PoE + 3× U7 Pro APs (wired PoE,
-  one/floor). ASUS BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
+- **Network**: ALL-**UniFi** — **UDR7** gateway on **floor 2** (at the existing modem; router +
+  firewall/IDS + controller + Wi-Fi 7 radio) + USW-Pro-Max-16-PoE (basement) + **2× U7 Pro** APs
+  (basement ceiling + main floor). UDR7's own radio covers floor 2 → 3 cells total (coverage-neutral
+  vs the old UCG-Fiber + 3-AP plan). Accepted 2.3 Gbps IDS cap; gateway on its own small floor-2 UPS;
+  2.5G LAN uplink down to the basement switch. ASUS BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
   Trusted / Cameras / IoT (Cameras+IoT firewalled off the NAS).
 - **Radios** (two, each dedicated): **SLZB-06** = Zigbee coordinator, network-attached, mounted
   CENTRAL on floor 1, Z2M over TCP (Ethernet + USB power; PoE later). **ZBT-2** = Thread Border
@@ -113,6 +116,6 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   tar-over-ssh, or enable UGOS's rsync service. NAS SMB shares: `media`, `personal_folder`
   (per-user home), `TimeMachine`, `masjidmapper`. NAS users: naseer(1000), jellyfin, zaid, masjidmapper.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
-- Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Fiber + 16-PoE + 3× U7 Pro),
+- Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UDR7 + 16-PoE + 2× U7 Pro) + small floor-2 UPS,
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
   Sinopé Zigbee thermostat, Aqara T2 + ThirdReality tilt sensor.
