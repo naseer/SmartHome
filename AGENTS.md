@@ -71,7 +71,16 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - **sudo on masn requires a password** → the user runs privileged commands or approves them.
 - Media library to preserve pre-wipe: `/local/mnt/workspace/naseer/jellyfin` (382 GB, on `sda`).
 
-## Phase 0 runbook (tomorrow)
+## Phase 0 runbook
+
+**BUILD STATUS 2026-07-06**: masn REIMAGED — clean **Ubuntu Server 24.04.4 LTS on the NEW 1TB
+NVMe** (`nvme0n1`, LVM/ext4); SATA in **AHCI**; worn SATA SSD pulled. **Core stack is UP**
+(Docker 29.6 CE from docker.com; HA + Mosquitto + Postgres running via `setup-masn.sh`). HA live
+at `http://192.168.50.50:8123` (onboarding). Internal secrets (PG/MQTT/Frigate) generated on-box
+into `/opt/stack/.env` (600). ONLY REMAINING masn step: set the NAS SMB password →
+`ssh -t masn 'bash ~/SmartHome/masn-stack/set-nas-password.sh'` (silent prompt → creds-nas +
+`mount -a`). Then: link Nabu Casa (user), enable Frigate/Z2M as hardware arrives. NOTE: user set
+**passwordless sudo temporarily** for setup — REVERT it when done.
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS
