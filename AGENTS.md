@@ -82,9 +82,12 @@ UGOS users — **`frigate`** (rw `frigate` share only) + **`masn`** (rw `backup`
 **NAS MOUNTS LIVE + VERIFIED (2026-07-06)**: `/mnt/nas/{frigate,backups,media}` all mounted rw via
 per-share creds (`creds-frigate`/`creds-masn`, 600 root); isolation confirmed — `frigate` creds are
 REJECTED by the `backup` + `media` shares. media shows ~382 GB used (library intact). Note: backups
-mountpoint is `/mnt/nas/backups` but the SHARE is `//NAS/backup` (singular). REMAINING: link Nabu
-Casa (user, HA UI); optional recorder→Postgres; enable Frigate/Z2M as hardware arrives. NOTE: user
-set **passwordless sudo temporarily** for setup — REVERT it when done.
+mountpoint is `/mnt/nas/backups` but the SHARE is `//NAS/backup` (singular). Nabu Casa LINKED (user).
+**Recorder→Postgres DONE + VERIFIED (2026-07-06)**: `recorder.db_url: !secret recorder_db_url` in
+configuration.yaml; the URL (`postgresql://hauser:***@127.0.0.1:5432/homeassistant`) lives in
+`config/secrets.yaml` (600); 13 HA tables created in the `homeassistant` DB, `states` growing.
+Orphaned `home-assistant_v2.db*` (SQLite) can be deleted. REMAINING: enable Frigate/Z2M as hardware
+arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT it when done.
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS

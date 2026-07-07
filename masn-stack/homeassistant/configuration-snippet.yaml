@@ -1,9 +1,17 @@
 # Paste into /opt/stack/homeassistant/config/configuration.yaml after HA's first run.
 # HA is network_mode host -> postgres + mosquitto are reachable on 127.0.0.1.
+#
+# The DB password stays OUT of this file: put the full URL in secrets.yaml (chmod 600) and
+# reference it with !secret. Build the secret on the box so the password never leaves masn, e.g.:
+#   set -a; . /opt/stack/.env; set +a
+#   echo "recorder_db_url: postgresql://${PG_USER}:${PG_PASSWORD}@127.0.0.1:5432/homeassistant" \
+#     | sudo tee -a /opt/stack/homeassistant/config/secrets.yaml >/dev/null
+#   sudo chmod 600 /opt/stack/homeassistant/config/secrets.yaml
+# (PG_* passwords are generated alphanumeric, so no URL-encoding is needed.)
 
 recorder:
-  db_url: postgresql://hauser:CHANGE_ME@127.0.0.1:5432/homeassistant
-  # purge_keep_days: 30   # optional: trim history
+  db_url: !secret recorder_db_url
+  purge_keep_days: 30   # trim history to 30 days
 
 # MQTT: easiest is the UI (Settings > Devices & Services > Add > MQTT, host 127.0.0.1:1883,
 # the MQTT_USER/MQTT_PASSWORD from .env). Or configure here with secrets:
