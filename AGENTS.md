@@ -126,8 +126,9 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - Needs `HA_TOKEN` in `/opt/stack/.env` (long-lived token, HA > Profile > Security). Set silently via
   `ssh -t masn 'bash ~/SmartHome/masn-stack/set-ha-token.sh'`. Chose SSH+API over an HA MCP server
   (MCP = device control, not config authoring). Starter package: `packages/system.yaml` (HA-start notice).
-- Voice assistant = separate track (HA Assist pipeline; plan Phase 7 local Orin whisper+Piper+Ollama,
-  or a cloud/Claude conversation agent). Not set up yet.
+- Voice assistant = DEFERRED to Phase 7 (Orin) per user (2026-07-07). Destination = fully-local Assist
+  pipeline on the Jetson Orin (whisper + Piper + Ollama via Wyoming); cloud/Claude agent considered but
+  not wanted now. Do NOT re-propose until the Orin is online.
 
 ## nas-stack (runs ON the UGOS NAS, not masn)
 
