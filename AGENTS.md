@@ -78,11 +78,13 @@ NVMe** (`nvme0n1`, LVM/ext4); SATA in **AHCI**; worn SATA SSD pulled. **Core sta
 (Docker 29.6 CE from docker.com; HA + Mosquitto + Postgres running via `setup-masn.sh`). HA live
 at `http://192.168.50.50:8123` (onboarding). Internal secrets (PG/MQTT/Frigate) generated on-box
 into `/opt/stack/.env` (600). NAS mounts use **PER-SHARE least-privilege creds** (§6.8): create two
-UGOS users — **`frigate`** (rw `frigate` share only) + **`masn`** (rw `backup` + `media`) — then
-set both passwords with `ssh -t masn 'bash ~/SmartHome/masn-stack/set-nas-password.sh'` (silent
-prompt → `creds-frigate`/`creds-masn` + `mount -a`). fstab already repointed. Then: link Nabu Casa
-(user), enable Frigate/Z2M as hardware arrives. NOTE: user set **passwordless sudo temporarily**
-for setup — REVERT it when done.
+UGOS users — **`frigate`** (rw `frigate` share only) + **`masn`** (rw `backup` + `media`).
+**NAS MOUNTS LIVE + VERIFIED (2026-07-06)**: `/mnt/nas/{frigate,backups,media}` all mounted rw via
+per-share creds (`creds-frigate`/`creds-masn`, 600 root); isolation confirmed — `frigate` creds are
+REJECTED by the `backup` + `media` shares. media shows ~382 GB used (library intact). Note: backups
+mountpoint is `/mnt/nas/backups` but the SHARE is `//NAS/backup` (singular). REMAINING: link Nabu
+Casa (user, HA UI); optional recorder→Postgres; enable Frigate/Z2M as hardware arrives. NOTE: user
+set **passwordless sudo temporarily** for setup — REVERT it when done.
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS
