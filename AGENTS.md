@@ -146,9 +146,12 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - **Jellyfin media** → **Tailscale** (NAS node; standalone app Nabu Casa can't proxy). Family via
   Tailscale node SHARING (keeps them off your seat limit) + ACL to `nas:8096` + per-user Jellyfin
   accounts. Caveat: each remote device needs the Tailscale app; remote smart-TVs are the exception.
-- **SSH/admin to masn/NAS** → **Tailscale**. masn: pkg installed, IP-forward on; run
-  `sudo tailscale up --ssh [--advertise-routes=192.168.50.0/24]` then approve route + disable key
-  expiry in the admin console.
+- **SSH/admin to masn/NAS** → **Tailscale**. masn UP (2026-07-07): tailnet IP `100.83.165.11`,
+  **subnet router `192.168.50.0/24` approved + active** (whole LAN reachable via masn), Tailscale
+  SSH on, IP-forwarding persistent, `ethtool` UDP-GRO tune APPLIED + persisted (tailscale-ethtool.service).
+  NOT an exit node (subnet router suffices for reaching home devices; add `--advertise-exit-node` only
+  to route internet through home). TODO: disable key expiry for masn in the admin console. NAS will get
+  its OWN TS node later for direct remote Jellyfin (see nas-stack).
 
 ## Conventions (also see `~/.claude/CLAUDE.md`)
 
