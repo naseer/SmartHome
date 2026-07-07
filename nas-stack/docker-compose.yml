@@ -1,0 +1,55 @@
+# nas-stack/docker-compose.yml -- runs ON THE UGREEN NAS (UGOS Docker), NOT on masn.
+# Two services: Jellyfin (media + Quick Sync) and Tailscale (secure remote access for family).
+#
+# HOW TO DEPLOY ON UGOS:
+#   - If UGOS Docker has "Projects"/compose: import this file, fill nas-stack/.env, deploy.
+#   - Otherwise recreate the two containers in the UGOS Docker GUI with the SAME
+#     image / network / volumes / devices / environment shown below.
+#
+# PATHS: replace /volume1/... with your real UGOS volume paths (see the Files app / share
+#   properties). The media share is mounted READ-ONLY into Jellyfin.
+# PERMISSIONS: the 382 GB library was written as 'naseer' -> set PUID/PGID to a NAS account
+#   that can READ it, or Jellyfin shows an empty library.
+# REMOTE ACCESS MODEL:
+#   - Cameras/HA are reached remotely via Nabu Casa (NOT here).
+#   - Jellyfin is a standalone app -> reached remotely via THIS Tailscale node at nas:8096.
+
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest   # LinuxServer image = clean PUID/PGID on a NAS
+    container_name: jellyfin
+    network_mode: host                # Jellyfin on :8096 (also eases DLNA discovery on-LAN)
+    devices:
+      - /dev/dri:/dev/dri             # Intel i3-1315U iGPU -> Quick Sync HW transcode
+    group_add:
+      - "989"                         # RENDER group GID -- CONFIRM: `getent group render | cut -d: -f3`
+    environment:
+      - PUID=1000                     # a NAS user that can READ the media share (e.g. naseer=1000)
+      - PGID=1000
+      - TZ=America/Toronto
+    volumes:
+      - /volume1/docker/jellyfin/config:/config
+      - /volume1/media:/data/media:ro # LOCAL media, READ-ONLY (replace with your media share path)
+    restart: unless-stopped
+    # After start: http://192.168.50.49:8096 -> add library at /data/media ->
+    #   Dashboard > Playback > Hardware acceleration = Intel QuickSync (VAAPI), device /dev/dri/renderD128.
+    # Create a Jellyfin USER ACCOUNT per family member (per-library perms + parental controls).
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: nas                     # -> MagicDNS name 'nas' -> family points Jellyfin at http://nas:8096
+    network_mode: host
+    cap_add:
+      - NET_ADMIN                     # required for WireGuard
+    devices:
+      - /dev/net/tun                  # kernel networking (faster than userspace fallback)
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_AUTHKEY=${TS_AUTHKEY}      # admin console > Settings > Keys (SECRET -> nas-stack/.env)
+      - TS_EXTRA_ARGS=--advertise-tags=tag:media   # lets the ACL scope family to this node only
+    volumes:
+      - /volume1/docker/tailscale:/var/lib/tailscale   # persists the node identity across restarts
+    restart: unless-stopped
+    # Then in the admin console: Machines > nas > Share -> send each family member an invite link.
+    # Apply nas-stack/tailscale-acl.hujson so group:family can only reach tag:media:8096.

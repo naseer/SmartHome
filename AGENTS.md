@@ -112,6 +112,26 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - `.env.example` → copy to `.env`, fill, `chmod 600` (gitignored). Never commit real secrets.
 - `copy-media.sh`, `setup-masn.sh`: review before running; need sudo. Idempotent-ish.
 
+## nas-stack (runs ON the UGOS NAS, not masn)
+
+- `nas-stack/docker-compose.yml`: **Jellyfin** (media + `/dev/dri` Quick Sync, reads media LOCALLY
+  read-only) + **Tailscale** (container: host net + NET_ADMIN + `/dev/net/tun`; MagicDNS `nas`).
+  Deploy via UGOS Docker (Projects/compose if available, else recreate in the GUI).
+- `nas-stack/tailscale-acl.hujson`: sample ACL restricting `group:family` to `tag:media:8096` only.
+- `nas-stack/.env`: holds `TS_AUTHKEY` (gitignored). Jellyfin PUID/PGID must read the media share.
+
+## Remote-access architecture (three lanes)
+
+- **Cameras + smart home + HA** → **Nabu Casa** (linked). Frigate surfaces cameras INSIDE HA, so
+  Nabu Casa proxies live view/events/clips remotely -- no Tailscale needed. Use camera SUB-stream
+  for smooth remote live. Cameras stay firewalled (never internet-exposed).
+- **Jellyfin media** → **Tailscale** (NAS node; standalone app Nabu Casa can't proxy). Family via
+  Tailscale node SHARING (keeps them off your seat limit) + ACL to `nas:8096` + per-user Jellyfin
+  accounts. Caveat: each remote device needs the Tailscale app; remote smart-TVs are the exception.
+- **SSH/admin to masn/NAS** → **Tailscale**. masn: pkg installed, IP-forward on; run
+  `sudo tailscale up --ssh [--advertise-routes=192.168.50.0/24]` then approve route + disable key
+  expiry in the admin console.
+
 ## Conventions (also see `~/.claude/CLAUDE.md`)
 
 - **Secrets**: never commit. `.env` gitignored; `.env.example` committed with placeholders. Same

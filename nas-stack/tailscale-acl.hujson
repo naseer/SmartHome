@@ -1,0 +1,42 @@
+// Sample Tailscale ACL for the SmartHome tailnet (paste into admin console > Access Controls).
+// Goal: family can reach ONLY Jellyfin on the NAS (tag:media, port 8096) -- nothing else on the
+// tailnet (not UGOS admin :9999, not SSH, not masn). Your own devices keep full access.
+//
+// Model: family members are added via node SHARING (they stay on their own free tailnets), OR as
+// listed users below. Either way these grants gate what they can reach. Adjust emails/paths, then
+// tune in the admin console -- this is a starting point.
+{
+  "tagOwners": {
+    "tag:media": ["autogroup:admin"],
+  },
+
+  "groups": {
+    // Family members' Tailscale logins (their own accounts). Add/remove as needed.
+    "group:family": ["family1@example.com", "family2@example.com"],
+  },
+
+  "grants": [
+    // Your own devices (tailnet members): full access to everything.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["*"],
+      "ip":  ["*"],
+    },
+    // Family: ONLY Jellyfin on the NAS. No admin UI, no SSH, no other host.
+    {
+      "src": ["group:family"],
+      "dst": ["tag:media"],
+      "ip":  ["tcp:8096"],
+    },
+  ],
+
+  // Tailscale SSH: let your own devices SSH to your own devices; family gets none.
+  "ssh": [
+    {
+      "action": "check",
+      "src":    ["autogroup:member"],
+      "dst":    ["autogroup:self"],
+      "users":  ["autogroup:nonroot", "root"],
+    },
+  ],
+}
