@@ -115,6 +115,20 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - `.env.example` → copy to `.env`, fill, `chmod 600` (gitignored). Never commit real secrets.
 - `copy-media.sh`, `setup-masn.sh`: review before running; need sudo. Idempotent-ish.
 
+## HA automations-as-code (SSH + API, NOT MCP)
+
+- Author automations/scripts/templates as YAML in `masn-stack/homeassistant/packages/` (version
+  controlled). configuration.yaml has `homeassistant: packages: !include_dir_named packages/`.
+  UI-created automations still live in `automations.yaml` and coexist.
+- Deploy: `rsync -az masn-stack/homeassistant/packages/ masn:/opt/stack/homeassistant/config/packages/`
+- Apply: `ssh masn 'bash ~/SmartHome/masn-stack/homeassistant/ha-reload.sh'` (check_config + reload_all;
+  hot-reloads automations/scripts -- a NEW package file or integration needs `docker restart homeassistant`).
+- Needs `HA_TOKEN` in `/opt/stack/.env` (long-lived token, HA > Profile > Security). Set silently via
+  `ssh -t masn 'bash ~/SmartHome/masn-stack/set-ha-token.sh'`. Chose SSH+API over an HA MCP server
+  (MCP = device control, not config authoring). Starter package: `packages/system.yaml` (HA-start notice).
+- Voice assistant = separate track (HA Assist pipeline; plan Phase 7 local Orin whisper+Piper+Ollama,
+  or a cloud/Claude conversation agent). Not set up yet.
+
 ## nas-stack (runs ON the UGOS NAS, not masn)
 
 - `nas-stack/docker-compose.yml`: **Jellyfin** (media + `/dev/dri` Quick Sync, reads media LOCALLY

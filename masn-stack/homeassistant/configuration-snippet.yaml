@@ -13,6 +13,11 @@ recorder:
   db_url: !secret recorder_db_url
   purge_keep_days: 30   # trim history to 30 days
 
+# Automations-as-code: load version-controlled package files (see masn-stack/homeassistant/packages/).
+# UI-created automations still live in automations.yaml and coexist with these.
+homeassistant:
+  packages: !include_dir_named packages/
+
 # MQTT: easiest is the UI (Settings > Devices & Services > Add > MQTT, host 127.0.0.1:1883,
 # the MQTT_USER/MQTT_PASSWORD from .env). Or configure here with secrets:
 # mqtt:

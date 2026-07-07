@@ -1,0 +1,26 @@
+# packages/system.yaml -- system-level automations (NO device dependencies).
+#
+# Automations-as-CODE: authored here (version-controlled), deployed to the live HA config, then
+# hot-reloaded via HA's API. NOT edited in the UI (UI automations live in automations.yaml and
+# coexist with these packages).
+#
+# WORKFLOW (from the Mac + masn):
+#   1. edit/add a package file here
+#   2. deploy:  rsync -az masn-stack/homeassistant/packages/ masn:/opt/stack/homeassistant/config/packages/
+#   3. apply:   ssh masn 'bash ~/SmartHome/masn-stack/homeassistant/ha-reload.sh'   (validates + reloads)
+# Adding a NEW package file or a new integration needs ONE `sudo docker restart homeassistant`;
+# editing automations/scripts inside existing packages hot-reloads with no restart.
+
+automation:
+  - id: system_notify_ha_started
+    alias: "System: notify on HA start"
+    mode: single
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - service: persistent_notification.create
+        data:
+          notification_id: ha_started
+          title: "Home Assistant started"
+          message: "Started at {{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
