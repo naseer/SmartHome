@@ -228,7 +228,9 @@ Per-level AP placement (matched to the existing wall jacks):
 - Floor 1 (main / Kitchen): U7 Pro WALL at the existing MID-HEIGHT jack.
 - Floor 2 (upper): U7 Pro WALL at a wall jack, backhauled over COAX/MoCA (no Cat6 path up -- see the
   MoCA option below). This is floor 2's only radio (the UCG-Fiber gateway is in the basement rack and
-  has no Wi-Fi).
+  has no Wi-Fi). PLACE IT ON THE FRONT WALL (a front bedroom with a coax jack for the MoCA feed): from
+  up high it doubles as the AP covering the 3 FRONT Wi-Fi cameras (garage/porch/doorbell) below/outside
+  -- better line-of-sight than the floor-1 AP. Aim the directional Wall AP toward the front.
 
 GATEWAY CHOICE = UCG-Fiber, in the BASEMENT rack. CHOSEN over UCG-Max ($199) for the 3 Gbps FIBER
 plan: 10G SFP+ WAN takes the fiber ONT handoff; 5 Gbps IDS/IPS delivers the full 3G with security
@@ -378,9 +380,11 @@ Camera notes (Frigate):
   on the soffit outlet = PRIMARY front DETECTION; (3) DOORBELL = Reolink Video Doorbell WiFi (see
   doorbell row). All via go2rtc on the Cameras VLAN. Old Arlos retired (cloud-locked, account-bound).
   WI-FI LOAD (watch this): 3 Wi-Fi cams at the front, and the Duo counts double (dual-lens, high
-  bitrate) -- past Frigate's "a couple" comfort zone. The floor-1 AP MUST cover the front wall +
-  garage strongly (place it toward the front; use 5 GHz where range allows). Marginal Wi-Fi here =
-  dropped streams + Frigate gaps. If it struggles, move the Duo to wired PoE or split its lenses.
+  bitrate) -- past Frigate's "a couple" comfort zone. The FLOOR-2 AP (front bedroom, high on the
+  front wall) is best placed to blanket all three -- it sits above/behind the porch/garage/door with
+  near line-of-sight down onto them (beats the floor-1 AP). U7 Pro Wall is DIRECTIONAL -> aim its
+  coverage toward the front exterior; use 5 GHz where range allows. Marginal Wi-Fi here = dropped
+  streams + Frigate gaps. If it struggles, move the Duo to wired PoE or split its lenses.
   FLOODLIGHT: automate in HA -- Frigate person/motion detect -> turn the Duo's floodlight ON.
 - DOORBELL <-> NuTone: the NuTone intercom DOOR STATION is retired (user OK); the Reolink doorbell is
   the button + camera + two-way talk. Mount it on a NuTone-intercom adapter plate (see BoM; measure
