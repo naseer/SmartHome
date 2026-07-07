@@ -351,26 +351,36 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
-| PoE exterior camera (RTSP/ONVIF) | 4 | $90 | $360 | PoE (NOT battery/Wi-Fi); must have main+sub dual-stream + H.265. Amcrest/Dahua-OEM = most reliable RTSP; Reolink OK via go2rtc restream (see notes). Avoid cloud-locked |
-| PoE video doorbell | 1 | $100 | $100 | RTSP, Frigate-friendly, two-way talk |
-| | | | **~$460** | |
+| PoE exterior camera (RTSP/ONVIF) | 3 | $90 | $270 | PoE where Ethernet is reachable; must have main+sub dual-stream + H.265. Amcrest/Dahua-OEM = most reliable RTSP; Reolink OK via go2rtc restream (see notes). Avoid cloud-locked |
+| Wi-Fi exterior camera -- FRONT PORCH (RTSP) | 1 | $100 | $100 | Mains Wi-Fi (soffit OUTLET present; NO Ethernet/coax to the porch). Reolink RLC-810WA (4K) / RLC-511WA (5MP) or Amcrest Wi-Fi; RTSP + dual-stream via go2rtc, Cameras VLAN. Soffit = high, weather-protected. NEEDS solid front-of-house AP coverage |
+| Wi-Fi video doorbell -- FRONT DOOR (RTSP) | 1 | $100 | $100 | Reolink Video Doorbell WiFi -- REPLACES the existing NuTone intercom DOOR STATION. RTSP + Frigate + two-way talk. Replaces the planned PoE doorbell (no Ethernet to the front). Power: existing doorbell transformer if 12-24V AC present, else a plug-in transformer off the soffit outlet OR the battery version |
+| NuTone-intercom doorbell adapter plate | 1 | $20 | $20 | Covers the old NuTone door-station cutout + mounts the Reolink. Kyle Switch Plates / DoorBell Mount (custom for Reolink), or a blank oversize plate + Reolink backplate. MEASURE the box screw spacing first (4/4.5/5.25/6.25/6.58") |
+| | | | **~$490** | |
 
 Camera notes (Frigate):
 - Reolink works but its RTSP is finicky and some models cap simultaneous connections -> always
   pull through go2rtc (restreams one connection to detect/record/live). Amcrest/Dahua-OEM are
   the more bulletproof RTSP choice if you want zero fuss.
 - Require dual-stream (detect on substream, record on mainstream -- the storage design depends
-  on it) and H.265 (to hit ~4 Mbps/cam sizing). PoE only; battery/Wi-Fi cams are unfit for
-  continuous recording.
+  on it) and H.265 (to hit ~4 Mbps/cam sizing). Prefer PoE. EXCEPTION: a MAINS-powered Wi-Fi RTSP
+  cam is fine for a hard-to-wire spot that HAS power (see porch) -- keep it to a couple; Wi-Fi
+  streams are less reliable than wired. BATTERY Wi-Fi cams remain unfit (no continuous RTSP).
 - Reolink Duo 2V (dual-lens, ~180 stitched): good COVERAGE cam (driveway/yard), but weaker for
   detection (objects small/distorted on the ultra-wide frame; needs split config). Use single-
   lens (e.g. RLC-810A/820A/520A) as primary detection cams; at most one Duo for wide coverage.
 - Auto-tracking (PTZ): fixed cams for perimeter/entry (always see the whole scene); optionally ONE
   PTZ for a wide area (long driveway/yard). Camera-native tracking works with any RTSP; Frigate-
   driven `onvif_autotracking` needs proper ONVIF PTZ (Dahua/Amcrest more reliable than Reolink).
-- PORCH: previous owner left Arlo cameras -- NOT usable (cloud-locked, no RTSP/ONVIF, account-bound
-  to prev owner, likely battery). Retire them; reuse the LOCATION for a PoE ONVIF cam. Check
-  whether the ADT Cat5 reaches the porch when mapping the drops (see 5 item 0) -> wired feed + PoE.
+- FRONT PORCH (DECIDED): NO Ethernet/coax reachable and not running exterior wiring now, but POWER
+  is present -> mains Wi-Fi RTSP cam on the SOFFIT OUTLET (Reolink RLC-810WA / Amcrest Wi-Fi) + a
+  Wi-Fi video doorbell on the existing doorbell transformer (Reolink Video Doorbell WiFi). Both via
+  go2rtc on the Cameras VLAN. Old Arlos retired (cloud-locked, account-bound to prev owner). ENSURE
+  the floor-1 AP covers the front of the house, or the two Wi-Fi streams will drop.
+- DOORBELL <-> NuTone: the NuTone intercom DOOR STATION is retired (user OK); the Reolink doorbell is
+  the button + camera + two-way talk. Mount it on a NuTone-intercom adapter plate (see BoM; measure
+  the box screw spacing first). Chime the WHOLE HOUSE via HA: doorbell-press event -> HA automation ->
+  WiiM -> NuTone AUX plays a chime/announcement over the existing speakers. Keep the IM-3303 for
+  music + room-to-room intercom (see 6.5). The two systems don't integrate electrically -- HA bridges them.
 
 ### 6.4 Smart home (Matter/Thread)
 
@@ -683,13 +693,13 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$5,100** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
+Approx. **$5,130** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
 worn out (Media_Wearout=001), retire it; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber gateway (basement) + 16-PoE switch + 3x U7 Pro
 APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$1,320 net after BT10 resale, all-UniFi w/ UCG-Fiber for full 3G + floor-2 MoCA kit), NAS (~$1,150, DXP4800 Pro
-4-bay starting 2x14 TB), rack + power (~$590), cameras (~$460), and audio (~$115 -- NuTone reused
+4-bay starting 2x14 TB), rack + power (~$590), cameras (~$490 -- 3 PoE + porch Wi-Fi cam + Wi-Fi doorbell + NuTone adapter plate), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
 BT10 offsets ~$400 of the UniFi switch-over. Bulk storage + Jellyfin on the UGREEN NAS (mirror, 2
