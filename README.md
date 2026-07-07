@@ -16,8 +16,8 @@ house. Local-first, no-cloud-by-default, security-first. Reproducible infra in `
                   [ UniFi USW-Pro-Max-16-PoE ]      VLANs + PoE  (2.5G ports + 10G SFP+)
    ______________________________|________________________________________________
   |          |          |            |           |              |                   |
- masn       NAS      Pi kiosk     3x PoE     front Wi-Fi:   3x U7 Pro AP         SLZB-06
-(server)  (storage)              cameras   cam + doorbell  (one per level;      (Zigbee coord,
+ masn       NAS      Pi kiosk     2x PoE     front Wi-Fi:   3x U7 Pro AP         SLZB-06
+(server)  (storage)              cameras   2 cams+doorbell (one per level;      (Zigbee coord,
   |          |                                              floor 2 via MoCA)    central floor 1)
   |          |                                                                    |
   +-- ZBT-2 (Thread Border Router, USB)                              Zigbee mesh (Z2M over TCP)
