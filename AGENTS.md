@@ -77,10 +77,12 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 NVMe** (`nvme0n1`, LVM/ext4); SATA in **AHCI**; worn SATA SSD pulled. **Core stack is UP**
 (Docker 29.6 CE from docker.com; HA + Mosquitto + Postgres running via `setup-masn.sh`). HA live
 at `http://192.168.50.50:8123` (onboarding). Internal secrets (PG/MQTT/Frigate) generated on-box
-into `/opt/stack/.env` (600). ONLY REMAINING masn step: set the NAS SMB password →
-`ssh -t masn 'bash ~/SmartHome/masn-stack/set-nas-password.sh'` (silent prompt → creds-nas +
-`mount -a`). Then: link Nabu Casa (user), enable Frigate/Z2M as hardware arrives. NOTE: user set
-**passwordless sudo temporarily** for setup — REVERT it when done.
+into `/opt/stack/.env` (600). NAS mounts use **PER-SHARE least-privilege creds** (§6.8): create two
+UGOS users — **`svc-frigate`** (rw `frigate` only) + **`svc-masn`** (rw `backups` + `media`) — then
+set both passwords with `ssh -t masn 'bash ~/SmartHome/masn-stack/set-nas-password.sh'` (silent
+prompt → `creds-frigate`/`creds-masn` + `mount -a`). fstab already repointed. Then: link Nabu Casa
+(user), enable Frigate/Z2M as hardware arrives. NOTE: user set **passwordless sudo temporarily**
+for setup — REVERT it when done.
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS

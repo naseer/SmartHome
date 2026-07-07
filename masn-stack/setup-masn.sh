@@ -37,25 +37,31 @@ sudo docker run --rm -v "${STACK_DIR}/mosquitto/config:/mosquitto/config" eclips
   mosquitto_passwd -b /mosquitto/config/passwd "$MQTT_USER" "$MQTT_PASSWORD"
 sudo chmod 0700 mosquitto/config/passwd   # mosquitto 2.x warns (and will refuse) on world-readable passwd
 
-echo ">> [5/6] NAS SMB mounts via fstab (idempotent; nofail so boot survives NAS being down)"
-CREDS="/etc/samba/creds-nas"
-if [ ! -f "$CREDS" ]; then
-  sudo mkdir -p /etc/samba
-  printf 'username=%s\npassword=%s\n' "$NAS_SMB_USER" "$NAS_SMB_PASSWORD" | sudo tee "$CREDS" >/dev/null
-  sudo chmod 600 "$CREDS"
-fi
-OPTS="credentials=${CREDS},uid=$(id -u),gid=$(id -g),file_mode=0664,dir_mode=0775,vers=3.1.1,_netdev,nofail"
+echo ">> [5/6] NAS SMB mounts via fstab (PER-SHARE creds; nofail so boot survives NAS being down)"
+# Least privilege: svc-frigate can reach ONLY the frigate/recordings share; svc-masn holds
+# backups + media. Each mount points at its own credentials file.
+COMMON="uid=$(id -u),gid=$(id -g),file_mode=0664,dir_mode=0775,vers=3.1.1,_netdev,nofail"
+sudo mkdir -p /etc/samba
+write_creds() {  # $1=path $2=user $3=password ; idempotent (leave existing files alone)
+  [ -f "$1" ] && return 0
+  printf 'username=%s\npassword=%s\n' "$2" "$3" | sudo tee "$1" >/dev/null
+  sudo chmod 600 "$1"
+}
+write_creds /etc/samba/creds-frigate "$NAS_FRIGATE_SMB_USER" "$NAS_FRIGATE_SMB_PASSWORD"
+write_creds /etc/samba/creds-masn    "$NAS_MASN_SMB_USER"    "$NAS_MASN_SMB_PASSWORD"
+# mountpoint -> "share creds-file"
 declare -A MOUNTS=(
-  ["/mnt/nas/backups"]="${NAS_BACKUPS_SHARE}"
-  ["/mnt/nas/frigate"]="${NAS_FRIGATE_SHARE}"
-  ["/mnt/nas/media"]="${NAS_MEDIA_SHARE}"
+  ["/mnt/nas/frigate"]="${NAS_FRIGATE_SHARE} /etc/samba/creds-frigate"
+  ["/mnt/nas/backups"]="${NAS_BACKUPS_SHARE} /etc/samba/creds-masn"
+  ["/mnt/nas/media"]="${NAS_MEDIA_SHARE} /etc/samba/creds-masn"
 )
 for mp in "${!MOUNTS[@]}"; do
+  read -r share creds <<< "${MOUNTS[$mp]}"
   sudo mkdir -p "$mp"
-  line="//${NAS_IP}/${MOUNTS[$mp]} ${mp} cifs ${OPTS} 0 0"
+  line="//${NAS_IP}/${share} ${mp} cifs credentials=${creds},${COMMON} 0 0"
   grep -qF " ${mp} " /etc/fstab || echo "$line" | sudo tee -a /etc/fstab > /dev/null
 done
-sudo mount -a || echo "   (NAS not reachable yet -- nofail means it retries on boot)"
+sudo mount -a || echo "   (NAS not reachable / passwords unset -- nofail means it retries on boot)"
 
 echo ">> [6/6] Bring up the CORE stack (HA + Mosquitto + Postgres)"
 sudo docker compose up -d homeassistant mosquitto postgres
