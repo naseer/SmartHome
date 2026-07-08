@@ -358,7 +358,8 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | Wi-Fi DETECTION cam -- FRONT PORCH (RTSP) | 1 | $100 | $100 | Reolink RLC-810WA (single-lens, 4K) on the soffit OUTLET = PRIMARY front detection (person/package). RTSP + dual-stream via go2rtc, Cameras VLAN |
 | Wi-Fi video doorbell -- FRONT DOOR (RTSP) | 1 | $100 | $100 | Reolink Video Doorbell WiFi -- REPLACES the existing NuTone intercom DOOR STATION. RTSP + Frigate + two-way talk. Replaces the planned PoE doorbell (no Ethernet to the front). Power: existing doorbell transformer if 12-24V AC present, else a plug-in transformer off the soffit outlet OR the battery version |
 | NuTone-intercom doorbell adapter plate | 1 | $20 | $20 | Covers the old NuTone door-station cutout + mounts the Reolink. Kyle Switch Plates / DoorBell Mount (custom for Reolink), or a blank oversize plate + Reolink backplate. MEASURE the box screw spacing first (4/4.5/5.25/6.25/6.58") |
-| | | | **~$550** | |
+| Wi-Fi PTZ auto-track cam (RTSP) -- wide area | 1 | $170 | $170 | Reolink TrackMix WiFi (dual-lens: wide + telephoto, camera-native auto-track). COMPLEMENTS the fixed cams (don't let it replace an entry cam -- PTZ may be panned away). In Frigate = TWO cameras via go2rtc: WIDE (h265Preview_01) = detect + full-scene record; TELE (h264Preview_02) = auto-tracked close-up record. Use CAMERA-NATIVE tracking, NOT Frigate onvif_autotrack (Reolink ONVIF flaky). HIGH Wi-Fi load (2 lenses) -> needs a strong AP; get TrackMix POE if the spot can be wired (MoCA->injector) |
+| | | | **~$720** | |
 
 Camera notes (Frigate):
 - Reolink works but its RTSP is finicky and some models cap simultaneous connections -> always
@@ -703,13 +704,13 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$5,190** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
+Approx. **$5,360** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
 worn out (Media_Wearout=001), retire it; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber gateway (basement) + 16-PoE switch + 3x U7 Pro
 APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$1,320 net after BT10 resale, all-UniFi w/ UCG-Fiber for full 3G + floor-2 MoCA kit), NAS (~$1,150, DXP4800 Pro
-4-bay starting 2x14 TB), rack + power (~$590), cameras (~$550 -- 2 PoE + garage Duo Floodlight + porch detection cam + Wi-Fi doorbell + NuTone plate), and audio (~$115 -- NuTone reused
+4-bay starting 2x14 TB), rack + power (~$590), cameras (~$720 -- 2 PoE + garage Duo + porch cam + Wi-Fi doorbell + NuTone plate + TrackMix WiFi PTZ), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
 monitors, the existing 1TB SSD, the iGPU for detection, and the Orin avoids ~$720+; selling the
 BT10 offsets ~$400 of the UniFi switch-over. Bulk storage + Jellyfin on the UGREEN NAS (mirror, 2
