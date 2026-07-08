@@ -1,0 +1,18 @@
+# Jellyfin on the UGOS NAS -- import this in the UGOS Docker app (Project/Compose import).
+# Official image runs as ROOT, so /dev/dri (Quick Sync) + the 0777 /volume1/media just work
+# (no PUID/PGID/group_add needed). All paths are the confirmed on-NAS paths.
+# Deployed to the NAS at /volume1/docker/jellyfin-compose.yml.
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    network_mode: host          # binds :8096 on the NAS directly (no port mapping)
+    devices:
+      - /dev/dri:/dev/dri       # Intel i3-1315U iGPU -> hardware transcode (renderD128)
+    volumes:
+      - /volume1/docker/jellyfin/config:/config
+      - /volume1/docker/jellyfin/cache:/cache
+      - /volume1/media:/media:ro   # LOCAL media, read-only
+    environment:
+      - TZ=America/Toronto
+    restart: unless-stopped
