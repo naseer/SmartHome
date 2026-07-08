@@ -22,11 +22,12 @@
       "dst": ["*"],
       "ip":  ["*"],
     },
-    // Family: ONLY Jellyfin on the NAS. No admin UI, no SSH, no other host.
+    // Family: the NAS only -- Jellyfin (8096) + SMB file access (445) for their storage.
+    // No other host on the tailnet, no SSH. (Add the UGOS web-UI port here if you want them the app.)
     {
       "src": ["group:family"],
       "dst": ["tag:media"],
-      "ip":  ["tcp:8096"],
+      "ip":  ["tcp:8096", "tcp:445"],
     },
   ],
 

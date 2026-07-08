@@ -135,8 +135,20 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - `nas-stack/docker-compose.yml`: **Jellyfin** (media + `/dev/dri` Quick Sync, reads media LOCALLY
   read-only) + **Tailscale** (container: host net + NET_ADMIN + `/dev/net/tun`; MagicDNS `nas`).
   Deploy via UGOS Docker (Projects/compose if available, else recreate in the GUI).
-- `nas-stack/tailscale-acl.hujson`: sample ACL restricting `group:family` to `tag:media:8096` only.
-- `nas-stack/.env`: holds `TS_AUTHKEY` (gitignored). Jellyfin PUID/PGID must read the media share.
+- `nas-stack/tailscale-acl.hujson`: sample ACL scoping `group:family` to the NAS node only (Jellyfin
+  8096 + SMB 445 for family storage; add the UGOS web port if wanted). Free tier covers ACLs + sharing.
+- `nas-stack/.env`: holds `TS_AUTHKEY` (gitignored).
+- **NAS IS A SEALED APPLIANCE**: SSH-as-`naseer` CANNOT `sudo` and Docker isn't on its PATH -> all NAS
+  installs are done in the **UGOS WEB UI** (I supply values, user clicks). Confirmed on-box: media =
+  `/volume1/media` (0777, so any uid reads), Quick Sync = `/dev/dri/renderD128` render GID **105**,
+  video GID 44; no `/volume1/docker` yet -> create a `docker` shared folder in UGOS first. Jellyfin =
+  official `jellyfin/jellyfin` (runs as root -> /dev/dri + 0777 media just work) OR LinuxServer image
+  with `group_add 105`. Point library at `/data/media`; enable Intel QuickSync in Playback settings.
+- **FAMILY on the NAS (two wants)**: (1) Jellyfin streaming, (2) storage for their personal accounts.
+  Plan: create a UGOS USER ACCOUNT per member (+ private/home folder + shared folders) -- UGOS enforces
+  per-user perms; install Tailscale on the NAS + NODE-SHARE it to each member (keeps them OFF the subnet
+  route / rest of the LAN); ACL allows family -> NAS on 8096 (Jellyfin) + 445 (SMB). Access = Jellyfin
+  app + Finder/Explorer SMB to the NAS tailscale IP. No UGREENlink cloud.
 
 ## Remote-access architecture (three lanes)
 

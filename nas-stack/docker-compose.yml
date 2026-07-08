@@ -22,14 +22,14 @@ services:
     devices:
       - /dev/dri:/dev/dri             # Intel i3-1315U iGPU -> Quick Sync HW transcode
     group_add:
-      - "989"                         # RENDER group GID -- CONFIRM: `getent group render | cut -d: -f3`
+      - "105"                         # RENDER group GID on this NAS (getent group render) -> /dev/dri access
     environment:
-      - PUID=1000                     # a NAS user that can READ the media share (e.g. naseer=1000)
-      - PGID=1000
+      - PUID=1000                     # naseer; media is 0777 so any uid reads fine
+      - PGID=100                      # users group (owns the media contents)
       - TZ=America/Toronto
     volumes:
       - /volume1/docker/jellyfin/config:/config
-      - /volume1/media:/data/media:ro # LOCAL media, READ-ONLY (replace with your media share path)
+      - /volume1/media:/data/media:ro # LOCAL media (confirmed path), READ-ONLY
     restart: unless-stopped
     # After start: http://192.168.50.49:8096 -> add library at /data/media ->
     #   Dashboard > Playback > Hardware acceleration = Intel QuickSync (VAAPI), device /dev/dri/renderD128.
