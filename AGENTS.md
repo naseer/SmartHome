@@ -149,6 +149,14 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
   `/volume1/docker/jellyfin/`). Listening :8096 (HTTP /health 200), library visible (Movies/Shows/
   Series/...), iGPU passed through. USER TODO: http://192.168.50.49:8096 wizard -> add libraries at
   `/media/*` -> Dashboard > Playback > enable Intel QuickSync (renderD128).
+- **Tailscale on NAS DEPLOYED (2026-07-08)**: container `tailscale` (host net, NET_ADMIN, /dev/net/tun,
+  state `/volume1/docker/tailscale`), authed via **auth key** in `/volume1/docker/tailscale.env` (600).
+  Node = **`nas` / 100.119.77.58**. Verified from masn: `tailscale ping` 1ms + Jellyfin HTTP 200 at
+  `nas:8096` and the 100.x IP. So **remote Jellyfin works now** -> `http://nas:8096` from any tailnet
+  device. Compose ref: `nas-stack/tailscale-compose.yml` (jellyfin = `jellyfin-compose.yml`; both are
+  the AS-DEPLOYED files -- `docker-compose.yml` is the older combined illustration). LESSON: a headless
+  TS container MUST use TS_AUTHKEY (interactive login races the restart loop -> regenerates the URL).
+  TODO: disable key expiry for `nas` in the admin console.
 - **FAMILY on the NAS (two wants)**: (1) Jellyfin streaming, (2) storage for their personal accounts.
   Plan: create a UGOS USER ACCOUNT per member (+ private/home folder + shared folders) -- UGOS enforces
   per-user perms; install Tailscale on the NAS + NODE-SHARE it to each member (keeps them OFF the subnet

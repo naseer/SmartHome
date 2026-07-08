@@ -1,0 +1,28 @@
+# Tailscale on the UGOS NAS -- makes the NAS a direct tailnet node "nas" so Jellyfin is reachable
+# remotely at http://nas:8096 (MagicDNS) with no port-forwarding, and as the basis for family
+# node-sharing. Deployed via CLI (naseer in the docker group).
+#
+# Deploy:  docker compose -f /volume1/docker/tailscale-compose.yml up -d   (or the docker run below)
+# Auth:    a headless container MUST use an auth key (TS_AUTHKEY) -- interactive login races the
+#          container's restart loop. Key lives in /volume1/docker/tailscale.env (chmod 600, NOT git):
+#             TS_AUTHKEY=tskey-auth-xxxxxxxx     (admin console > Settings > Keys)
+# After first auth: admin console > Machines > nas > Disable key expiry.
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: nas                       # -> MagicDNS name "nas"
+    network_mode: host
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun"]           # kernel networking (present on this NAS)
+    env_file: [/volume1/docker/tailscale.env]   # TS_AUTHKEY=...
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - /volume1/docker/tailscale:/var/lib/tailscale   # persists node identity
+    restart: unless-stopped
+# Equivalent docker run (what was actually used):
+#   docker run -d --name tailscale --hostname nas --network host --cap-add NET_ADMIN \
+#     --device /dev/net/tun --env-file /volume1/docker/tailscale.env \
+#     -e TS_STATE_DIR=/var/lib/tailscale -v /volume1/docker/tailscale:/var/lib/tailscale \
+#     --restart unless-stopped tailscale/tailscale:latest
