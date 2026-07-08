@@ -150,8 +150,12 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
   **subnet router `192.168.50.0/24` approved + active** (whole LAN reachable via masn), Tailscale
   SSH on, IP-forwarding persistent, `ethtool` UDP-GRO tune APPLIED + persisted (tailscale-ethtool.service).
   NOT an exit node (subnet router suffices for reaching home devices; add `--advertise-exit-node` only
-  to route internet through home). Key expiry DISABLED for masn (2026-07-07). NAS will get its OWN TS
-  node later for direct remote Jellyfin (see nas-stack).
+  to route internet through home). Key expiry DISABLED for masn (2026-07-07).
+- NAS is ALREADY reachable remotely via masn's subnet route (192.168.50.49 over the tailnet) -- no TS
+  on the NAS needed for YOUR own access. The dedicated NAS TS node (nas-stack) is specifically for
+  (a) FAMILY: never share your subnet route with family (exposes the whole LAN) -> node-SHARE just the
+  NAS node, ACL-scoped to :8096; and (b) direct-to-NAS Jellyfin streaming (no masn hop, survives masn
+  being down). If it were only ever you watching, the NAS node could be skipped.
 
 ## Conventions (also see `~/.claude/CLAUDE.md`)
 
