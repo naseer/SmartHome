@@ -150,8 +150,8 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
   **subnet router `192.168.50.0/24` approved + active** (whole LAN reachable via masn), Tailscale
   SSH on, IP-forwarding persistent, `ethtool` UDP-GRO tune APPLIED + persisted (tailscale-ethtool.service).
   NOT an exit node (subnet router suffices for reaching home devices; add `--advertise-exit-node` only
-  to route internet through home). TODO: disable key expiry for masn in the admin console. NAS will get
-  its OWN TS node later for direct remote Jellyfin (see nas-stack).
+  to route internet through home). Key expiry DISABLED for masn (2026-07-07). NAS will get its OWN TS
+  node later for direct remote Jellyfin (see nas-stack).
 
 ## Conventions (also see `~/.claude/CLAUDE.md`)
 
