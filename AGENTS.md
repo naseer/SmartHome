@@ -138,12 +138,17 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - `nas-stack/tailscale-acl.hujson`: sample ACL scoping `group:family` to the NAS node only (Jellyfin
   8096 + SMB 445 for family storage; add the UGOS web port if wanted). Free tier covers ACLs + sharing.
 - `nas-stack/.env`: holds `TS_AUTHKEY` (gitignored).
-- **NAS IS A SEALED APPLIANCE**: SSH-as-`naseer` CANNOT `sudo` and Docker isn't on its PATH -> all NAS
-  installs are done in the **UGOS WEB UI** (I supply values, user clicks). Confirmed on-box: media =
-  `/volume1/media` (0777, so any uid reads), Quick Sync = `/dev/dri/renderD128` render GID **105**,
-  video GID 44; no `/volume1/docker` yet -> create a `docker` shared folder in UGOS first. Jellyfin =
-  official `jellyfin/jellyfin` (runs as root -> /dev/dri + 0777 media just work) OR LinuxServer image
-  with `group_add 105`. Point library at `/data/media`; enable Intel QuickSync in Playback settings.
+- **NAS Docker via CLI (2026-07-08)**: `naseer` was added to the `docker` group -> `docker` works over
+  SSH (no sudo; socket is group `docker`, binary `/usr/bin/docker`, compose plugin present). NAS
+  containers are now deployed/managed from this session over SSH -- no more UGOS-UI clicking. (May reset
+  on a MAJOR UGOS firmware update -> re-run `sudo usermod -aG docker naseer`.) Confirmed on-box: media
+  `/volume1/media` (0777), Quick Sync `/dev/dri/renderD128` (render GID 105), `docker` shared folder at
+  `/volume1/docker`.
+- **Jellyfin DEPLOYED + RUNNING (2026-07-08)**: `docker compose -f /volume1/docker/jellyfin-compose.yml
+  up -d` (official image, host net, `/dev/dri`, `/volume1/media:ro`->`/media`, config+cache under
+  `/volume1/docker/jellyfin/`). Listening :8096 (HTTP /health 200), library visible (Movies/Shows/
+  Series/...), iGPU passed through. USER TODO: http://192.168.50.49:8096 wizard -> add libraries at
+  `/media/*` -> Dashboard > Playback > enable Intel QuickSync (renderD128).
 - **FAMILY on the NAS (two wants)**: (1) Jellyfin streaming, (2) storage for their personal accounts.
   Plan: create a UGOS USER ACCOUNT per member (+ private/home folder + shared folders) -- UGOS enforces
   per-user perms; install Tailscale on the NAS + NODE-SHARE it to each member (keeps them OFF the subnet
