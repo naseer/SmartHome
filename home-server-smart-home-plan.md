@@ -187,7 +187,7 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Distro change to Debian? | No | Debian ships older ffmpeg/Mesa -> worse Quick Sync |
 | Smart home protocol | HYBRID: Matter-over-Thread for mains devices, Zigbee for battery sensors | Zigbee has better battery life + bigger mature sensor catalog; Thread for mains + multi-admin |
 | Z-Wave | Not now (deliberate) | Sub-GHz (908 MHz) avoids 2.4 GHz congestion -- its one real edge -- but channel planning already solves that. Adding it = 3rd radio + ecosystem, pricier/fewer devices, not a Matter transport. Two protocols (Thread+Zigbee) cover all device classes. Revisit only if: untamable 2.4 GHz congestion, a Z-Wave-only device, or long-range/outbuilding needs |
-| Radios | TWO dedicated radios: SLZB-06 (Zigbee, network/central) + ZBT-2 (Thread BR, USB on masn) | Avoids single-radio contention; each network on its own 802.15.4 channel; Zigbee gets central placement, Thread rides the 9 mains switches |
+| Radios | PRIMARY: SLZB-06 (Zigbee, network/central) carries lighting + sensors + garage. ZBT-2 (Thread BR) now OPTIONAL/future | Zigbee is the one primary mesh, centrally placed; the 12 Inovelli mains switches are its router backbone. Thread has nothing load-bearing (the 9 TP-Link were Wi-Fi, not Thread routers -> returned) |
 | Thread Border Router | HA Connect ZBT-2 on `masn` (Thread only) | No Google/Apple hub owned; HA-first. Second dongle handles Zigbee |
 | Cameras | PoE + Frigate (local NVR) | Bandwidth needs wired/Wi-Fi, not Thread; no cloud/subscription |
 | Camera AI | Frigate + OpenVINO on HD 630 iGPU (baseline) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; Orin stays on LLM duty |
@@ -397,11 +397,12 @@ Camera notes (Frigate):
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
-| HA Connect ZBT-2 dongle (Thread Border Router) | 1 | $35 | $35 | Thread BR; runs Thread-only for capacity |
+| HA Connect ZBT-2 dongle (Thread Border Router) | 0-1 | $35 | $0 | NOW OPTIONAL/FUTURE: with lighting on Zigbee, nothing load-bearing runs on Thread. Keep as cheap future-proofing for a Thread-only Matter device (or the lock's Thread module), or DEFER until one appears. Not needed for the initial build |
 | Zigbee coordinator: SLZB-06 (network-attached) | 1 | $40 | $40 | Mount CENTRALLY on floor 1 (NOT the basement rack); Z2M over TCP. START: Ethernet jack + USB power (no PoE needed at first); PoE later if the drop is on a PoE port. Separate 802.15.4 channel. USB Sonoff ZBDongle-E / 2nd ZBT-2 (~$30) is the fallback |
 | USB-C power adapter for SLZB-06 | 1 | $10 | $10 | Powers the coordinator until/unless PoE is used |
 | USB extension cables (1-2 m) | 2 | $8 | $16 | MANDATORY: get both dongles out of the metal rack + away from USB 3.0/each other (2.4 GHz noise) |
-| TP-Link Matter-over-Thread switches | 9 | owned | $0 | Already owned; mains-powered -> also Thread routers |
+| Inovelli Blue Series 2-1 (Zigbee dimmer/switch) | 12 | $45 | $540 | HOUSE LIGHTING. Zigbee (Z2M gold standard): dimmer + on/off, 3-way via aux, 80+ params, RGB notification bar. Neutral required (boxes have it). Also EXCELLENT Zigbee routers -> these 12 mains switches become the Zigbee router BACKBONE. Verify dimmable LED loads; count 3-way circuits (need an aux/companion) |
+| ~~TP-Link Matter-over-Wi-Fi switches (9)~~ | 0 | -- | $0 | CORRECTION: the 9 owned TP-Link switches are Matter-over-WI-FI (Kasa KS205), NOT Thread -> they are NOT Thread routers. RETURNED to avoid 2.4 GHz Wi-Fi congestion (esp. alongside the Wi-Fi cameras). Lighting moved to Zigbee (above) |
 | Sinope low-voltage thermostat (Zigbee SKU -- rebalanced to seed Zigbee) | 1 | $130 | $130 | Furnace+AC (conventional 24V); needs C-wire. CHOSEN Zigbee SKU -> adds a (central) Zigbee router; Z2M-supported. Matter-Thread SKU also exists if you'd rather keep it on Thread |
 | Add-a-wire adapter (Fast-Stat / Venstar) | 1 | $25 | $25 | Only if no C-wire and can't pull one -- see thermostat note |
 | Matter smart deadbolt (front door, full replacement) | 1 | $200 | $200 | Replacing all locks anyway (used house -- security). Front is a DOUBLE door: smart deadbolt on ACTIVE leaf + coordinating handleset for looks. Yale Assure 2 (Thread module) or Aqara U200/U100. Confirm tubular (drop-in) vs mortise (needs conversion) from door-edge photo |
@@ -415,7 +416,7 @@ Camera notes (Frigate):
 | Garage opener relay: Aqara Dual Relay Module T2 (DCM-K01) | 1 | $40 | $40 | Hub-free via Z2M (`LLKZMK12LM`); dry-contact mode wired across the wall-button terminals. Mains-powered (L+N) -> also a Zigbee router. Dual-channel: covers 2 doors. Ignore the "Aqara hub required" label -- Z2M-supported incl. OTA |
 | Garage state: ThirdReality Garage Tilt Sensor (3RDTS01056Z) | 1 | $25 | $25 | Hub-free via Z2M; tilt -> open/closed `contact`. Mount on top door panel; disable buzzer; set sensitivity dip switch. 1 per door |
 | Scene buttons (optional) | 2 | $20 | $40 | Matter buttons for scenes |
-| | | | **~$1,183** | ~32 devices (incl. 4 Zigbee router plugs for mesh health); trim optional items if desired |
+| | | | **~$1,688** | ~35 devices. +12 Inovelli Blue dimmers ($540) = lighting + Zigbee router backbone; 9 Wi-Fi TP-Link returned; ZBT-2 now optional. The 4 router plugs are now optional top-ups (the 12 switches route) |
 
 ### Garage door note (hub-free Zigbee)
 
@@ -704,11 +705,11 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$5,360** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
+Approx. **$5,865** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
 worn out (Media_Wearout=001), retire it; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber gateway (basement) + 16-PoE switch + 3x U7 Pro
-APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,183, incl. lock +
+APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,688, incl. 12 Inovelli Zigbee dimmers + lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$1,320 net after BT10 resale, all-UniFi w/ UCG-Fiber for full 3G + floor-2 MoCA kit), NAS (~$1,150, DXP4800 Pro
 4-bay starting 2x14 TB), rack + power (~$590), cameras (~$720 -- 2 PoE + garage Duo + porch cam + Wi-Fi doorbell + NuTone plate + TrackMix WiFi PTZ), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
@@ -813,8 +814,9 @@ Layout-driven decisions:
   multiprotocol (MultiPAN) on the prior ZBT-1, found it unreliable, and explicitly will NOT
   implement it on the ZBT-2 -- they recommend a dedicated device per protocol. So: 1 dongle if
   all-Matter; TWO dongles for the hybrid (plan) -- e.g. 2x ZBT-2, or ZBT-2 + a Zigbee coordinator.
-- Mains-powered Matter-over-Thread devices act as Thread routers; the 10 smart switches
-  will densify mesh coverage automatically -> one Border Router likely sufficient.
+- Mains-powered Matter-over-Thread devices WOULD act as Thread routers -- but the owned TP-Link
+  switches are Matter-over-WI-FI (not Thread), so they never densified Thread. Lighting moved to
+  Zigbee (Inovelli), so the Thread mesh is now empty/optional; no BR needed for the initial build.
 - Matter devices are multi-admin: can appear in BOTH Home Assistant and the Google Home
   app simultaneously.
 - Cameras do NOT run on Thread (bandwidth). Matter 1.4 added a camera spec but adoption
@@ -874,20 +876,20 @@ Coordinator placement (basement rack) + scaling -- IMPORTANT:
     the BR into the mesh. Also raise the ZBT-2 on its USB extension toward the basement ceiling.
   - If Thread still lags, DON'T relocate -- add a 2nd central BR (Thread allows multiple BRs).
 
-Protocol assignment (which mesh carries what) -- DECIDED:
-- Two meshes, each carrying what it's best at; each needs its OWN routers (a Thread device does
-  NOTHING for Zigbee coverage and vice versa).
-- THREAD = mains lighting backbone: the 9 owned TP-Link switches (sunk asset; excellent Thread
-  routers) + optionally the lock. Already richly seeded.
-- ZIGBEE = breadth: all battery sensors + the garage (no Thread garage gear exists) + the
-  thermostat (rebalanced to Zigbee) + dedicated router plugs. Zigbee has the deeper/cheaper 2026
-  catalog, so the sensor-heavy side lives here.
-- Router seeding (the fix for the basement coordinator): battery sensors do NOT route, and the
-  mains devices otherwise skew Thread -- so the Zigbee mesh would be router-poor. Add ~4 mains
-  ZIGBEE smart plugs (one per floor + one on the garage path) as dedicated routers; the garage
-  Aqara T2 and the Zigbee thermostat add two more. Then one floor-1 SLZB-06 covers the house.
-- Don't go Zigbee-ONLY: the owned Thread switches + Matter interop + multi-BR redundancy are
-  worth keeping. Hybrid is the right call.
+Protocol assignment (which mesh carries what) -- REVISED (2026-07): ZIGBEE-PRIMARY.
+- CORRECTION that drove this: the 9 owned TP-Link switches are Matter-over-WI-FI (Kasa KS205), NOT
+  Thread -- so they never routed the Thread mesh, and 9 (soon 21) Wi-Fi switches would congest 2.4 GHz
+  Wi-Fi (bad, alongside the Wi-Fi cameras). Returned them; lighting goes Zigbee.
+- ZIGBEE = everything now: 12 Inovelli Blue mains dimmers (LIGHTING + the router BACKBONE) + all
+  battery sensors + the garage (Aqara T2) + the thermostat (Zigbee SKU) + any router plugs. Deeper/
+  cheaper 2026 catalog, fully local via Z2M, and it OFFLOADS lighting from Wi-Fi.
+- Router seeding is now SOLVED by the 12 mains Inovelli switches spread through the house (mains
+  Zigbee routers) -- the earlier "router-poor basement coordinator" worry is gone. The ~4 extra
+  Zigbee plugs are now optional top-ups, not essential.
+- THREAD = empty for now. The ZBT-2 BR is optional future-proofing (a Thread-only Matter device, or
+  the lock's Thread module). Add it only when such a device appears; not needed for the initial build.
+- Dimming requirement (all 12 spots) is why lighting is Zigbee, not Thread: the only real Matter-
+  over-Thread wall switch (Eve) is ON/OFF ONLY. Inovelli Blue gives dimming + scenes + 3-way.
 
 Zigbee software -- DECIDED: Zigbee2MQTT (Z2M), not ZHA:
 - ZHA runs IN-PROCESS inside HA (zigpy, direct entities, no broker). Z2M is a STANDALONE,

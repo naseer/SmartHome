@@ -51,13 +51,15 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   in the rack + 2.3G IDS cap. Ordered so far: 1× UCG-Fiber + 1× U7 Pro Wall; 2 more APs later. ASUS
   BT10 **sold** (its weak VLAN software was the reason to switch). VLANs:
   Trusted / Cameras / IoT (Cameras+IoT firewalled off the NAS).
-- **Radios** (two, each dedicated): **SLZB-06** = Zigbee coordinator, network-attached, mounted
-  CENTRAL on floor 1, Z2M over TCP (Ethernet + USB power; PoE later). **ZBT-2** = Thread Border
-  Router, USB on masn in the basement (OK because the 9 mains Thread switches are dense routers).
+- **Radios**: **SLZB-06** = Zigbee coordinator (PRIMARY mesh), network-attached, mounted CENTRAL on
+  floor 1, Z2M over TCP (Ethernet + USB power; PoE later). **ZBT-2** = Thread BR, now OPTIONAL/future
+  (nothing load-bearing on Thread — defer until a Thread-only device appears).
 - **Zigbee software**: **Zigbee2MQTT** (not ZHA) — bridges to Mosquitto; resilient + best Aqara/Tuya support.
-- **Protocol split (hybrid)**: **Thread** = the 9 owned TP-Link mains lighting switches.
-  **Zigbee** = all battery sensors + garage + thermostat (Zigbee SKU) + ~4 mains "router" plugs
-  (one/floor) to seed the Zigbee mesh.
+- **Protocol = ZIGBEE-PRIMARY (revised 2026-07-08)**: CORRECTION — the 9 owned TP-Link switches are
+  Matter-over-**Wi-Fi** (KS205), NOT Thread → returned (avoid 2.4 GHz Wi-Fi congestion vs the Wi-Fi
+  cameras). **Zigbee carries everything**: 12× **Inovelli Blue Series 2-1** dimmers (house lighting +
+  the Zigbee router BACKBONE; dimming needed on all 12 → rules out Eve/Thread which is on/off-only) +
+  all battery sensors + garage + thermostat (Zigbee SKU). Router plugs now optional (12 switches route).
 - **Cameras**: Frigate + **OpenVINO** on the HD 630 iGPU (Coral EOL; P620 is the relief valve).
   Pull every camera through **go2rtc** (Reolink RTSP is finicky). Dual-stream: detect on substream,
   record on mainstream; H.265; 15-day continuous retention.
@@ -202,6 +204,6 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
   tar-over-ssh, or enable UGOS's rsync service. NAS SMB shares: `media`, `personal_folder`
   (per-user home), `TimeMachine`, `masjidmapper`. NAS users: naseer(1000), jellyfin, zaid, masjidmapper.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
-- Buy (see plan BoM): SLZB-06 + USB-C brick, ZBT-2, UniFi (UCG-Fiber + 10G DAC + 16-PoE + 3× U7 Pro; 1 UCG-Fiber + 1 U7 Pro Wall already ordered) + floor-2 MoCA kit,
+- Buy (see plan BoM): SLZB-06 + USB-C brick, (ZBT-2 optional/future), 12× Inovelli Blue Series 2-1 (Zigbee dimmers), UniFi (UCG-Fiber + 10G DAC + 16-PoE + 3× U7 Pro; 1 UCG-Fiber + 1 U7 Pro Wall already ordered) + floor-2 MoCA kit,
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
   Sinopé Zigbee thermostat, Aqara T2 + ThirdReality tilt sensor.

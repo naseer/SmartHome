@@ -20,8 +20,8 @@ house. Local-first, no-cloud-by-default, security-first. Reproducible infra in `
 (server)  (storage)              cameras   2 cams+doorbell (one per level;      (Zigbee coord,
   |          |                                              floor 2 via MoCA)    central floor 1)
   |          |                                                                    |
-  +-- ZBT-2 (Thread Border Router, USB)                              Zigbee mesh (Z2M over TCP)
-  +-- HD 630 iGPU (Frigate/OpenVINO detect)                          Thread mesh via 9 TP-Link
+  +-- ZBT-2 (Thread BR -- optional/future)                           Zigbee mesh (Z2M over TCP)
+  +-- HD 630 iGPU (Frigate/OpenVINO detect)                          12 Inovelli mains dimmers route
   +-- Docker: HA, Mosquitto, Postgres, (Frigate, Z2M)                  mains switches (routers)
 ```
 
@@ -49,11 +49,12 @@ Wi-Fi is served by 3 U7 Pro APs, one per level (basement ceiling + floors 1/2 wa
 | Cameras | PoE + front Wi-Fi cameras + doorbell | Blocked | No (firewalled) |
 | IoT | Matter/Wi-Fi + smart devices | Restricted | No (firewalled) |
 
-## Radio meshes (two, dedicated)
+## Radio mesh (Zigbee-primary)
 
-- **Zigbee** (SLZB-06 coordinator + Zigbee2MQTT): battery sensors, garage (Aqara T2 + tilt sensor),
-  thermostat, ~4 mains "router" plugs to seed the mesh.
-- **Thread** (ZBT-2 border router): the 9 owned TP-Link mains lighting switches (dense routers).
+- **Zigbee** (SLZB-06 coordinator + Zigbee2MQTT): **12 Inovelli Blue dimmers** (house lighting + the
+  router backbone) + battery sensors + garage (Aqara T2 + tilt sensor) + thermostat.
+- **Thread** (ZBT-2 border router): **optional/future** — nothing load-bearing yet (the 9 TP-Link
+  switches were Matter-over-Wi-Fi, not Thread → returned; lighting moved to Zigbee).
 
 ## Data flows
 
