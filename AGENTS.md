@@ -61,9 +61,11 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   cameras). **Zigbee carries everything**: 12× **Sinopé DM2500ZB** dimmers (house lighting +
   the Zigbee router BACKBONE; dimming needed on all 12 → rules out Eve/Thread which is on/off-only;
   Sinopé chosen over Inovelli for Canadian availability; native in Z2M, no Sinopé hub needed) + all
-  battery sensors + garage. THERMOSTAT = **Aqara W200** (BOUGHT) -- a HUB (thermostat + Zigbee hub +
-  Matter controller + Thread BR), integrated via **MATTER** not Z2M; use standalone, don't pair other
-  Zigbee to it; its Thread BR = no ZBT-2 needed. Router plugs optional.
+  battery sensors + garage. THERMOSTAT = **Aqara W200** (a HUB: thermostat + Zigbee hub + Matter
+  controller + Thread BR), integrated via **MATTER** not Z2M; standalone (don't pair other Zigbee to
+  it); its Thread BR = no ZBT-2 needed. **COMMISSIONED + LIVE in HA (2026-07-15)**: `climate.thermostat_
+  hub_w200` (+ temp/humidity/**radar occupancy**/sensitivity/hold-time). Needs the **matter-server**
+  container (added to masn-stack; ws://localhost:5580/ws, WS bound 127.0.0.1). Router plugs optional.
 - **Cameras**: Frigate + **OpenVINO** on the HD 630 iGPU (Coral EOL; P620 is the relief valve).
   Pull every camera through **go2rtc** (Reolink RTSP is finicky). Dual-stream: detect on substream,
   record on mainstream; H.265; 15-day continuous retention.
