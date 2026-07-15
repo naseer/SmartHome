@@ -54,11 +54,16 @@ services:
     image: ghcr.io/home-assistant-libs/python-matter-server:stable
     restart: unless-stopped
     security_opt:
-      - apparmor=unconfined
+      - apparmor=unconfined          # vendor-required for the CHIP stack (raw net/IPv6); documented trade-off
     network_mode: host
+    command:
+      - "--storage-path"
+      - "/data"
+      - "--listen-address"
+      - "127.0.0.1"                   # WS control API (5580) localhost-ONLY; unauthenticated, so keep it off the LAN. Host-mode HA still reaches it. Matter device comms (mDNS/UDP) still use the LAN.
     volumes:
       - ./matter-server/data:/data
-      - /run/dbus:/run/dbus:ro       # BLE commissioning via host D-Bus (optional; W200 is Wi-Fi)
+      # (no host D-Bus mount: W200 is Wi-Fi, no BLE commissioning needed)
 
   # ============================================================================
   # ENABLE IN PHASE 3 (cameras present). OpenVINO detect on the HD 630 iGPU.
