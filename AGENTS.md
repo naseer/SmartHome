@@ -44,9 +44,12 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   bulk (recordings/media/backups/family photos) on the NAS.
 - **Network CURRENT REALITY (2026-07)**: core is in the **2nd-floor OFFICE** (internet enters there) --
   UCG-Fiber + U7 Pro Wall + masn + NAS all in the office now, works fine, no PoE switch yet. Basement
-  rack is FUTURE/optional, gated on an office<->basement link (MoCA over repurposed coax, or Cat6 --
-  not found yet). Floor-2 AP is wired off the office gateway (floor-2 MoCA backhaul moot); coverage
-  gap = floor 1 + basement. The design below is the TARGET:
+  rack is FUTURE/optional. Floor-2 AP wired off the office gateway; coverage gap = floor 1 + basement.
+  **LEADING backhaul (investigating): repurpose the legacy Cat5** -- if the office has a Cat5 drop to the
+  structured panel, put a PoE switch at the panel and patch the other drops = fully wired floor-1/basement
+  APs + cameras, no MoCA/mesh (office<->panel = 1G over Cat5e). Verify (4-pair UTP not alarm wire, all 4
+  pairs, solid copper, test 1G+PoE+). Fallbacks: wireless MESH (floor 1 ok, basement weak), then MoCA.
+  The design below is the TARGET:
 - **Network (TARGET)**: ALL-**UniFi** — **UCG-Fiber** gateway (planned basement rack) (router + firewall/IDS
   + controller; NO Wi-Fi; 10G SFP+ WAN, 5G IDS = full 3G) + USW-Pro-Max-16-PoE (basement, 10G DAC to
   gateway) + **3× U7 Pro** APs, ONE PER LEVEL (basement ceiling + floors 1/2 WALL — no ceiling access

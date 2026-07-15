@@ -205,11 +205,17 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 ## 5. Network Design
 
 > **CURRENT REALITY (2026-07)**: core is in the **2nd-floor OFFICE** (internet enters there). Installed:
-> **UCG-Fiber + U7 Pro Wall + masn + NAS**, all in the office (no PoE switch yet). The basement-rack
-> topology below is the FUTURE target, gated on finding a fast office<->basement link (MoCA over
-> repurposed coax, or Cat6). Floor-2 AP is now wired off the office gateway -> the old floor-2 MoCA
-> backhaul is moot. Remaining coverage gap = floor 1 + basement APs/cameras (need backhaul DOWN from
-> the office, or a basement switch once a link exists). Read the sections below as the target design.
+> **UCG-Fiber + U7 Pro Wall + masn + NAS**, all in the office (no PoE switch yet). Floor-2 AP is wired
+> off the office gateway -> the old floor-2 MoCA backhaul is moot. Coverage gap = floor 1 + basement
+> APs/cameras.
+> **LEADING BACKHAUL PLAN (investigating): repurpose the legacy Cat5.** Structured Cat5 (~2001 house =
+> likely Cat5e) home-runs to a central panel. If the OFFICE has a Cat5 drop to that panel: office
+> gateway -> office Cat5 jack -> panel -> PoE SWITCH at the panel -> patch the OTHER Cat5 drops (floor 1,
+> basement, rooms) = fully WIRED backhaul + PoE, no MoCA/mesh. Solves floor-1 AP + cameras + basement in
+> one shot. Verify per 5 option 0 (real 4-pair UTP not alarm wire; all 4 pairs; solid copper; test 1 Gbps
+> + PoE+). Caveat: office<->panel over Cat5e = 1 Gbps (mild cap for future 3G fiber; upgrade that ONE run
+> to Cat6 later if needed). Fallbacks if Cat5 unusable: wireless MESH (floor 1 good, basement weak) then
+> MoCA. Read the basement-rack sections below as the target design.
 
 
 ```
