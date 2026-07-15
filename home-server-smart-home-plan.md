@@ -401,10 +401,10 @@ Camera notes (Frigate):
 | Zigbee coordinator: SLZB-06 (network-attached) | 1 | $40 | $40 | Mount CENTRALLY on floor 1 (NOT the basement rack); Z2M over TCP. START: Ethernet jack + USB power (no PoE needed at first); PoE later if the drop is on a PoE port. Separate 802.15.4 channel. USB Sonoff ZBDongle-E / 2nd ZBT-2 (~$30) is the fallback |
 | USB-C power adapter for SLZB-06 | 1 | $10 | $10 | Powers the coordinator until/unless PoE is used |
 | USB extension cable (1-2 m) | 0-1 | $8 | $0 | Not needed for the SLZB-06 (Ethernet, central floor 1, not USB). Only if a ZBT-2 Thread BR is added later (get it out of the rack + off USB 3.0) |
-| Sinopé DM2500ZB Zigbee dimmer (600 W) | 12 | $45 | $540 | HOUSE LIGHTING. Zigbee, NATIVELY in Z2M (converter DM2500ZB -- on/off, dim, transition, timer, LED intensity, min-brightness, power-on) -> pairs to the SLZB-06, NO Sinopé hub/Neviweb. CANADIAN brand (domestic buy) + matches the Sinopé thermostat. Also a mains Zigbee ROUTER -> the 12 become the router BACKBONE. Neutral required (boxes have it). Verify dimmable LED loads + 3-way per Sinopé guide (DM2550ZB for tricky loads). Caveat: no OTA firmware unless in Z2M's index. Alt: Inovelli Blue 2-1 (US import; more power-user features) |
+| Sinopé DM2500ZB Zigbee dimmer (600 W) | 12 | $45 | $540 | HOUSE LIGHTING. Zigbee, NATIVELY in Z2M (converter DM2500ZB -- on/off, dim, transition, timer, LED intensity, min-brightness, power-on) -> pairs to the SLZB-06, NO Sinopé hub/Neviweb. CANADIAN brand (domestic buy). Also a mains Zigbee ROUTER -> the 12 become the router BACKBONE. Neutral required (boxes have it). Verify dimmable LED loads + 3-way per Sinopé guide (DM2550ZB for tricky loads). Caveat: no OTA firmware unless in Z2M's index. Alt: Inovelli Blue 2-1 (US import; more power-user features) |
 | ~~TP-Link Matter-over-Wi-Fi switches (9)~~ | 0 | -- | $0 | CORRECTION: the 9 owned TP-Link switches are Matter-over-WI-FI (Kasa KS205), NOT Thread -> they are NOT Thread routers. RETURNED to avoid 2.4 GHz Wi-Fi congestion (esp. alongside the Wi-Fi cameras). Lighting moved to Zigbee (above) |
-| Sinope low-voltage thermostat (Zigbee SKU -- rebalanced to seed Zigbee) | 1 | $130 | $130 | Furnace+AC (conventional 24V); needs C-wire. CHOSEN Zigbee SKU -> adds a (central) Zigbee router; Z2M-supported. Matter-Thread SKU also exists if you'd rather keep it on Thread |
-| Add-a-wire adapter (Fast-Stat / Venstar) | 1 | $25 | $25 | Only if no C-wire and can't pull one -- see thermostat note |
+| Aqara Thermostat Hub W200 (BOUGHT -- availability) | 1 | $150 | $150 | Furnace+AC (conventional 24V; ~85% HVAC incl. heat pump). NOT a Z2M Zigbee endpoint -- it's a HUB (thermostat + Zigbee hub + Matter controller + THREAD BR). Integrate into HA via MATTER (Aqara app -> pairing code -> HA Matter), NOT the SLZB-06. Use standalone; do NOT pair other Zigbee to its hub (keep all Zigbee on SLZB-06/Z2M). Its built-in Thread BR = definitively no ZBT-2 needed. HA-via-Matter gets core control; adaptive/schedule features app-only |
+| Aqara C-Wire Adapter | 0-1 | $25 | $25 | Only if no C-wire at the furnace -- the matched accessory for the W200 (not a generic Fast-Stat) |
 | Matter smart deadbolt (front door, full replacement) | 1 | $200 | $200 | Replacing all locks anyway (used house -- security). Front is a DOUBLE door: smart deadbolt on ACTIVE leaf + coordinating handleset for looks. Yale Assure 2 (Thread module) or Aqara U200/U100. Confirm tubular (drop-in) vs mortise (needs conversion) from door-edge photo |
 | Contact sensors (Zigbee) | 6 | $18 | $108 | Doors/windows; security + HVAC-open alerts |
 | Motion sensors (Zigbee) | 4 | $22 | $88 | Lighting, presence, camera-arm logic |
@@ -416,7 +416,7 @@ Camera notes (Frigate):
 | Garage opener relay: Aqara Dual Relay Module T2 (DCM-K01) | 1 | $40 | $40 | Hub-free via Z2M (`LLKZMK12LM`); dry-contact mode wired across the wall-button terminals. Mains-powered (L+N) -> also a Zigbee router. Dual-channel: covers 2 doors. Ignore the "Aqara hub required" label -- Z2M-supported incl. OTA |
 | Garage state: ThirdReality Garage Tilt Sensor (3RDTS01056Z) | 1 | $25 | $25 | Hub-free via Z2M; tilt -> open/closed `contact`. Mount on top door panel; disable buzzer; set sensitivity dip switch. 1 per door |
 | Scene buttons (optional) | 2 | $20 | $40 | Matter buttons for scenes |
-| | | | **~$1,672** | ~35 devices. +12 Sinopé DM2500ZB dimmers ($540) = lighting + Zigbee router backbone; 9 Wi-Fi TP-Link returned; ZBT-2 returned (Zigbee-only, one SLZB-06 coordinator). The 4 router plugs are now optional top-ups (the 12 switches route) |
+| | | | **~$1,692** | ~35 devices. 12 Sinopé DM2500ZB dimmers ($540) = lighting + Zigbee router backbone; 9 Wi-Fi TP-Link returned; ZBT-2 returned; thermostat = Aqara W200 (Matter). Router plugs optional (the 12 switches route) |
 
 ### Garage door note (hub-free Zigbee)
 
@@ -440,26 +440,26 @@ Two devices, both on the ZBT-2 + Z2M (no Aqara/ThirdReality hub, no cloud):
 - Tie relay + sensor into an HA TEMPLATE COVER -> a real garage entity (open/close/stop + true
   state). Keep auto-CLOSE conservative (UL325 safety): don't close unattended without a camera view.
 
-### Thermostat note (Sinope + C-wire)
+### Thermostat note (Aqara W200 -- BOUGHT + C-wire)
 
-HVAC is furnace + AC (conventional 24V single-stage -- the easiest case: R/W/Y/G/C, no
-heat-pump aux/reversing-valve wiring). Use Sinope's LOW-VOLTAGE model (not the line-voltage
-baseboard model). DECIDED: the ZIGBEE SKU (rebalances a mains router onto the starved Zigbee
-mesh; Z2M-supported). The Matter-over-Thread SKU is the alternative if you'd rather keep it on
-Thread -- either works; the choice here is purely about which mesh gets the extra router.
+HVAC is furnace + AC (conventional 24V single-stage -- easiest case: R/W/Y/G/C). BOUGHT the
+**Aqara Thermostat Hub W200** (availability). It is a HUB, not a Z2M endpoint:
+- INTEGRATION = MATTER, not Zigbee2MQTT. Set up in the Aqara app (Wi-Fi + HVAC type -> Matter
+  pairing code), then HA > Settings > Devices > Matter > Add. Runs LOCALLY over Matter after setup
+  (Aqara account only for onboarding). HA gets core control (mode/setpoint/temp); adaptive/schedule
+  features are app-only (typical Matter limitation).
+- Use it STANDALONE. Do NOT pair other Zigbee devices to its built-in Zigbee hub -- keep everything
+  on the SLZB-06/Z2M (one coordinator). Its built-in THREAD BR means the ZBT-2 is definitively not needed.
+- It is NOT a Z2M Zigbee router, so it no longer "seeds" the Zigbee mesh -- fine, the 12 mains
+  dimmers are the router backbone.
 
-C-wire: required by Sinope, and likely absent in this older house.
-1. First check for a hidden/unused conductor: pull the thermostat plate and inspect the
-   furnace control board for a spare (often blue) wire coiled unused at both ends. If
-   present, just land it on C at both ends -- free.
-2. If walls are open at the thermostat location, pull fresh 18/5 thermostat cable (gives C
-   + a spare). Preferred permanent fix.
-3. If no spare and can't pull: add a Fast-Stat / Venstar add-a-wire adapter (~$25) -- keeps
-   Sinope (local-first) and synthesizes C from the existing 4 wires.
-
-Brand fallback: ecobee includes a Power Extender Kit (PEK) that creates C from 4 wires,
-but is Wi-Fi + cloud-leaning -- only switch to it if you'd rather have a vendor-integrated
-fix than a $25 adapter. Avoid Nest (cloud-dependent, weak local Matter).
+C-wire: required. Likely absent in this older house.
+1. First check for a hidden/unused conductor: pull the thermostat plate + inspect the furnace board
+   for a spare (often blue) wire coiled unused at both ends -- if present, land it on C. Free.
+2. If walls are open there, pull fresh 18/5 thermostat cable (C + a spare). Preferred permanent fix.
+3. Else: use the **Aqara C-Wire Adapter** (~$25, the matched accessory) -- synthesizes C at the furnace.
+Zigbee interference: the W200's Zigbee radio is always on -> if Zigbee flakiness appears, set the
+SLZB-06/Z2M channel away from the W200's.
 
 ### 6.5 Audio (keep NuTone IM-3303; feed AUX with a smart streamer)
 
@@ -705,11 +705,11 @@ Power/UPS notes:
 
 ### BoM grand total
 
-Approx. **$5,849** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
+Approx. **$5,869** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
 worn out (Media_Wearout=001), retire it; Coral
 dropped -- detection on the HD 630 iGPU; UGREEN 4-bay NAS (Pro) with Jellyfin + family
 Photos/Drive backup on it; ALL-UniFi network -- UCG-Fiber gateway (basement) + 16-PoE switch + 3x U7 Pro
-APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,672, incl. 12 Sinopé Zigbee dimmers + lock +
+APs (one per level; floor-2 over MoCA), BT10 sold; consolidated rack + 1500VA pure-sine UPS). Largest line items: smart home devices (~$1,692, incl. 12 Sinopé Zigbee dimmers + lock +
 thermostat + dual radios + hub-free Zigbee garage), network (~$1,320 net after BT10 resale, all-UniFi w/ UCG-Fiber for full 3G + floor-2 MoCA kit), NAS (~$1,150, DXP4800 Pro
 4-bay starting 2x14 TB), rack + power (~$590), cameras (~$720 -- 2 PoE + garage Duo + porch cam + Wi-Fi doorbell + NuTone plate + TrackMix WiFi PTZ), and audio (~$115 -- NuTone reused
 + WiiM + AUX adapter; Snapcast/amp/speaker-runs dropped). Reuse of Pi 4,
@@ -825,10 +825,10 @@ Zigbee vs Thread (battery + coexistence):
 - Same radio (802.15.4, 2.4 GHz). Battery difference = protocol overhead: Thread is IPv6
   (6LoWPAN) + Matter adds another layer -> more bytes/wake -> more drain. Zigbee is leaner +
   15 yrs of optimization, so battery sensors last longer on Zigbee today (gap shrinking).
-- HYBRID strategy (see "Protocol assignment" below for the final split): THREAD = the 9 owned
-  mains lighting switches (+ lock if Thread); ZIGBEE = all battery sensors + garage + thermostat
-  + dedicated router plugs (longer battery life, cheaper, far bigger mature catalog -- Zigbee is
-  the richer 2026 ecosystem, so the device-heavy side lives there).
+- FINAL strategy (see "Protocol assignment" below): ZIGBEE-PRIMARY -- lighting (12 mains dimmers) +
+  all battery sensors + garage, all on the SLZB-06/Z2M. The "9 Thread switches" were actually Wi-Fi
+  (KS205 -> returned). Thermostat (Aqara W200) is on MATTER. The Thread mesh is empty/optional (the
+  W200's built-in BR covers any future Thread device).
 - Run BOTH via TWO dedicated radios (SLZB-06 for Zigbee + ZBT-2 for Thread BR), not one
   multiprotocol chip -> avoids single-radio time-share contention; lets each use its own channel.
 - 2.4 GHz channel planning is the real reliability factor: bias Wi-Fi to 5/6 GHz on the U7 Pro
@@ -879,7 +879,8 @@ Protocol assignment (which mesh carries what) -- REVISED (2026-07): ZIGBEE-PRIMA
   Thread -- so they never routed the Thread mesh, and 9 (soon 21) Wi-Fi switches would congest 2.4 GHz
   Wi-Fi (bad, alongside the Wi-Fi cameras). Returned them; lighting goes Zigbee.
 - ZIGBEE = everything now: 12 Sinopé DM2500ZB mains dimmers (LIGHTING + the router BACKBONE) + all
-  battery sensors + the garage (Aqara T2) + the thermostat (Zigbee SKU) + any router plugs. Deeper/
+  battery sensors + the garage (Aqara T2) + any router plugs (the Aqara W200 thermostat is on MATTER,
+  not this Zigbee mesh -- see 6.4). Deeper/
   cheaper 2026 catalog, fully local via Z2M, and it OFFLOADS lighting from Wi-Fi.
 - Router seeding is now SOLVED by the 12 mains Sinopé dimmers spread through the house (mains
   Zigbee routers) -- the earlier "router-poor basement coordinator" worry is gone. The ~4 extra

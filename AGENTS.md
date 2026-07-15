@@ -60,8 +60,10 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   Matter-over-**Wi-Fi** (KS205), NOT Thread → returned (avoid 2.4 GHz Wi-Fi congestion vs the Wi-Fi
   cameras). **Zigbee carries everything**: 12× **Sinopé DM2500ZB** dimmers (house lighting +
   the Zigbee router BACKBONE; dimming needed on all 12 → rules out Eve/Thread which is on/off-only;
-  Sinopé chosen over Inovelli for Canadian availability + matches the Sinopé thermostat; native in Z2M,
-  no Sinopé hub needed) + all battery sensors + garage + thermostat (Zigbee SKU). Router plugs optional.
+  Sinopé chosen over Inovelli for Canadian availability; native in Z2M, no Sinopé hub needed) + all
+  battery sensors + garage. THERMOSTAT = **Aqara W200** (BOUGHT) -- a HUB (thermostat + Zigbee hub +
+  Matter controller + Thread BR), integrated via **MATTER** not Z2M; use standalone, don't pair other
+  Zigbee to it; its Thread BR = no ZBT-2 needed. Router plugs optional.
 - **Cameras**: Frigate + **OpenVINO** on the HD 630 iGPU (Coral EOL; P620 is the relief valve).
   Pull every camera through **go2rtc** (Reolink RTSP is finicky). Dual-stream: detect on substream,
   record on mainstream; H.265; 15-day continuous retention.
@@ -208,4 +210,4 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
 - Buy (see plan BoM): SLZB-06 + USB-C brick (ZBT-2 returned; no Thread BR now), 12× Sinopé DM2500ZB (Zigbee dimmers), UniFi (UCG-Fiber + 10G DAC + 16-PoE + 3× U7 Pro; 1 UCG-Fiber + 1 U7 Pro Wall already ordered) + floor-2 MoCA kit,
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
-  Sinopé Zigbee thermostat, Aqara T2 + ThirdReality tilt sensor.
+  Aqara W200 thermostat (BOUGHT; Matter, not Z2M), Aqara T2 + ThirdReality tilt sensor.
