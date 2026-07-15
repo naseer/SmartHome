@@ -42,7 +42,12 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
   and returned) → add 2nd 14 TB later for a mirror (btrfs add-drive→RAID1, in place). Frigate
   cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
-- **Network**: ALL-**UniFi** — **UCG-Fiber** gateway in the **basement rack** (router + firewall/IDS
+- **Network CURRENT REALITY (2026-07)**: core is in the **2nd-floor OFFICE** (internet enters there) --
+  UCG-Fiber + U7 Pro Wall + masn + NAS all in the office now, works fine, no PoE switch yet. Basement
+  rack is FUTURE/optional, gated on an office<->basement link (MoCA over repurposed coax, or Cat6 --
+  not found yet). Floor-2 AP is wired off the office gateway (floor-2 MoCA backhaul moot); coverage
+  gap = floor 1 + basement. The design below is the TARGET:
+- **Network (TARGET)**: ALL-**UniFi** — **UCG-Fiber** gateway (planned basement rack) (router + firewall/IDS
   + controller; NO Wi-Fi; 10G SFP+ WAN, 5G IDS = full 3G) + USW-Pro-Max-16-PoE (basement, 10G DAC to
   gateway) + **3× U7 Pro** APs, ONE PER LEVEL (basement ceiling + floors 1/2 WALL — no ceiling access
   on the finished floors). Floor-2 AP has no Cat6 path → backhauled over **MoCA/coax** (+ its own PoE

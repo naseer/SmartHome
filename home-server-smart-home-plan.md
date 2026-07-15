@@ -204,6 +204,14 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 
 ## 5. Network Design
 
+> **CURRENT REALITY (2026-07)**: core is in the **2nd-floor OFFICE** (internet enters there). Installed:
+> **UCG-Fiber + U7 Pro Wall + masn + NAS**, all in the office (no PoE switch yet). The basement-rack
+> topology below is the FUTURE target, gated on finding a fast office<->basement link (MoCA over
+> repurposed coax, or Cat6). Floor-2 AP is now wired off the office gateway -> the old floor-2 MoCA
+> backhaul is moot. Remaining coverage gap = floor 1 + basement APs/cameras (need backhaul DOWN from
+> the office, or a basement switch once a link exists). Read the sections below as the target design.
+
+
 ```
 BASEMENT RACK (whole core on one UPS):
   Coax demarc -> Cable modem (RELOCATED to basement)   [later: 3 Gbps fiber ONT -> 10G SFP+ WAN]
@@ -641,6 +649,15 @@ Encryption (for the few truly-sensitive files, e.g. financial/legal):
 - Both UGOS (encrypted folder) and TrueNAS SCALE (ZFS native per-dataset encryption) support this.
 
 ### 6.9 Rack & power (consolidated cabinet)
+
+> **CURRENT REALITY (2026-07): core is in the SECOND-FLOOR OFFICE, not the basement.** Internet enters
+> at the office, so the UCG-Fiber + U7 Pro Wall + masn + NAS are all there now (works fine). The
+> basement-rack design below is the FUTURE/OPTIONAL target -- it only happens if a fast office<->basement
+> link is found (repurpose existing coax for MoCA 2.5G, or pull Cat6). No link found yet (basement coax
+> endpoint not located; satellite SW44 drops are dead). If no link materializes, the core STAYS in the
+> office. The move is for noise/heat/space only -- not a functional need. MoCA's role flipped: it's now
+> a potential office<->basement CORE link, NOT the floor-2-AP backhaul (that AP is wired off the office gateway).
+
 
 One spot (Utility room AV/network closet) houses masn, the UGREEN NAS, the UniFi USW-Pro-Max-16-PoE
 switch + UCG-Fiber gateway, the patch panel, the RELOCATED cable modem, and (later) the fiber ONT --
