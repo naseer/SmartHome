@@ -47,6 +47,19 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
 
+  # Matter Server -- required for HA Matter (HA is a container, not HAOS, so no add-on).
+  # host networking is required (mDNS + IPv6 device discovery). HA connects at ws://localhost:5580/ws.
+  matter-server:
+    container_name: matter-server
+    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    restart: unless-stopped
+    security_opt:
+      - apparmor=unconfined
+    network_mode: host
+    volumes:
+      - ./matter-server/data:/data
+      - /run/dbus:/run/dbus:ro       # BLE commissioning via host D-Bus (optional; W200 is Wi-Fi)
+
   # ============================================================================
   # ENABLE IN PHASE 3 (cameras present). OpenVINO detect on the HD 630 iGPU.
   # ============================================================================
