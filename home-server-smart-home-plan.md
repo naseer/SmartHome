@@ -1193,6 +1193,64 @@ Notes:
   commands) and basic (flip devices / run scenes only). It cannot do the conversational,
   stateful queries the local Orin pipeline handles. Keep it as a convenience fallback, not
   the primary control plane.
+- CORRECTION (2026-07): Path A is NOT available here. Google Home refuses to commission any
+  Matter device without a Nest/Google hub, and none is owned. Everything reaches Google via
+  Path B (Nabu Casa) instead. Do not buy a Nest hub just for this -- Path B already covers it.
+
+#### RULE: exactly ONE publisher to Google Home
+
+Google Home must receive each device from a single source, and that source is **Nabu Casa**.
+Anything else double-publishes and Google shows the same physical device twice.
+
+Diagnosed 2026-07: the Google Home app showed duplicate Library Lights, Master Bedroom
+Lights and Outside Potlights, while Kitchen and Office appeared once. Cause: the Google
+account was ALSO linked to **TP-Link Kasa**, so Kasa's cloud published the same switches in
+parallel with HA. The duplicated ones were exactly those commissioned through the Kasa app;
+Kitchen and Office (commissioned directly) were clean. Tell-tale sign: the same device
+appearing once as a bulb (HA `light`, dimmable) and once as a switch (Kasa on/off trait),
+and the Kasa-side name differing slightly ("Family Room Switch" vs "Family Room Lights").
+
+FIX: Google Home app -> Settings -> Works with Google / Linked services -> TP-Link Kasa ->
+Unlink. This is only a cloud-to-cloud account link: it does NOT touch the Matter fabric on
+the switches and does NOT affect HA. It is unrelated to removing a device inside the Kasa
+app (which is what evicts TP-Link's admin fabric -- see the KS225 cloud-exit note in 6.4).
+
+Keep this rule in mind for future vendor apps (Aqara, Reolink, etc.): pair to HA, and do NOT
+also link that vendor's account to Google Home.
+
+#### Exposure policy: turn OFF "expose new entities"
+
+HA Cloud defaults to `expose_new: true` with `google_default_expose` covering climate,
+cover, fan, humidifier, light, lock, scene, script, sensor, switch, vacuum, water_heater.
+Harmless at 6 lights, but this build lands ~35 devices -- contact/leak/tilt/temp sensors
+that are useless as Google voice targets and would bury the real controls.
+
+Do this BEFORE the Zigbee sensor rollout (far easier than un-exposing 35 entities after):
+Settings -> Voice assistants -> Google Assistant -> turn OFF "Expose new entities", then
+expose deliberately: lights, locks, thermostat, garage, key scenes.
+
+Note: entities with an `entity_category` of `config` or `diagnostic` are NEVER exposed to
+voice assistants by HA, regardless of the above -- so per-device Matter plumbing stays out
+of Google automatically.
+
+#### Matter dimmer entities: what each KS225 actually creates
+
+HA's Matter integration creates ~10 entities per KS225; only ONE is user-facing.
+
+| Entity | Category | Purpose |
+|--------|----------|---------|
+| `light.*` | (none) | The actual control. The only one exposed to Google |
+| `select.*_power_on_behavior` | config | Matter `StartUpOnOff`: state after mains power returns (On / Off / Previous) |
+| `number.*_power_on_level` | config | Brightness it returns to on power restore |
+| `number.*_on_level` | config | Default brightness when turned on |
+| `number.*_on_transition_time` / `*_off_transition_time` | config | Fade in/out timing |
+| `update.*_firmware` | config | Matter OTA firmware updates |
+| `sensor.*_reboot_count` / `*_uptime` / `*_boot_reason` | diagnostic | Auto-disabled by default |
+
+ACTION: set `power_on_behavior` deliberately on every dimmer. Ajax storms/outages are
+common; a dimmer left on "On" blazes the whole house awake at 3am at whatever
+`power_on_level` says. "Previous" is the sane default. Outside Potlights is the plausible
+exception (returning to On after an outage may be wanted for security lighting).
 
 ---
 
