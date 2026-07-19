@@ -1229,9 +1229,37 @@ Do this BEFORE the Zigbee sensor rollout (far easier than un-exposing 35 entitie
 Settings -> Voice assistants -> Google Assistant -> turn OFF "Expose new entities", then
 expose deliberately: lights, locks, thermostat, garage, key scenes.
 
-Note: entities with an `entity_category` of `config` or `diagnostic` are NEVER exposed to
-voice assistants by HA, regardless of the above -- so per-device Matter plumbing stays out
-of Google automatically.
+#### TRAP: exposure is frozen per-entity, and `expose_new` does NOT fix existing entities
+
+The single most important thing to know about HA -> Google exposure:
+
+`async_should_expose()` (homeassistant/exposed_entities.py) checks
+`registry_entry.options["cloud.google_assistant"]["should_expose"]` FIRST and returns
+immediately if it is set. The default rules (`_is_default_exposed`: skip anything with an
+`entity_category`, then a domain allowlist) run **only the first time an entity is ever
+seen**, and the result is then FROZEN into `core.entity_registry`.
+
+Consequences:
+- Turning off `expose_new` affects only entities created AFTER the change. It does nothing
+  to entities already carrying a stored `should_expose: true`.
+- The `entity_category` rule is NOT a permanent guard. Config/diagnostic entities that got
+  exposed once stay exposed forever until explicitly un-exposed.
+- Do NOT diagnose exposure by reading `.storage/homeassistant.exposed_entities` -- that is
+  the LEGACY store and is nearly empty on a modern install (here: 8 stale media_player
+  entries, one of which said `should_expose: false` for a TV that WAS in fact exposed).
+  The live decisions are in `.storage/core.entity_registry` under
+  `options["cloud.google_assistant"]`. Reading the wrong file gives a confidently wrong answer.
+
+Found 2026-07: 51 entities were being published to Google -- 26 `number`, 5 `update`,
+4 `button`, 2 `select` (all `entity_category: config`/`diagnostic`) alongside the 6 real
+lights. That is where the "Kitchen Lights Power-on behavior" cards came from; the card title
+is just the wrapped friendly name of `select.*_power_on_behavior`, whose entity name is unset
+so it inherits the device name.
+
+Trimmed to 8: the 6 lights, `climate.thermostat_hub_w200`, `todo.shopping_list`.
+Script: `masn-stack/tools/trim-google-exposure.py` (run with HA stopped; backs up first).
+After any change, force a re-sync ("Hey Google, sync my devices") -- Google caches the old
+device list and orphaned cards persist until it re-fetches.
 
 #### Matter dimmer entities: what each KS225 actually creates
 
