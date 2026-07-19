@@ -35,7 +35,10 @@ echo ">> [4/6] Create the Mosquitto user (${MQTT_USER})"
 sudo touch mosquitto/config/passwd
 sudo docker run --rm -v "${STACK_DIR}/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
   mosquitto_passwd -b /mosquitto/config/passwd "$MQTT_USER" "$MQTT_PASSWORD"
-sudo chmod 0700 mosquitto/config/passwd   # mosquitto 2.x warns (and will refuse) on world-readable passwd
+# The passwd must be readable by the mosquitto process, which drops to uid 1883 INSIDE the container.
+# chown to 1883 (not root) + 0600: tight AND readable by the broker. `chmod 0700 root:root` crash-loops it.
+sudo chown 1883:1883 mosquitto/config/passwd
+sudo chmod 0600 mosquitto/config/passwd    # owner (uid 1883) read/write only; mosquitto 2.x refuses world-readable
 
 echo ">> [5/6] NAS SMB mounts via fstab (PER-SHARE creds; nofail so boot survives NAS being down)"
 # Least privilege: svc-frigate can reach ONLY the frigate/recordings share; svc-masn holds
