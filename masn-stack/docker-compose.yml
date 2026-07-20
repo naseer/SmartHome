@@ -96,21 +96,23 @@ services:
   #   depends_on: [mosquitto]
 
   # ============================================================================
-  # ENABLE WHEN THE SLZB-06 ZIGBEE COORDINATOR IS ONLINE (central, floor 1).
-  # Connects to the SLZB-06 over TCP -- no USB device passthrough (see zigbee2mqtt/configuration.yaml)
+  # SLZB-06 ZIGBEE COORDINATOR (CC2652P, LAN mode, central floor 1) -- ONLINE 2026-07 @ 192.168.50.21.
+  # Talks to the coordinator over TCP:6638 -- NO USB passthrough, so no /dev or /run/udev mounts.
   # ============================================================================
-  # zigbee2mqtt:
-  #   container_name: zigbee2mqtt
-  #   image: ghcr.io/koenkk/zigbee2mqtt:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./zigbee2mqtt/data:/app/data
-  #     - /run/udev:/run/udev:ro
-  #   ports:
-  #     - "8080:8080"                 # Z2M web UI
-  #   environment:
-  #     TZ: "${TZ}"
-  #   depends_on: [mosquitto]
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: ghcr.io/koenkk/zigbee2mqtt:latest
+    restart: unless-stopped
+    volumes:
+      - ./zigbee2mqtt/data:/app/data
+    ports:
+      - "8080:8080"                 # Z2M web UI
+    environment:
+      TZ: "${TZ}"
+      # MQTT creds injected from .env -> kept OUT of configuration.yaml
+      ZIGBEE2MQTT_CONFIG_MQTT_USER: "${MQTT_USER}"
+      ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD: "${MQTT_PASSWORD}"
+    depends_on: [mosquitto]
 
   # Audio: NO snapserver. The NuTone IM-3303 is reused as-is, fed by a standalone WiiM at its
   # AUX input (whole-house mono, lo-fi accepted). Nothing audio-related runs on masn.

@@ -1,6 +1,6 @@
-# Zigbee2MQTT -- /opt/stack/zigbee2mqtt/data/configuration.yaml
-# Connects to the SLZB-06 (network coordinator, central floor 1) over TCP, and to Mosquitto.
-# Fill the SLZB-06 IP + MQTT creds, then enable the zigbee2mqtt service in docker-compose.yml.
+# Zigbee2MQTT -- deployed to /opt/stack/zigbee2mqtt/data/configuration.yaml
+# Connects to the SLZB-06 (CC2652P, network coordinator, central floor 1) over TCP, and to Mosquitto.
+# MQTT creds are injected from .env via docker-compose (ZIGBEE2MQTT_CONFIG_MQTT_*), NOT stored here.
 
 homeassistant: true              # HA MQTT discovery
 permit_join: false               # turn on ONLY while pairing devices, then off
@@ -11,14 +11,14 @@ frontend:
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://mosquitto:1883  # bridged -> reach broker by service name
-  user: 'CHANGE_ME_MQTT_USER'
-  password: 'CHANGE_ME_MQTT_PASSWORD'
+  # user + password come from env overrides in docker-compose.yml (sourced from .env)
 
 serial:
-  # SLZB-06 over TCP (serial-over-IP). 6638 = SLZB-06 Zigbee socket port.
-  port: tcp://CHANGE_ME_SLZB06_IP:6638
-  adapter: ember                 # EFR32MG24/MG21 (SLZB-06x). Use zstack for CC2652 variants.
+  # SLZB-06 over TCP (serial-over-IP). 6638 = SLZB-06 Zigbee socket port. LAN coordinator mode.
+  port: tcp://192.168.50.21:6638
+  adapter: zstack                # CC2652P = Texas Instruments -> zstack. (ember is for Silabs EFR32 / SLZB-07 -- NOT this device)
 
 advanced:
   channel: 25                    # keep clear of Wi-Fi 2.4 GHz and the Thread channel
-  # network_key is auto-generated on first run -- BACK IT UP afterwards (data/configuration.yaml)
+  # Z2M 2.x: the network key lives in data/coordinator_backup.json (NOT here). BACK UP THAT FILE --
+  # it is what lets you re-pair the whole mesh without re-joining every device if masn is rebuilt.
