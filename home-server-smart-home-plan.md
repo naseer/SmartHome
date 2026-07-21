@@ -368,7 +368,7 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | Reolink TrackMix PoE -- FRONT: garage gable, down the driveway | 1 | $190 | $190 | REVISED 2026-07-21 (was TrackMix WiFi). Dual-lens: WIDE (fixed) + TELE (pan/tilt, camera-native auto-track). Rated S TIER in independent PoE testing. Goes on the highest-traffic zone -- driveway, both garage doors, street approach -- where auto-tracking actually earns its keep. Wide lens holds the full scene continuously while the tele swings/zooms for face + plate. In Frigate = TWO cameras via go2rtc (see notes) |
-| Reolink CX810 -- FRONT-RIGHT corner: SIDE GATE | 1 | $129 | $129 | The static front cam. ColorX sensor (F1.0, 1/1.8") = TRUE COLOUR night video from ambient light alone, plus notably less motion smearing at night -- the right trade for a dark side yard where the job is NIGHT IDENTIFICATION at a choke point. A TIER. Spotlight + siren. Corner-mount angled down the right side yard (covers the gate to #52 + catches the front walk at frame edge). Alt if tighter framing wanted: RLC-843A (A tier, 5x varifocal, best pure detail -- but weaker in the dark) |
+| Reolink CX810 -- FRONT-RIGHT corner: SIDE GATE | 1 | $129 | $129 | The static front cam. ColorX sensor (F1.0, 1/1.8") = TRUE COLOUR night video from ambient light alone, plus notably less motion smearing at night -- the right trade for a dark side yard where the job is NIGHT IDENTIFICATION at a choke point. A TIER. Spotlight + siren. Mount at the REAR-RIGHT (south) corner aimed FORWARD up the side yard -- traffic through the gate walks the full corridor INTO the lens (faces, not backs). Alt if tighter framing wanted: RLC-843A (A tier, 5x varifocal, best pure detail -- but weaker in the dark) |
 | Reolink Duo 2 PoE -- REAR corner: backyard + left side yard | 1 | $190 | $190 | 180 deg panoramic, A TIER, the recommended tool for WIDE coverage. Corner-mounted it covers TWO faces of the house (backyard + left side yard) -- this is what closes the left-side gap without a 4th camera. Coverage cam: its job is "someone is in the yard", not ID -- anyone reaching it already passed the CX810 at the gate where the identifying shot was taken. NOTE: do NOT substitute the Duo 3 PoE (see models-to-avoid) |
 | Wi-Fi video doorbell -- FRONT DOOR (RTSP) | 1 | $100 | $100 | Reolink Video Doorbell WiFi -- REPLACES the existing NuTone intercom DOOR STATION. RTSP + Frigate + two-way talk. Replaces the planned PoE doorbell (no Ethernet to the front). Power: existing doorbell transformer if 12-24V AC present, else a plug-in transformer off the soffit outlet OR the battery version |
 | NuTone-intercom doorbell adapter plate | 1 | $20 | $20 | Covers the old NuTone door-station cutout + mounts the Reolink. Kyle Switch Plates / DoorBell Mount (custom for Reolink), or a blank oversize plate + Reolink backplate. MEASURE the box screw spacing first (4/4.5/5.25/6.25/6.58") |
@@ -403,9 +403,21 @@ Camera notes (Frigate):
   point, "who was it"). Every approach funnels through a choke point -- driveway entrance, porch
   steps, side gate -- so put a capture angle on each and overview on the open areas.
   1. TrackMix -> garage gable, aimed down the driveway (front/driveway/garage + street approach).
-  2. CX810 -> front-RIGHT corner, angled down the right side yard: the GATE to #52. This is the
-     highest-value placement and the one most often skipped -- that gate is the main unobserved
-     route to the backyard, and it is the classic gap in a 3-camera build.
+  2. CX810 -> REAR-RIGHT corner (the SOUTH corner on the map: where the gate side meets the back),
+     aimed FORWARD/NW up the side yard toward the gate + street. The gate to #52 is the main
+     unobserved route to the backyard and the classic gap in a 3-camera build.
+     WHY THIS CORNER (decided 2026-07-21, and it reverses an earlier call): aiming from the
+     FRONT-right corner backwards gives ONE good face -- the moment they are at the gate -- then
+     films their back down the side yard. From the REAR-right corner facing forward, anyone coming
+     through the gate walks the ENTIRE LENGTH of the side yard straight into the lens, getting
+     closer and larger the whole way: a long capture window with INCREASING detail, and the camera
+     sits exactly where it guards the transition into the backyard.
+     NOTE the house sits ~39 deg off compass north, so "southwest corner" is ambiguous -- the SOUTH
+     corner is rear-right (correct); the WEST corner is front-right (wrong: it looks out over the
+     front yard, duplicating the TrackMix, with the gate BEHIND the camera).
+     SUN: facing NW puts the low EVENING summer sun into the lens, which is prime event time.
+     Mount tight under the soffit so the eave shades it, and tilt down so sky is out of frame
+     (the CX810's HDR covers the rest).
   3. Duo 2 PoE -> rear-LEFT corner (diagonal opposite of #2): backyard + left side yard.
   The doorbell owns the front door, which is what frees both front cameras from watching it and
   makes 3 viable at all.
