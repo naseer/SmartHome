@@ -1,0 +1,128 @@
+{
+  "views": [
+    {
+      "title": "Home",
+      "icon": "mdi:home",
+      "type": "sections",
+      "max_columns": 3,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading_style": "title",
+              "heading": "Climate",
+              "icon": "mdi:thermostat"
+            },
+            {
+              "type": "thermostat",
+              "entity": "climate.thermostat_hub_w200"
+            },
+            {
+              "type": "weather-forecast",
+              "entity": "weather.forecast_home",
+              "forecast_type": "daily",
+              "grid_options": { "columns": 6, "rows": 3 }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.dining_room_thermostat_hub_w200_humidity",
+              "features": [{ "type": "trend-graph" }]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading_style": "title",
+              "heading": "Main Floor",
+              "icon": "mdi:sofa"
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch_3",
+              "name": "Kitchen",
+              "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch_2",
+              "name": "Family Room",
+              "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch_5",
+              "name": "Library",
+              "features": [{ "type": "light-brightness" }]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading_style": "title",
+              "heading": "Upstairs",
+              "icon": "mdi:stairs-up"
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch",
+              "name": "Office",
+              "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch_6",
+              "name": "Master Bedroom",
+              "features": [{ "type": "light-brightness" }]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading_style": "title",
+              "heading": "Outside",
+              "icon": "mdi:home-outline"
+            },
+            {
+              "type": "tile",
+              "entity": "light.smart_wi_fi_dimmer_switch_4",
+              "name": "Potlights",
+              "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "button",
+              "name": "All Lights Off",
+              "icon": "mdi:lightbulb-group-off",
+              "show_state": false,
+              "grid_options": { "columns": 12 },
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "light.turn_off",
+                "target": {
+                  "entity_id": [
+                    "light.smart_wi_fi_dimmer_switch",
+                    "light.smart_wi_fi_dimmer_switch_2",
+                    "light.smart_wi_fi_dimmer_switch_3",
+                    "light.smart_wi_fi_dimmer_switch_4",
+                    "light.smart_wi_fi_dimmer_switch_5",
+                    "light.smart_wi_fi_dimmer_switch_6"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
