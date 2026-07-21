@@ -2,8 +2,14 @@
 """Annotate the top-down map of 50 Westacott with PoE camera placements.
 
 Footprint corners were extracted by flood-filling the Google Maps building
-polygon, so the FOV cones line up with the real walls rather than eyeballed
-positions. House is rotated ~39 deg, hence corners fall on compass N/E/S/W.
+polygon, so the FOV cones line up with real walls rather than eyeballed spots.
+The house sits ~39 deg off compass north, so its corners fall on N/E/S/W:
+  W = front-right   N = front-left   E = rear-left   S = rear-right
+
+FINAL 4-CAMERA LAYOUT: both side yards have gates (to #52 and to #48), so each
+gets a dedicated capture camera at the rear corner facing FORWARD -- traffic
+through either gate walks the length of the corridor into the lens. That frees
+the Duo 2 off the corner to cover the backyard alone.
 """
 import math
 from PIL import Image, ImageDraw, ImageFont
@@ -11,18 +17,16 @@ from PIL import Image, ImageDraw, ImageFont
 SRC = "/Users/naseer/.claude/uploads/836784c4-0e7e-4b33-84f7-66a67dbd904f/f0bb9562-89043.png"
 OUT = "/private/tmp/claude-501/-Users-naseer/836784c4-0e7e-4b33-84f7-66a67dbd904f/scratchpad/camera-placement.png"
 
-# Footprint corners in ORIGINAL image coords (from flood fill).
 CNR = {"W": (422, 978), "N": (714, 740), "E": (895, 969), "S": (605, 1206)}
 CENTRE = (659, 973)
 
-CROP = (0, 470, 1080, 1470)          # strip phone UI chrome + empty ground below
+CROP = (0, 470, 1080, 1470)
 SCALE = 1.45
 LEGEND_H = 430
 
 COL = {
     "trackmix": (232, 138, 30),
-    "good": (22, 163, 74),
-    "bad": (220, 38, 38),
+    "cx": (22, 163, 74),
     "duo": (124, 58, 237),
     "ink": (17, 24, 39),
     "muted": (75, 85, 99),
@@ -44,7 +48,6 @@ def font(size, bold=False):
 
 
 def tx(p):
-    """Original image coords -> annotated canvas coords."""
     return ((p[0] - CROP[0]) * SCALE, (p[1] - CROP[1]) * SCALE)
 
 
@@ -57,8 +60,11 @@ def lerp(a, b, t):
     return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
 
+def blend(a, b, wa, wb):
+    return unit((a[0] * wa + b[0] * wb, a[1] * wa + b[1] * wb))
+
+
 def cone(draw, apex, direction, half_deg, radius, colour, alpha=70, steps=48):
-    """Filled field-of-view wedge."""
     base = math.atan2(direction[1], direction[0])
     pts = [apex]
     for i in range(steps + 1):
@@ -84,6 +90,13 @@ def tag(draw, xy, text, colour, size=25, anchor="lt", pad=7):
     draw.text(xy, text, font=f, fill=colour + (255,), anchor=anchor)
 
 
+def gate_mark(draw, pos, label, side):
+    draw.line([pos[0] - 26, pos[1] - 20, pos[0] + 26, pos[1] + 20],
+              fill=COL["cx"] + (255,), width=7)
+    dx, anchor = (-44, "rt") if side == "left" else (44, "lt")
+    tag(draw, (pos[0] + dx, pos[1] + 26), label, COL["cx"], 23, anchor)
+
+
 def main():
     base = Image.open(SRC).convert("RGB").crop(CROP)
     base = base.resize((int(base.width * SCALE), int(base.height * SCALE)), Image.LANCZOS)
@@ -96,55 +109,50 @@ def main():
     W, N, E, S = (tx(CNR[k]) for k in ("W", "N", "E", "S"))
     centre = tx(CENTRE)
 
-    # ---- house outline ----
     d.polygon([W, N, E, S], fill=(255, 255, 255, 30), outline=COL["ink"] + (255,), width=5)
 
-    # ---- outward directions ----
-    n_front = unit((-91, -114))     # NW, toward the street
-    n_gate = unit((-146, 119))      # SW, toward #52 / the gate
-    along_sw = unit((W[0] - S[0], W[1] - S[1]))   # S -> W, up the side yard
+    n_front = unit((-91, -114))     # NW, to the street
+    n_gate52 = unit((-146, 119))    # SW, to #52
+    n_gate48 = unit((145, -119))    # NE, to #48
+    n_back = unit((91, 114))        # SE, backyard
 
-    # ---- 1. TrackMix: front face at the garage, aimed down the driveway ----
+    along_sw = unit((W[0] - S[0], W[1] - S[1]))   # S -> W, up the #52 side yard
+    along_ne = unit((N[0] - E[0], N[1] - E[1]))   # E -> N, up the #48 side yard
+
+    # 1 TrackMix -- front face at the garage, down the driveway
     tm = lerp(W, N, 0.66)
     cone(d, tm, n_front, 42, 330, COL["trackmix"])
 
-    # ---- 2a. CX810 RECOMMENDED: rear-right (S) corner, up the side yard ----
-    aim_good = unit((along_sw[0] * 0.88 + n_gate[0] * 0.30,
-                     along_sw[1] * 0.88 + n_gate[1] * 0.30))
-    cone(d, S, aim_good, 34, 470, COL["good"])
+    # 2 CX810 -- rear-RIGHT (S) corner, forward up the #52 side yard
+    cone(d, S, blend(along_sw, n_gate52, 0.88, 0.30), 34, 450, COL["cx"])
 
-    # ---- 2b. CX810 NOT THIS: front-right (W) corner facing the front ----
-    cone(d, W, n_front, 34, 300, COL["bad"], alpha=45)
+    # 3 CX810 -- rear-LEFT (E) corner, forward up the #48 side yard
+    cone(d, E, blend(along_ne, n_gate48, 0.88, 0.30), 34, 450, COL["cx"])
 
-    # ---- 3. Duo 2: rear-left (E) corner, 180 deg over back + left side ----
-    cone(d, E, unit((E[0] - centre[0], E[1] - centre[1])), 90, 265, COL["duo"], alpha=60)
+    # 4 Duo 2 -- mid BACK wall, 180 deg over the backyard only
+    duo = lerp(E, S, 0.5)
+    cone(d, duo, n_back, 90, 285, COL["duo"], alpha=60)
 
-    # ---- markers ----
     marker(d, tm, "1", COL["trackmix"])
-    marker(d, S, "2", COL["good"])
-    marker(d, W, "X", COL["bad"])
-    marker(d, E, "3", COL["duo"])
+    marker(d, S, "2", COL["cx"])
+    marker(d, E, "3", COL["cx"])
+    marker(d, duo, "4", COL["duo"])
 
-    # doorbell + gate
     db = lerp(W, N, 0.18)
     d.ellipse([db[0] - 12, db[1] - 12, db[0] + 12, db[1] + 12],
               fill=(255, 255, 255, 255), outline=COL["ink"] + (255,), width=4)
 
-    gate = tx((408, 1040))
-    d.line([gate[0] - 26, gate[1] - 20, gate[0] + 26, gate[1] + 20],
-           fill=COL["good"] + (255,), width=7)
-    tag(d, (gate[0] - 44, gate[1] + 30), "GATE to #52", COL["good"], 23, "rt")
+    gate_mark(d, tx((408, 1040)), "GATE to #52", "left")
+    gate_mark(d, tx((800, 762)), "GATE to #48", "right")
 
-    # ---- face labels ----
-    tag(d, lerp(tx((568, 859)), tx((568 - 150, 859 - 190)), 1.0), "FRONT  (street)", COL["ink"], 26, "mm")
-    tag(d, tx((470, 1180)), "GATE SIDE", COL["ink"], 24, "mm")
-    tag(d, tx((828, 1245)), "BACK", COL["ink"], 24, "mm")
-    tag(d, tx((1002, 812)), "LEFT SIDE", COL["ink"], 24, "mm")
+    tag(d, tx((418, 669)), "FRONT  (street)", COL["ink"], 26, "mm")
+    tag(d, tx((455, 1195)), "GATE SIDE", COL["ink"], 24, "mm")
+    tag(d, tx((955, 1215)), "BACKYARD", COL["ink"], 24, "mm")
+    tag(d, tx((1000, 852)), "LEFT SIDE", COL["ink"], 24, "mm")
     tag(d, tx((286, 1300)), "#52", COL["muted"], 26, "mm")
-    tag(d, tx((958, 632)), "#48", COL["muted"], 26, "mm")
+    tag(d, tx((962, 618)), "#48", COL["muted"], 26, "mm")
     tag(d, (db[0] - 30, db[1] - 18), "doorbell", COL["ink"], 21, "rb")
 
-    # ---- compass ----
     cx, cy = canvas.width - 92, 96
     d.ellipse([cx - 46, cy - 46, cx + 46, cy + 46], fill=(255, 255, 255, 235),
               outline=COL["ink"] + (255,), width=3)
@@ -154,7 +162,6 @@ def main():
 
     canvas = Image.alpha_composite(canvas.convert("RGBA"), ov).convert("RGB")
 
-    # ---- legend ----
     d2 = ImageDraw.Draw(canvas)
     y = base.height + 26
     d2.line([26, y - 12, canvas.width - 26, y - 12], fill=(209, 213, 219), width=2)
@@ -162,10 +169,10 @@ def main():
             font=font(31, True), fill=COL["ink"])
     y += 46
     rows = [
-        (COL["trackmix"], "1", "TrackMix PoE  -  garage gable, aimed down the driveway (front + garage + street approach)"),
-        (COL["good"], "2", "CX810  -  REAR-RIGHT (south) corner, facing FRONT up the side yard  =  RECOMMENDED"),
-        (COL["bad"], "X", "CX810 at the FRONT-RIGHT (west) corner facing front  =  avoid: gate sits behind it"),
-        (COL["duo"], "3", "Duo 2 PoE  -  rear-left (east) corner, 180 deg over the backyard + left side yard"),
+        (COL["trackmix"], "1", "TrackMix PoE  -  garage gable, aimed down the driveway (front + garage + street)"),
+        (COL["cx"], "2", "CX810  -  rear-RIGHT (south) corner, facing forward up the #52 side yard"),
+        (COL["cx"], "3", "CX810  -  rear-LEFT (east) corner, facing forward up the #48 side yard"),
+        (COL["duo"], "4", "Duo 2 PoE  -  mid back wall, 180 deg over the backyard only"),
     ]
     for colour, key, text in rows:
         d2.ellipse([32, y + 3, 32 + 30, y + 33], fill=colour, outline=(255, 255, 255), width=3)
@@ -173,10 +180,10 @@ def main():
         d2.text((80, y + 5), text, font=font(23), fill=COL["ink"])
         y += 42
     d2.text((30, y + 12),
-            "Traffic through the gate walks the length of the side yard straight at camera 2  ->  faces, not backs.",
-            font=font(22, True), fill=COL["good"])
+            "Both gates are now watched by a camera the intruder walks TOWARD  ->  faces, not backs.",
+            font=font(22, True), fill=COL["cx"])
     d2.text((30, y + 44),
-            "Mask out #52's property in Frigate, or every trip they make to their car triggers detection.",
+            "Mask #52 and #48 property in Frigate. Soffit-shade 2 and 3: facing NW puts evening sun in the lens.",
             font=font(22), fill=COL["muted"])
 
     canvas.save(OUT)

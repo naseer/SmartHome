@@ -368,12 +368,12 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
 | Reolink TrackMix PoE -- FRONT: garage gable, down the driveway | 1 | $190 | $190 | REVISED 2026-07-21 (was TrackMix WiFi). Dual-lens: WIDE (fixed) + TELE (pan/tilt, camera-native auto-track). Rated S TIER in independent PoE testing. Goes on the highest-traffic zone -- driveway, both garage doors, street approach -- where auto-tracking actually earns its keep. Wide lens holds the full scene continuously while the tele swings/zooms for face + plate. In Frigate = TWO cameras via go2rtc (see notes) |
-| Reolink CX810 -- FRONT-RIGHT corner: SIDE GATE | 1 | $129 | $129 | The static front cam. ColorX sensor (F1.0, 1/1.8") = TRUE COLOUR night video from ambient light alone, plus notably less motion smearing at night -- the right trade for a dark side yard where the job is NIGHT IDENTIFICATION at a choke point. A TIER. Spotlight + siren. Mount at the REAR-RIGHT (south) corner aimed FORWARD up the side yard -- traffic through the gate walks the full corridor INTO the lens (faces, not backs). Alt if tighter framing wanted: RLC-843A (A tier, 5x varifocal, best pure detail -- but weaker in the dark) |
-| Reolink Duo 2 PoE -- REAR corner: backyard + left side yard | 1 | $190 | $190 | 180 deg panoramic, A TIER, the recommended tool for WIDE coverage. Corner-mounted it covers TWO faces of the house (backyard + left side yard) -- this is what closes the left-side gap without a 4th camera. Coverage cam: its job is "someone is in the yard", not ID -- anyone reaching it already passed the CX810 at the gate where the identifying shot was taken. NOTE: do NOT substitute the Duo 3 PoE (see models-to-avoid) |
+| Reolink CX810 -- REAR-RIGHT + REAR-LEFT corners: THE TWO SIDE-YARD GATES | 2 | $129 | $258 | REVISED 2026-07-21: qty 1 -> 2. BOTH side yards have gates (to #52 AND to #48), so both are real routes to the backyard and each gets its own capture cam (see layout note). ColorX sensor (F1.0, 1/1.8") = TRUE COLOUR night video from ambient light alone, plus notably less motion smearing at night -- the right trade for a dark side yard where the job is NIGHT IDENTIFICATION at a choke point. A TIER. Spotlight + siren. Mount at the REAR-RIGHT (south) corner aimed FORWARD up the side yard -- traffic through the gate walks the full corridor INTO the lens (faces, not backs). Alt if tighter framing wanted: RLC-843A (A tier, 5x varifocal, best pure detail -- but weaker in the dark) |
+| Reolink Duo 2 PoE -- MID BACK WALL: the backyard | 1 | $190 | $190 | 180 deg panoramic, A TIER, the recommended tool for WIDE coverage. MOVED 2026-07-21 off the rear-left corner to the middle of the back wall: with a CX810 now on each side yard, the Duo no longer has to double as the left-side cam and its 180 deg is spent entirely on the backyard. (A panoramic is the WORST tool for a narrow corridor -- oblique angle, low pixel density -- and the best for an open yard; the 4th camera let each unit do ONE job well.) Coverage cam: its job is "someone is in the yard", not ID -- anyone reaching it already passed a CX810 at a gate where the identifying shot was taken. NOTE: do NOT substitute the Duo 3 PoE (see models-to-avoid) |
 | Wi-Fi video doorbell -- FRONT DOOR (RTSP) | 1 | $100 | $100 | Reolink Video Doorbell WiFi -- REPLACES the existing NuTone intercom DOOR STATION. RTSP + Frigate + two-way talk. Replaces the planned PoE doorbell (no Ethernet to the front). Power: existing doorbell transformer if 12-24V AC present, else a plug-in transformer off the soffit outlet OR the battery version |
 | NuTone-intercom doorbell adapter plate | 1 | $20 | $20 | Covers the old NuTone door-station cutout + mounts the Reolink. Kyle Switch Plates / DoorBell Mount (custom for Reolink), or a blank oversize plate + Reolink backplate. MEASURE the box screw spacing first (4/4.5/5.25/6.25/6.58") |
 | Wi-Fi PTZ auto-track cam (RTSP) -- wide area | 1 | $170 | $170 | Reolink TrackMix WiFi (dual-lens: wide + telephoto, camera-native auto-track). COMPLEMENTS the fixed cams (don't let it replace an entry cam -- PTZ may be panned away). In Frigate = TWO cameras via go2rtc: WIDE (h265Preview_01) = detect + full-scene record; TELE (h264Preview_02) = auto-tracked close-up record. Use CAMERA-NATIVE tracking, NOT Frigate onvif_autotrack (Reolink ONVIF flaky). HIGH Wi-Fi load (2 lenses) -> needs a strong AP; get TrackMix POE if the spot can be wired (MoCA->injector) |
-| | | | **~$629** | 3 PoE cameras + doorbell (REVISED 2026-07-21, down from 5 cams / ~$720). Prices are estimates -- only the CX810 ($129) is confirmed; verify TrackMix PoE + Duo 2 PoE at purchase |
+| | | | **~$758** | 4 PoE cameras + doorbell (REVISED 2026-07-21: 5 Wi-Fi cams ~$720 -> 3 PoE ~$629 -> 4 PoE ~$758 once the second gate was confirmed). Prices are estimates -- only the CX810 ($129) is confirmed; verify TrackMix PoE + Duo 2 PoE at purchase |
 
 Camera notes (Frigate):
 - Reolink works but its RTSP is finicky and some models cap simultaneous connections -> always
@@ -418,11 +418,17 @@ Camera notes (Frigate):
      SUN: facing NW puts the low EVENING summer sun into the lens, which is prime event time.
      Mount tight under the soffit so the eave shades it, and tilt down so sky is out of frame
      (the CX810's HDR covers the rest).
-  3. Duo 2 PoE -> rear-LEFT corner (diagonal opposite of #2): backyard + left side yard.
-  The doorbell owns the front door, which is what frees both front cameras from watching it and
-  makes 3 viable at all.
-  ACCEPTED BLIND SPOT: the FRONT portion of the LEFT side yard (the rear cam sees its back half,
-  not the street end). Narrow, overlooked by the neighbour -- the natural spot for a 4th cam later.
+  3. CX810 #2 -> rear-LEFT (EAST) corner, aimed FORWARD/NW up the LEFT side yard toward the gate
+     to #48. Exact mirror of #2. ADDED 2026-07-21 once the #48-side gate was confirmed.
+  4. Duo 2 PoE -> MID BACK WALL, 180 deg over the backyard only.
+  The doorbell owns the front door, which frees the front cameras from having to watch it.
+  WHY THE 4th CAMERA EARNS ITS PLACE (it is corrective, not additive): with 3 cams the Duo was
+  doing TWO jobs at once -- backyard AND left side yard from an oblique angle. A 180 deg panoramic
+  is the right tool for an open yard and the WORST for a narrow corridor (low pixel density,
+  distorted geometry, objects tiny in frame). So the weakest-covered approach in the whole design
+  was a real gate. Adding CX810 #2 means every unit does ONE job well: both gates get a capture cam
+  the intruder walks TOWARD, and the Duo's panorama is spent entirely on the yard.
+  BLIND SPOT: none material. The earlier "front portion of the left side yard" gap is CLOSED.
   MOUNT HEIGHTS: TrackMix high on the gable is fine (its tele lens compensates), but mount the
   CX810 LOWER (~8-9 ft) -- a fixed camera mounted too high sees the tops of heads, and it has no
   zoom to make up for it. 9-10 ft under soffit/eave elsewhere: weather protection, tamper height,
