@@ -38,7 +38,7 @@
             {
               "type": "heading",
               "heading_style": "title",
-              "heading": "Main Floor",
+              "heading": "First Floor",
               "icon": "mdi:sofa"
             },
             {
@@ -58,6 +58,26 @@
               "entity": "light.smart_wi_fi_dimmer_switch_5",
               "name": "Library",
               "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "button",
+              "name": "First Floor Lights Off",
+              "icon": "mdi:lightbulb-group-off",
+              "show_state": false,
+              "grid_options": { "columns": 12 },
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "light.turn_off",
+                "target": {
+                  "area_id": [
+                    "kitchen",
+                    "family_room",
+                    "library",
+                    "living_room",
+                    "dining_room"
+                  ]
+                }
+              }
             }
           ]
         },
@@ -108,16 +128,7 @@
               "tap_action": {
                 "action": "perform-action",
                 "perform_action": "light.turn_off",
-                "target": {
-                  "entity_id": [
-                    "light.smart_wi_fi_dimmer_switch",
-                    "light.smart_wi_fi_dimmer_switch_2",
-                    "light.smart_wi_fi_dimmer_switch_3",
-                    "light.smart_wi_fi_dimmer_switch_4",
-                    "light.smart_wi_fi_dimmer_switch_5",
-                    "light.smart_wi_fi_dimmer_switch_6"
-                  ]
-                }
+                "target": { "floor_id": ["first", "second"] }
               }
             }
           ]
