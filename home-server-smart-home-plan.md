@@ -1433,6 +1433,29 @@ exception (returning to On after an outage may be wanted for security lighting).
 
 ## 15. Open Items / To Confirm
 
+- [ ] **TASK (queued 2026-07-21): pair the GARAGE relay + tilt sensor.** Devices in hand: Aqara Dual
+      Relay T2 (DCM-K01) + ThirdReality tilt sensor (3RDTS01056Z). Full wiring detail is in the
+      "Garage door note" under 6.4 -- read it before starting.
+      ORDER MATTERS -- relay FIRST, sensor SECOND: the T2 is mains-powered so it becomes the
+      GARAGE'S OWN ZIGBEE ROUTER; the tilt sensor is a battery END DEVICE that picks its parent at
+      join time and clings to it. Pair the sensor first and it binds to a distant router it can
+      barely hear, then sits on a weak link (sleepy end devices re-parent slowly). The garage is
+      normally the weakest corner of the mesh: far from the centrally-placed coordinator, often
+      behind a fire-rated wall.
+      PRE-CHECK: confirm a mains router is reachable from the garage (the 4 plugs are Living Room /
+      Dining Room / Family Room / Hallway -- is Hallway near the garage door?). If not, place a
+      spare plug on the garage path FIRST or the relay may not join from its final location.
+      SAFETY (critical): kill the breaker feeding the ceiling outlet. **REMOVE THE RED JUMPER**
+      between LIN and LOUT -- that jumper makes the output LIVE, and leaving it in injects 120 V
+      into the opener's low-voltage control board (destroys it; shock/fire hazard). Prefer the plug
+      pigtail + outlet splitter into the existing opener outlet so there is no hardwiring at all.
+      STEPS: 1) paperclip-short the opener's two wall-button terminals to confirm the right pair.
+      2) Wire the T2 (LIN<-live, N<-neutral, jumper OUT, opener COM->LOUT, opener trigger->L1).
+      3) permit_join ON, pair the relay (expect Z2M model `LLKZMK12LM`). 4) Pair the tilt sensor
+      IN THE GARAGE near its mount point so it binds to the relay. 5) permit_join OFF, rename both,
+      and check Z2M -> Map that the sensor's parent is the RELAY, not something across the house.
+      THEN: make the relay MOMENTARY (relay ON -> wait ~0.8 s -> OFF) and build the HA template
+      cover tying relay + sensor into one garage entity. Keep auto-close conservative (UL325).
 - [ ] ASSESS the old ADT box + Cat5 drops (potential FREE AP backhaul, see 5 item 0): confirm
       real Cat5/5e UTP (not alarm wire); find the central termination panel; map each drop's far
       end; test continuity + 1GbE link + PoE. Confirm ADT is dead. Could solve the AP-backhaul
