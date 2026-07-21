@@ -484,7 +484,7 @@ Camera notes (Frigate):
 |------|-----|-----------|------------|-------|
 | HA Connect ZBT-2 dongle (Thread Border Router) | 0-1 | $35 | $0 | NOW OPTIONAL/FUTURE: with lighting on Zigbee, nothing load-bearing runs on Thread. Keep as cheap future-proofing for a Thread-only Matter device (or the lock's Thread module), or DEFER until one appears. Not needed for the initial build |
 | Zigbee coordinator: SLZB-06 (network-attached) | 1 | $40 | $40 | Mount CENTRALLY on floor 1 (NOT the basement rack); Z2M over TCP. START: Ethernet jack + USB power (no PoE needed at first); PoE later if the drop is on a PoE port. Separate 802.15.4 channel. USB Sonoff ZBDongle-E / 2nd ZBT-2 (~$30) is the fallback |
-| USB-C power adapter for SLZB-06 | 1 | $10 | $10 | Powers the coordinator until/unless PoE is used |
+| USB-C power adapter for SLZB-06 | 1 | $10 | $10 | INTERIM ONLY -- MOVE THE COORDINATOR TO PoE once the USW-Pro-Max-16-PoE is in. 2026-07-21: a flaky USB-C connection powered the SLZB-06 down and took the ENTIRE Zigbee network out for ~7.5 h (Z2M crash-looped 198 times on "Error while opening socket"). That connector is a single point of failure for all ~31 Zigbee devices. PoE removes it AND puts coordinator power on the same UPS-backed rail as the rest of the core |
 | USB extension cable (1-2 m) | 0-1 | $8 | $0 | Not needed for the SLZB-06 (Ethernet, central floor 1, not USB). Only if a ZBT-2 Thread BR is added later (get it out of the rack + off USB 3.0) |
 | Sinopé DM2500ZB Zigbee dimmer (600 W) | 3 | $45 | $135 | The 3 dimmer spots NOT covered by the owned KS225s (12 spots total - 9 KS225 = 3). Zigbee, NATIVELY in Z2M (converter DM2500ZB -- on/off, dim, transition, timer, LED intensity, min-brightness, power-on) -> pairs to the SLZB-06, NO Sinopé hub/Neviweb. CANADIAN brand. Mains Zigbee ROUTERS -- deliberately keep these 3 as Zigbee (not more KS225) to seed the mesh for the battery sensors + garage relay. Neutral required (boxes have it). Verify dimmable LED loads + 3-way per Sinopé guide (DM2550ZB for tricky loads). Alt: Inovelli Blue 2-1 |
 | TP-Link Kasa KS225 Matter-over-Wi-Fi DIMMERS (9, OWNED) | 9 | owned | $0 | KEPT -- past the return window (2026-07). Cover 9 of the 12 dimmer spots. Matter-over-WI-FI (2.4 GHz), NOT Thread -> NOT Zigbee/Thread routers. COMMISSIONING (proven 2026-07): pair in the KASA app first, then Kasa -> share/link to other platform -> paste the generated code into HA (Matter multi-admin). The direct HA-companion-app path FAILS: it hands off to Google Play Services, which falls back to `commission_on_network` against the switch's link-local IPv6 and dies in the PASE handshake (`Expected message type 33` -> `CHIP Error 0x00000003`). Only the one switch that went via BLE `commission_with_code` ever succeeded that way. Google Home is not an option either (needs a Nest hub; none owned). NO USB Bluetooth dongle needed on masn -- the phone supplies BLE at close range. Cost: TP-Link's cloud holds an admin fabric until removed in-app (see cloud-exit note below). Put on the IoT SSID/VLAN. 9 is fine on U7 Pro APs -- congestion worry was a scale concern, not a 9-device one |
@@ -534,6 +534,19 @@ Two caveats that drive the design:
    forces an immediate rejoin.
 2. It needs another router in RANGE to rejoin to. If the removed plug was a sensor's only
    path (>1 hop from anything else), that sensor goes offline until an alternate route exists.
+
+VALIDATED IN THE FIELD 2026-07-21: the coordinator was down ~7.5 h (USB power fault). All 4 paired
+ThirdReality plugs came back on their own with NO re-pairing and no lost entities -- devices stay
+network members through a coordinator outage; only live control is interrupted.
+
+DIAGNOSING A DEAD COORDINATOR (the symptom is a Z2M crash loop, which looks like a software bug):
+`docker logs zigbee2mqtt` shows "Error while opening socket" + "Failed to start zigbee-herdsman",
+container = `Restarting (1)`. Check the COORDINATOR before touching any config: ping it, test
+`/dev/tcp/<ip>/6638`, and curl `http://<ip>/ha_sensors` (SLZB web endpoint). No ICMP + no ARP entry
++ nothing on any port = the device is POWERED OFF, not misconfigured. A DHCP/lease problem usually
+still leaves a link-layer presence, so "no ARP at all" points at power, not addressing. Z2M is
+`restart: unless-stopped`, so it self-heals the moment the coordinator answers again -- leave it
+looping rather than intervening.
 
 Hence: pair ROUTERS FIRST, then sensors; keep no battery sensor >1 hop from a mains router;
 and buy overlap (8 ThirdReality plugs for 6 needed spots + 3 Sinopé + garage relay) so any
