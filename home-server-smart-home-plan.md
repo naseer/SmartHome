@@ -444,6 +444,28 @@ Working procedure per switch (validated on the first one, 2026-07):
 
 Cloud exit (optional, do it LAST and test on ONE switch): removing the device **inside the Kasa app** sends a remove-fabric command that drops TP-Link's admin while leaving HA's fabric intact -- the switch then runs fully local, no cloud, no app. Uninstalling the Kasa app alone does NOT do this; the fabric lives on the device and the TP-Link account, not the app install, so the app must be used to evict it first. Risk to verify on one switch: some vendor apps decommission ALL fabrics on removal rather than just their own, which would evict HA too and force a re-pair.
 
+### Zigbee mesh resilience / why the router count
+
+A Zigbee device is a member of the NETWORK (keyed by IEEE address + network key),
+not bound to the router it paired through. So removing/unplugging a router plug does NOT
+unpair or reset the battery sensors that were routing through it -- the mesh self-heals:
+each orphaned sensor rejoins another nearby router (or the coordinator) automatically,
+keeping its address and its Z2M/HA entity. True for both a temporary unplug and a permanent
+remove/factory-reset of the plug; either way only the plug leaves, its children re-parent.
+
+Two caveats that drive the design:
+1. Re-heal is NOT instant for sleepy end devices -- a battery sensor may take seconds to
+   hours to notice its parent is gone. Physically waking it (open the contact, trip motion)
+   forces an immediate rejoin.
+2. It needs another router in RANGE to rejoin to. If the removed plug was a sensor's only
+   path (>1 hop from anything else), that sensor goes offline until an alternate route exists.
+
+Hence: pair ROUTERS FIRST, then sensors; keep no battery sensor >1 hop from a mains router;
+and buy overlap (8 ThirdReality plugs for 6 needed spots + 3 Sinopé + garage relay) so any
+single plug removal always leaves an alternate path. Use Z2M -> Map to see who parents whom
+and confirm re-homing after pulling a plug. Routers so far: mains ThirdReality plugs (Router,
+Mains, model 3RSP02028BZ -- confirmed as routers on join), 3 Sinopé dimmers, garage T2 relay.
+
 ### Garage door note (hub-free Zigbee)
 
 Two devices, both on the ZBT-2 + Z2M (no Aqara/ThirdReality hub, no cloud):
