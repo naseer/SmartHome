@@ -445,6 +445,23 @@ Camera notes (Frigate):
   - RLC-811A = B tier -- beaten by the RLC-843A on daytime image quality at similar money.
   Source: thesmarthomehookup.com Reolink PoE tier list.
 
+- BACKYARD LIGHTING (DECIDED 2026-07-21): camera 4 stays a plain Duo 2 PoE. Do NOT buy a floodlight
+  camera. Instead put the EXISTING back-door light on a Sinopé SW2500ZB Zigbee switch (see 6.4) and
+  drive it from HA on a Frigate person-detect in the backyard zone, with a timer off.
+  The Reolink Duo Floodlight PoE was the alternative -- same 180 deg role, same A tier, 1800 lm /
+  4200K, 802.3at PoE+ and up to 24W (would have been the single largest PoE draw; must land on a
+  PoE+ port, not a basic 802.3af one). Rejected because a separate switched light is better here:
+  * NO INSECTS AT THE LENS. The standard failure of floodlight cams: the light attracts moths that
+    fly through frame all night and spiders web the housing. Frigate's OBJECT detection blunts the
+    false-alert half of this (a moth is not a `person`), but the image degradation is real.
+  * The light can be positioned where it lights the yard BEST, not wherever the camera happens to
+    sit -- and it avoids near-field glare/bloom washing out the camera's own image.
+  * Reuses the Zigbee mesh already built, adds a router at the BACK of the house, and costs less.
+  * 1800 lm in a tight suburban yard spills into #48/#52 -- easier to aim a fixture than a camera.
+  TRIGGER ON DETECTION, not dusk-to-dawn: fewer bugs, stronger deterrent when it snaps on, and it
+  keeps the yard dark (and the neighbours happy) the rest of the night.
+  REVISIT the Duo Floodlight PoE only if the existing back fixture turns out to be unusable.
+
 - PoE WIRING: one Cat6 home-run per camera back to the USW-Pro-Max-16-PoE (switch powers them, no
   local power needed). Runs are well under the 100 m limit for this house. Cameras land on the
   Cameras VLAN; Frigate pulls RTSP locally, footage never leaves the network. PLAN THE SOFFIT
@@ -481,14 +498,18 @@ Camera notes (Frigate):
 | Temp/humidity sensors (Zigbee) | 3 | $15 | $45 | Basement, family room, baths (fan automation) |
 | Smart plugs Matter-Thread (incl. 1-2 outdoor) | 4 | $26 | $104 | Mains -> Thread; lamps, patio/gazebo, spa |
 | Zigbee smart plug (mesh router) | 6 | $15 | $90 | NOW MANDATORY (was optional): with only 3 Sinopé dimmers left on Zigbee, these carry the router mesh. Spread ~2 per floor + one on the garage path so no battery sensor is >1 hop from a mains router. Mains -> Zigbee router |
+| Sinopé SW2500ZB Zigbee SWITCH (non-dimming) -- BACK EXTERIOR LIGHT | 1 | $40 | $40 | DECIDED 2026-07-21. Puts the EXISTING back-door/patio light under HA so Frigate can trigger it -- this is why camera 4 stays a plain Duo 2 instead of a floodlight camera (see 6.3). SWITCH not dimmer: LED floodlights are usually non-dimmable and dimming is not wanted here. Sinopé = same family as the DM2500ZB dimmers, native in Z2M, no Neviweb/hub, Canadian. Neutral required (boxes have it). BONUS: mains Zigbee ROUTER at the BACK of the house -- extends the mesh toward the backyard/garage where coverage is thinnest. Verify the fixture's wattage against the switch rating. Keep it a WALL switch (not a relay behind the fixture) so manual control still works. Alt: Aqara WS-USC03/04 (neutral versions -- NOT the no-neutral WS-USC01) |
 | Garage opener relay: Aqara Dual Relay Module T2 (DCM-K01) | 1 | $40 | $40 | Hub-free via Z2M (`LLKZMK12LM`); dry-contact mode wired across the wall-button terminals. Mains-powered (L+N) -> also a Zigbee router. Dual-channel: covers 2 doors. Ignore the "Aqara hub required" label -- Z2M-supported incl. OTA |
 | Garage state: ThirdReality Garage Tilt Sensor (3RDTS01056Z) | 1 | $25 | $25 | Hub-free via Z2M; tilt -> open/closed `contact`. Mount on top door panel; disable buzzer; set sensitivity dip switch. 1 per door |
 | Scene buttons (optional) | 2 | $20 | $40 | Matter buttons for scenes |
-| | | | **~$1,317** | ~35 devices. LIGHTING = 9 owned KS225 Wi-Fi dimmers ($0, sunk) + 3 Sinopé Zigbee ($135). Zigbee mesh now carried by 6 mandatory router plugs ($90) + 3 Sinopé + garage relay, NOT a 12-dimmer backbone. ZBT-2 optional; thermostat = Aqara W200 (Matter). Down ~$375 from the 12-Sinopé plan (9 dimmers now sunk-cost Wi-Fi) |
+| | | | **~$1,357** | ~36 devices. LIGHTING = 9 owned KS225 Wi-Fi dimmers ($0, sunk) + 3 Sinopé Zigbee dimmers ($135) + 1 Sinopé SW2500ZB switch for the back exterior light ($40, added 2026-07-21). Zigbee mesh now carried by 6 mandatory router plugs ($90) + 3 Sinopé + garage relay, NOT a 12-dimmer backbone. ZBT-2 optional; thermostat = Aqara W200 (Matter). Down ~$375 from the 12-Sinopé plan (9 dimmers now sunk-cost Wi-Fi) |
 
 ### KS225 commissioning + TP-Link cloud exit
 
-Working procedure per switch (validated on the first one, 2026-07):
+STATUS 2026-07-21: 6 of 9 paired and live in HA (Kitchen, Office, Library, Master Bedroom,
+Outside Potlights, Family Room). 3 left to do.
+
+Working procedure per switch (validated 2026-07):
 
 1. Factory reset the switch: hold ~10 s until the LED blinks rapid amber (a ~5 s hold is only a soft reset -- keeps the fabric and Wi-Fi).
 2. Pair it in the **Kasa** app, standing next to it (the phone provides BLE).
