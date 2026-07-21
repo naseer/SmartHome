@@ -367,13 +367,13 @@ continuous recordings, media, backups -- lives on the NAS, see 6.7. No internal 
 
 | Item | Qty | Est. each | Est. total | Notes |
 |------|-----|-----------|------------|-------|
-| PoE exterior camera (RTSP/ONVIF) -- back/sides | 2 | $90 | $180 | PoE where Ethernet is reachable (back door, side yard); main+sub dual-stream + H.265. Amcrest/Dahua-OEM = most reliable RTSP; Reolink OK via go2rtc. Add more per perimeter needs |
-| Wi-Fi FLOODLIGHT cam -- GARAGE (RTSP) | 1 | $150 | $150 | Reolink Duo Floodlight WiFi (dual-lens ~180 + integrated FLOODLIGHT). WIDE coverage of garage/driveway + light/deterrence; mains (existing garage-light power). Coverage cam -- weaker detection (split/zone config), HIGH bitrate over Wi-Fi. Automate the light via HA on Frigate detect |
-| Wi-Fi DETECTION cam -- FRONT PORCH (RTSP) | 1 | $100 | $100 | Reolink RLC-810WA (single-lens, 4K) on the soffit OUTLET = PRIMARY front detection (person/package). RTSP + dual-stream via go2rtc, Cameras VLAN |
+| Reolink TrackMix PoE -- FRONT: garage gable, down the driveway | 1 | $190 | $190 | REVISED 2026-07-21 (was TrackMix WiFi). Dual-lens: WIDE (fixed) + TELE (pan/tilt, camera-native auto-track). Rated S TIER in independent PoE testing. Goes on the highest-traffic zone -- driveway, both garage doors, street approach -- where auto-tracking actually earns its keep. Wide lens holds the full scene continuously while the tele swings/zooms for face + plate. In Frigate = TWO cameras via go2rtc (see notes) |
+| Reolink CX810 -- FRONT-RIGHT corner: SIDE GATE | 1 | $129 | $129 | The static front cam. ColorX sensor (F1.0, 1/1.8") = TRUE COLOUR night video from ambient light alone, plus notably less motion smearing at night -- the right trade for a dark side yard where the job is NIGHT IDENTIFICATION at a choke point. A TIER. Spotlight + siren. Corner-mount angled down the right side yard (covers the gate to #52 + catches the front walk at frame edge). Alt if tighter framing wanted: RLC-843A (A tier, 5x varifocal, best pure detail -- but weaker in the dark) |
+| Reolink Duo 2 PoE -- REAR corner: backyard + left side yard | 1 | $190 | $190 | 180 deg panoramic, A TIER, the recommended tool for WIDE coverage. Corner-mounted it covers TWO faces of the house (backyard + left side yard) -- this is what closes the left-side gap without a 4th camera. Coverage cam: its job is "someone is in the yard", not ID -- anyone reaching it already passed the CX810 at the gate where the identifying shot was taken. NOTE: do NOT substitute the Duo 3 PoE (see models-to-avoid) |
 | Wi-Fi video doorbell -- FRONT DOOR (RTSP) | 1 | $100 | $100 | Reolink Video Doorbell WiFi -- REPLACES the existing NuTone intercom DOOR STATION. RTSP + Frigate + two-way talk. Replaces the planned PoE doorbell (no Ethernet to the front). Power: existing doorbell transformer if 12-24V AC present, else a plug-in transformer off the soffit outlet OR the battery version |
 | NuTone-intercom doorbell adapter plate | 1 | $20 | $20 | Covers the old NuTone door-station cutout + mounts the Reolink. Kyle Switch Plates / DoorBell Mount (custom for Reolink), or a blank oversize plate + Reolink backplate. MEASURE the box screw spacing first (4/4.5/5.25/6.25/6.58") |
 | Wi-Fi PTZ auto-track cam (RTSP) -- wide area | 1 | $170 | $170 | Reolink TrackMix WiFi (dual-lens: wide + telephoto, camera-native auto-track). COMPLEMENTS the fixed cams (don't let it replace an entry cam -- PTZ may be panned away). In Frigate = TWO cameras via go2rtc: WIDE (h265Preview_01) = detect + full-scene record; TELE (h264Preview_02) = auto-tracked close-up record. Use CAMERA-NATIVE tracking, NOT Frigate onvif_autotrack (Reolink ONVIF flaky). HIGH Wi-Fi load (2 lenses) -> needs a strong AP; get TrackMix POE if the spot can be wired (MoCA->injector) |
-| | | | **~$720** | |
+| | | | **~$629** | 3 PoE cameras + doorbell (REVISED 2026-07-21, down from 5 cams / ~$720). Prices are estimates -- only the CX810 ($129) is confirmed; verify TrackMix PoE + Duo 2 PoE at purchase |
 
 Camera notes (Frigate):
 - Reolink works but its RTSP is finicky and some models cap simultaneous connections -> always
@@ -389,18 +389,54 @@ Camera notes (Frigate):
 - Auto-tracking (PTZ): fixed cams for perimeter/entry (always see the whole scene); optionally ONE
   PTZ for a wide area (long driveway/yard). Camera-native tracking works with any RTSP; Frigate-
   driven `onvif_autotracking` needs proper ONVIF PTZ (Dahua/Amcrest more reliable than Reolink).
-- FRONT OF HOUSE (DECIDED): no Ethernet/coax and not running exterior wiring now, but POWER is
-  present -> THREE Wi-Fi devices: (1) GARAGE = Reolink Duo Floodlight WiFi (dual-lens WIDE coverage
-  of garage/driveway + floodlight for light/deterrence); (2) PORCH = Reolink RLC-810WA single-lens
-  on the soffit outlet = PRIMARY front DETECTION; (3) DOORBELL = Reolink Video Doorbell WiFi (see
-  doorbell row). All via go2rtc on the Cameras VLAN. Old Arlos retired (cloud-locked, account-bound).
-  WI-FI LOAD (watch this): 3 Wi-Fi cams at the front, and the Duo counts double (dual-lens, high
-  bitrate) -- past Frigate's "a couple" comfort zone. The FLOOR-2 AP (front bedroom, high on the
-  front wall) is best placed to blanket all three -- it sits above/behind the porch/garage/door with
-  near line-of-sight down onto them (beats the floor-1 AP). U7 Pro Wall is DIRECTIONAL -> aim its
-  coverage toward the front exterior; use 5 GHz where range allows. Marginal Wi-Fi here = dropped
-  streams + Frigate gaps. If it struggles, move the Duo to wired PoE or split its lenses.
-  FLOODLIGHT: automate in HA -- Frigate person/motion detect -> turn the Duo's floodlight ON.
+- FRONT OF HOUSE -- SUPERSEDED 2026-07-21: the previous plan was THREE Wi-Fi cams at the front
+  (Duo Floodlight + RLC-810WA + doorbell) because no Ethernet ran to the front. That is REPLACED by
+  running Cat6 and going PoE. The old Wi-Fi-load worry (Duo counting double, needing the floor-2 AP
+  aimed at the exterior, dropped streams = Frigate gaps) disappears with wired cameras -- which was
+  always the weakest part of that design. Doorbell stays Wi-Fi unless Cat6 reaches the door box.
+
+- CAMERA LAYOUT (DECIDED 2026-07-21): THREE PoE cameras + the doorbell. Corner-mount, do NOT point
+  cameras straight out at flat walls. With a low camera count use a DIAGONAL/PINWHEEL layout --
+  cameras at opposite corners each cover TWO faces of the house, so 3 units cover the whole
+  perimeter. Pointed straight out, the same 3 give 3 narrow slices with gaps between them.
+  Think in two camera JOBS: OVERVIEW (high/wide, "what happened") vs CAPTURE (aimed at a choke
+  point, "who was it"). Every approach funnels through a choke point -- driveway entrance, porch
+  steps, side gate -- so put a capture angle on each and overview on the open areas.
+  1. TrackMix -> garage gable, aimed down the driveway (front/driveway/garage + street approach).
+  2. CX810 -> front-RIGHT corner, angled down the right side yard: the GATE to #52. This is the
+     highest-value placement and the one most often skipped -- that gate is the main unobserved
+     route to the backyard, and it is the classic gap in a 3-camera build.
+  3. Duo 2 PoE -> rear-LEFT corner (diagonal opposite of #2): backyard + left side yard.
+  The doorbell owns the front door, which is what frees both front cameras from watching it and
+  makes 3 viable at all.
+  ACCEPTED BLIND SPOT: the FRONT portion of the LEFT side yard (the rear cam sees its back half,
+  not the street end). Narrow, overlooked by the neighbour -- the natural spot for a 4th cam later.
+  MOUNT HEIGHTS: TrackMix high on the gable is fine (its tele lens compensates), but mount the
+  CX810 LOWER (~8-9 ft) -- a fixed camera mounted too high sees the tops of heads, and it has no
+  zoom to make up for it. 9-10 ft under soffit/eave elsewhere: weather protection, tamper height,
+  and it avoids IR bounce-back off a porch ceiling washing out night video. Don't aim into street
+  lights or the setting sun (backlight silhouettes faces). Overlap fields so each camera sees the
+  base of the next camera's wall -- no dead zone at the foot of any wall.
+
+- MODELS TO AVOID (independent PoE tier-list testing):
+  - Duo 3 PoE = D TIER. Tempting on spec (newer, 16MP, dual-lens) but its 32:9 aspect badly cuts
+    VERTICAL field of view, the 16MP adds bandwidth/detection load without real clarity gain, and
+    it causes app lag. The older Duo 2 is A tier for the same job. Higher resolution on a very wide
+    camera is often a DOWNGRADE -- pixels spread across a strip you don't need.
+  - RLC-810A = C tier ("middle-of-road, lacking specialization").
+  - RLC-811A = B tier -- beaten by the RLC-843A on daytime image quality at similar money.
+  Source: thesmarthomehookup.com Reolink PoE tier list.
+
+- PoE WIRING: one Cat6 home-run per camera back to the USW-Pro-Max-16-PoE (switch powers them, no
+  local power needed). Runs are well under the 100 m limit for this house. Cameras land on the
+  Cameras VLAN; Frigate pulls RTSP locally, footage never leaves the network. PLAN THE SOFFIT
+  ENTRY POINTS NOW (where Cat6 penetrates to reach each mount) -- that is the part that is painful
+  to retrofit once soffit/drywall is closed.
+
+- FRIGATE + these cameras: the TrackMix is effectively TWO cameras (wide + tele as separate
+  entries). The Duo 2's 180 deg panorama means objects occupy few pixels relative to the frame, so
+  tune DETECTION ZONES rather than running full-frame detection on it. Everything behind go2rtc.
+  3 cameras on the HD 630 with OpenVINO is comfortable.
 - DOORBELL <-> NuTone: the NuTone intercom DOOR STATION is retired (user OK); the Reolink doorbell is
   the button + camera + two-way talk. Mount it on a NuTone-intercom adapter plate (see BoM; measure
   the box screw spacing first). Chime the WHOLE HOUSE via HA: doorbell-press event -> HA automation ->
