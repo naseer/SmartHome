@@ -1433,6 +1433,16 @@ exception (returning to On after an outage may be wanted for security lighting).
 
 ## 15. Open Items / To Confirm
 
+- [ ] DEFERRED 2026-07-21 -- PRESENCE / location tracking. NOT being set up yet; do not re-propose.
+      Current state: the Companion app device_trackers exist but report `unknown` with no
+      coordinates (location reporting off), so all 3 `person` entities are `unknown` and the Map
+      dashboard is empty. CONSEQUENCE: do NOT write presence-based automations yet (arrive-home
+      lighting, HVAC away-mode, camera arm/disarm) -- they would silently never fire, which is
+      painful to debug later. When it IS taken up, the two options are Companion-app GPS (real
+      zones + "approaching home", some battery cost) and UniFi Wi-Fi association (local, zero
+      battery, but binary and broken by MAC randomization -- needs "private address: off" per
+      family phone). Using BOTH is more robust than either. Map dashboard stays in the sidebar
+      meanwhile; note it is visible to ALL users, so agree it as a family before enabling GPS.
 - [ ] **TASK (queued 2026-07-21): pair the GARAGE relay + tilt sensor.** Devices in hand: Aqara Dual
       Relay T2 (DCM-K01) + ThirdReality tilt sensor (3RDTS01056Z). Full wiring detail is in the
       "Garage door note" under 6.4 -- read it before starting.
