@@ -35,6 +35,27 @@ makes it the landing page for all users at once, with no per-user step.
 Taking over the Overview replaces HA's auto-generated view, so `all-entities.json`
 recreates that view (via the `original-states` strategy) as an admin-only dashboard.
 
+### RESTART HA after taking over the default Overview (the gotcha)
+
+Saving a config to the default dashboard is NOT enough on its own -- **you must restart Home
+Assistant afterwards**, or every user keeps seeing the built-in auto-generated view.
+
+Why: HA registers each dashboard PANEL at startup and stamps it with the mode it had at that
+moment. If the default dashboard had no stored config when HA started, the `lovelace` panel is
+registered with `config: null` (= auto-generate). The frontend reads that panel registration and
+GENERATES the dashboard client-side -- it never asks the server for a stored config. So the saved
+config sits on disk, `lovelace/config` returns it correctly, and nothing renders it.
+
+Diagnose with the `get_panels` WS command and compare the `config` field:
+
+    lovelace            -> null                 BROKEN (auto-generating, restart needed)
+    lovelace            -> {"mode": "storage"}  correct
+    dashboard-westacott -> {"mode": "storage"}  dashboards CREATED via the API get this at creation
+
+This is why a freshly created dashboard works immediately but a taken-over Overview does not.
+It looks exactly like a browser cache problem and is completely immune to cache clearing --
+if it reproduces for OTHER user accounts, it is this, not cache.
+
 ## Editing
 
 Either edit the JSON here and re-apply, or edit in the HA UI and pull the config back down
