@@ -506,8 +506,11 @@ Camera notes (Frigate):
 
 ### KS225 commissioning + TP-Link cloud exit
 
-STATUS 2026-07-21: 6 of 9 paired and live in HA (Kitchen, Office, Library, Master Bedroom,
-Outside Potlights, Family Room). 3 left to do.
+STATUS 2026-07-21: 7 of 9 paired and live in HA (Kitchen, Office, Library, Master Bedroom,
+Outside Potlights, Family Room, Girls Bedroom). 2 left to do.
+TIP: name the device BEFORE/while pairing -- "Girls Lights" produced a clean
+`light.girls_bedroom_girls_lights` entity_id, where the earlier six all landed as
+`light.smart_wi_fi_dimmer_switch_N` and depend on device names for a readable friendly name.
 
 Working procedure per switch (validated 2026-07):
 
@@ -1433,6 +1436,27 @@ exception (returning to On after an outage may be wanted for security lighting).
 
 ## 15. Open Items / To Confirm
 
+- [ ] **TASK (queued 2026-07-21): add the UniFi Network integration to HA.** Gateway confirmed as
+      UniFi OS at 192.168.50.1 (UCG-Fiber), https/443, no `unifi` config entry in HA yet.
+      1. FIRST create a LOCAL UniFi account -- NOT the ui.com cloud account. UniFi -> Settings ->
+         Admins & Users -> Add Admin -> "Restrict to Local Access Only". A cloud account breaks
+         when 2FA is on, stops working when the internet is down (exactly when local monitoring
+         matters most), and grants far more access than HA needs. Give it full site management if
+         HA should CONTROL things (block clients, cycle PoE); view-only is enough for sensors alone.
+      2. HA -> Settings -> Devices & Services -> Add Integration -> "UniFi Network".
+         Host 192.168.50.1, port 443, site `default`, **Verify SSL OFF** (self-signed cert).
+      3. IMMEDIATELY open the integration's Configure options and turn OFF "track clients" --
+         the default creates a `device_tracker` for EVERY client on the network (dozens of
+         entities), and that is precisely the UniFi-Wi-Fi presence mechanism deliberately deferred
+         above. Revisit only when presence is taken up.
+      WHAT IT BUYS: WAN status/throughput sensors; firmware `update` entities for UniFi gear;
+      PoE port switches + power-cycle buttons (valuable once cameras/APs are on the
+      USW-Pro-Max-16-PoE -- a wedged camera can be power-cycled from an automation instead of a
+      trip to the rack); and client block/unblock switches, which is the better way to do the
+      SCHEDULED DEVICE BLOCK originally wanted -- an HA automation gives far richer scheduling
+      (conditions, calendars, per-person logic) than UniFi's built-in scheduler.
+      NOTE: the config flow needs the local account password, so this step is done in the UI by
+      hand rather than scripted.
 - [ ] DEFERRED 2026-07-21 -- PRESENCE / location tracking. NOT being set up yet; do not re-propose.
       Current state: the Companion app device_trackers exist but report `unknown` with no
       coordinates (location reporting off), so all 3 `person` entities are `unknown` and the Map

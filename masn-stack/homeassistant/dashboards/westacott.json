@@ -98,6 +98,12 @@
             },
             {
               "type": "tile",
+              "entity": "light.girls_bedroom_girls_lights",
+              "name": "Girls Bedroom",
+              "features": [{ "type": "light-brightness" }]
+            },
+            {
+              "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_6",
               "name": "Master Bedroom",
               "features": [{ "type": "light-brightness" }]
