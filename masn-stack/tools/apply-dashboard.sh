@@ -9,6 +9,11 @@
 # Usage:  ./apply-dashboard.sh <url_path> <config.json> [--dry-run]
 #   e.g.  ./apply-dashboard.sh dashboard-westacott ../homeassistant/dashboards/westacott.json
 #
+# Pass "-" as <url_path> to target the built-in default Overview (url_path null),
+# which is what every user lands on. Saving to it takes control from HA's
+# auto-generated view -- that is how you set a dashboard as default for ALL users
+# at once (the per-user `defaultPanel` setting can only ever be set by each user).
+#
 # Expects the HA token at ~/.ha_token on the docker host (mode 0600).
 set -euo pipefail
 
@@ -29,7 +34,8 @@ docker exec -i \
 import asyncio, json, os, sys, aiohttp
 
 TOKEN = os.environ["TOKEN"]
-URL_PATH = os.environ["URL_PATH"]
+# "-" targets the built-in default Overview, whose url_path is null.
+URL_PATH = None if os.environ["URL_PATH"] == "-" else os.environ["URL_PATH"]
 CONFIG = json.loads(os.environ["CONFIG"])
 DRY = os.environ.get("DRY_RUN") == "--dry-run"
 
@@ -55,6 +61,10 @@ async def main():
                         return msg
 
             before = await call({"type": "lovelace/config", "url_path": URL_PATH})
+            if not before.get("success"):
+                # config_not_found on the default Overview just means it is still
+                # HA's auto-generated view and has never been taken over.
+                print("current: none (auto-generated / not taken over)")
             old = before.get("result") or {}
             print(f"current: {len(old.get('views', []))} view(s), "
                   f"{sum(len(s.get('cards', [])) for v in old.get('views', []) for s in v.get('sections', []))} card(s)")
