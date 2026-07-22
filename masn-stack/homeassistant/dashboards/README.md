@@ -9,16 +9,19 @@ token at `~/.ha_token` (no sudo required).
 | File | Target `url_path` | Who sees it |
 |------|-------------------|-------------|
 | `westacott.json` | `-` (the built-in default **Overview**) | Everyone -- this is the family landing page |
+| `westacott.json` | `dashboard-westacott` | Everyone -- named sidebar entry, same content |
 | `all-entities.json` | `all-entities` | Admin only -- HA's auto-generated "everything" view |
 
 ```sh
 ./apply-dashboard.sh - ../homeassistant/dashboards/westacott.json          # default Overview
+./apply-dashboard.sh dashboard-westacott ../homeassistant/dashboards/westacott.json
 ./apply-dashboard.sh all-entities ../homeassistant/dashboards/all-entities.json
 ```
 
-The separate `dashboard-westacott` dashboard was deleted 2026-07-21 once its content
-became the default Overview -- it was an identical second sidebar entry for family to
-choose between. `westacott.json` keeps the name because it is still this house's dashboard.
+`westacott.json` is applied to BOTH targets, so re-run both commands after editing it or the
+two will drift. The named dashboard was briefly deleted 2026-07-21 and restored: the default
+Overview panel can be hidden per-device in browser localStorage (invisible to any server-side
+check), so a named sidebar entry is a reliable way in when Overview is not showing.
 
 Add `--dry-run` to see the card counts without writing.
 
