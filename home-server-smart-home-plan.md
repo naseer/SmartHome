@@ -851,6 +851,72 @@ Power/UPS notes:
   comes from the 3 U7 Pro APs (basement ceiling + floors 1/2 wall) -- basement + floor 1 on in-wall
   Cat6 PoE runs, floor 2 over MoCA/coax + its own injector.
 
+### 6.10 Electrical panel upgrade (100A -> 200A) + energy monitoring -- FUTURE
+
+Electrician booked for AUGUST 2026 to upgrade 100A -> 200A. Drivers CONFIRMED: EV charger +
+hot tub + basement finish -- 200A is clearly justified (no load-calc doubt). NOT rolled into
+the BoM grand total below (separate home-improvement job). User will schedule the smart bits
+"in the future"; this section is the CHECKLIST to hand the electrician so the cheap panel-open
+window is not wasted.
+
+SMART BREAKERS -- DECISION: SKIP THEM. Not on cost, on two structural mismatches:
+- Lifecycle: a panel lasts 30-40 yrs; IoT firmware/cloud lasts 5-10. Smart breakers put a
+  phone-app-lifecycle product inside generational infrastructure. When My Leviton is sunset you
+  have expensive dumb breakers only an electrician can swap.
+- Architecture: Leviton smart breakers run through the My Leviton CLOUD -- the single
+  cloud-dependent component in an otherwise deliberately-local house (Frigate not Protect, Z2M
+  not vendor hubs, local Matter). Also: Leviton smart breakers REQUIRE a Leviton load center,
+  which is the one IRREVERSIBLE choice (wrong panel brand now = another panel swap later).
+Per driver, put the smarts where they belong instead: EV -> at the EVSE (smart charger:
+scheduling + amperage + load management, not a dumb on/off breaker); HOT TUB -> monitor, do NOT
+put on a remotely-switchable breaker (an Ontario-winter remote "off" can freeze plumbing +
+crack the heater; code already needs a GFCI disconnect in sight of the tub); BASEMENT -> smarts
+at switch/outlet level (KS225 / Sinope), same as the rest of the house.
+RECONSIDER smart breakers / a Span-class panel ONLY if solar or battery storage enters the
+5-yr plan (real orchestration + backup-circuit prioritization -- CT monitoring cannot do that).
+Nothing in the plan calls for solar today.
+
+DO WHILE THE PANEL IS OPEN (incremental cost is tiny once the electrician is already in there):
+- **Type 2 whole-panel SPD** (surge protective device), ~$200-400 installed, rated >=40 kA/phase.
+  Mounts on the LOAD side of the main breaker; clamps surges before they fan out to all ~40
+  branch circuits -- both external (grid/lightning-adjacent) AND internal (EV charger + hot-tub
+  heater + AC compressor kick big transients back onto your own wiring every time they cut out).
+  Protects the electronics-dense house (masn/NAS/PoE switch/cameras/~40 devices). NOT a UPS
+  substitute: SPD = microsecond spikes; UPS = outages/sags. Layer both; keep Type 3 strips on the
+  rack too. Square D/Eaton/Siemens sell a plug-in breaker-style Type 2 that snaps into 2 slots.
+- **CT ENERGY MONITORING** -- the cost-effective "smart" (visibility, not switching). Install the
+  CTs during the panel job (they clamp around conductors INSIDE the panel -> panel must be open +
+  dead -> licensed-electrician work; doing it later = paying to pull the cover a 2nd time).
+  DEVICE: Emporia Vue 3 (~$200 CAD, Amazon.ca, 16 branch + 2 mains). SEQUENCING TRICK: land the
+  CTs + voltage-reference wiring in August and run it on Emporia's CLOUD at first (works OOTB,
+  confirms every CT is on the right circuit), THEN flash ESPHome later at leisure for fully-local
+  HA (decouples the panel-timed install from the fiddly Vue-3 pad-probe flash; a botched flash
+  never leaves you with no monitoring). No-flash alt: Shelly Pro 3EM (DIN-rail, HA-native local
+  OOTB, but only 3 channels = whole-home + 1 big load, not per-circuit). IotaWatt is the purest
+  open/local option BUT CircuitIQ V6.4 ships US/AU only -- not Canada (freight-forwarder hassle).
+  CT PLACEMENT: 2x 200A CTs on the incoming hot legs (mains); 50A CTs on each branch circuit of
+  interest. 240V LOADS (EV + hot tub + dryer) -> clamp BOTH legs and sum (assign 2 CT inputs to
+  one logical circuit); a single CT on one leg only sees half. Tell the electrician up front which
+  circuits are 240V so they leave room for a CT on each leg -- these are the biggest loads and the
+  ones you MOST want measured right. Voltage reference: Emporia takes it from a 3-wire pigtail
+  (2 hots + neutral) on a spare 2-pole breaker. Into HA: ESPHome device auto-appears (~1s);
+  point the HA Energy dashboard at mains (grid) + branches (devices); enter Ontario TOU/ULO rates
+  for real $ per load (EV + hot tub are the two biggest -- this is where the bill goes).
+- **RESERVE panel slots + gutter space**: SPD (2 slots), Emporia voltage-reference breaker
+  (2-pole), and room for the monitor + CTs. Also worth roughing in: a DEDICATED circuit for the
+  rack/masn (clean power for server + UPS), and SPARE circuits/conduit for EV, spa, garage,
+  basement -- adding a circuit during a panel swap is far cheaper than a later call-out.
+
+ONTARIO PROCESS (non-negotiable): Licensed Electrical Contractor only (verify licence w/ ESA);
+mandatory ESA notification/permit -> Certificate of Inspection (matters for resale + insurer);
+Elexicon Energy coordinates disconnect/reconnect; ~4-8h install, 2-4 wks end-to-end; new panel =
+new breakers meeting current CEC (AFCI/GFCI -> pricier than the old ones -- budget for it).
+PRE-QUOTE CHECK that can swing the price by thousands: 2001 Ajax subdivision builds sometimes ran
+a 200A-capable underground lateral + meter base with only a 100A panel fitted -- if so this is a
+cheap panel SWAP, not a full service upgrade. Have the electrician read the METER BASE RATING +
+service-entrance conductor size before quoting. Underground service upgrade GTA 2026 ~$4,200-6,500;
+overhead ~$3,200-4,800; cheap-swap case is well under that.
+
 ### BoM grand total
 
 Approx. **$5,869** spread across phases (RAM done; NEW 1TB NVMe (~$80) -- the old SATA SSD is
