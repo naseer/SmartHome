@@ -170,6 +170,12 @@ nvidia-container-toolkit passthrough (more moving parts than Quick Sync's /dev/d
 (24/7 ~= $40-60/yr in Ontario). Fits the SFF's one low-profile
 x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unnecessary.
 
+DECISION 2026-07: P620 DECLINED (user does not want NVIDIA-driver upkeep on the 24/7 box). So
+the HD 630 must be sufficient on its own -- achieved by running object detection on only the 4
+choke-point streams and motion/record-only on the backyard (see 6.11). If the HD 630 ever DOES
+saturate, the relief valve is NOT the P620 but Frigate's remote-detector offload to the owned
+AGX Orin (see 6.11) -- accepting that this couples detection to the Orin and needs it flashed first.
+
 ---
 
 ## 4. Architecture Decisions
@@ -190,7 +196,7 @@ x16 slot; verify thermals in the small chassis. This also makes the Hailo-8L unn
 | Radios | PRIMARY: SLZB-06 (Zigbee, network/central) carries sensors + garage + 3 Sinopé dimmers. ZBT-2 (Thread BR) now OPTIONAL/future | Zigbee is the one primary mesh, centrally placed; its routers are 6 mains plugs + 3 Sinopé + the garage relay (the 9 owned KS225 lighting dimmers are Matter-over-Wi-Fi, NOT Zigbee routers). Thread has nothing load-bearing |
 | Thread Border Router | NONE for the initial build (ZBT-2 returned) | Zigbee-only build; add a ZBT-2 later only if a Thread-only Matter device appears |
 | Cameras | PoE + Frigate (local NVR) | Bandwidth needs wired/Wi-Fi, not Thread; no cloud/subscription |
-| Camera AI | Frigate + OpenVINO on HD 630 iGPU (baseline) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; Orin stays on LLM duty |
+| Camera AI | Frigate + OpenVINO on HD 630 iGPU (object detection on 4 choke-point streams, see 6.11) | Coral EOL; iGPU detection costs $0 and keeps it off CPU; P620 declined so HD 630 must suffice (scoping makes it safe); Orin/5070 do the GenAI VLM layer, NOT the trip-wire |
 | NVR platform | Frigate (NOT a Ubiquiti/UniFi Protect NVR) | Protect locks to UniFi cameras (2-5x cost, no third-party ONVIF), weaker HA integration, less-tunable AI. Frigate = camera-agnostic + HA-native + local + free (already running). All-UniFi was right for NETWORKING, not cameras |
 | GPU relief valve (owned Quadro P620) | Optional; install only if iGPU contention appears | Splits decode/detect/transcode across two chips. Lean: P620 does detection (TensorRT); iGPU keeps decode + Quick Sync transcode. Free; +~40W. See 3.3 |
 | Remote access + push | Nabu Casa (HA Cloud), $6.50/mo per instance -- SUBSCRIPTION ACTIVE (2026-06-25); link in HA after first boot | Ring-like mobile UX; secure, no port-forwarding; covers all users |
@@ -916,6 +922,63 @@ a 200A-capable underground lateral + meter base with only a 100A panel fitted --
 cheap panel SWAP, not a full service upgrade. Have the electrician read the METER BASE RATING +
 service-entrance conductor size before quoting. Underground service upgrade GTA 2026 ~$4,200-6,500;
 overhead ~$3,200-4,800; cheap-swap case is well under that.
+
+### 6.11 Frigate readiness (detection load, AI tiering, storage) -- reviewed 2026-07
+
+Sanity-check of the masn Frigate design against the FINAL 4-camera set (TrackMix PoE, 2x CX810,
+Duo 2 PoE) + doorbell. Verdict: GOOD ENOUGH on masn's HD 630 alone, no P620, IF detection is
+scoped to choke points (below). The design (dual-stream, stream-copy record, go2rtc, iGPU
+decode) is sound; the only real question was detection inference load, and scoping settles it.
+
+STREAM COUNT -- it is NOT "4 cameras": dual-lens units are multiple streams to Frigate.
+  TrackMix = wide + tele (2); CX810 x2 (2); Duo 2 panorama (1); doorbell (1) => ~6 potential
+  detection inputs, not 4. Object detection scales with DETECT streams, not physical cameras.
+
+DECISION -- object detection on 4 CHOKE-POINT streams; the rest record + motion-only:
+  - DETECT: TrackMix WIDE (driveway), CX810 #52-gate, CX810 #48-gate, doorbell.
+  - RECORD + MOTION ONLY (no object detection): Duo 2 backyard (anyone there already tripped a
+    CX810 at a gate) and the TrackMix TELE (it is just the auto-tracked close-up of the wide).
+  => 4 detection streams on the HD 630, which is comfortable. Frigate detection is MOTION-GATED
+  (inference only fires on moving regions), and these are quiet scenes except the driveway.
+  The one real stressor is the TrackMix on the street -> MOTION-MASK the street, and mask BOTH
+  neighbours (#48/#52) on every camera: cuts inference load AND false notifications at once.
+
+NO P620 (declined, see 3.3) -> the HD 630 must suffice; the 4-stream scoping is what makes that
+safe rather than a gamble. MEASURE after go-live: Frigate `inference speed` (>~25ms = saturating),
+per-camera detection fps dropping below configured, and detector skipped frames. RELIEF VALVE if
+it saturates = remote-detector offload to the AGX Orin (DeGirum / ONNX-over-LAN; on AGX, pin to a
+DLA so it does not touch the GPU cores doing LLM). Viable because the Orin is on-hand -- but needs
+flashing first and couples security to the Orin, so tune/scope BEFORE reaching for it.
+
+DECODE + RECORD load: fine. Frigate records the 4K H.265 mainstream by STREAM-COPY (no decode,
+no re-encode); the iGPU only decodes the low-res DETECT substreams -> light. go2rtc fronts every
+Reolink RTSP (one connection -> detect + record + live; tames Reolink's finicky RTSP).
+
+STORAGE sizing (set retention deliberately -- shared NAS pool): ~6 mainstreams 4K H.265 continuous
+~= 30 Mbps ~= 320 GB/day ~= 2.2 TB/week. On the 2x14 TB mirror that is ~6 wks IF cameras owned the
+pool, but they share it with Jellyfin + backups. So: CONTINUOUS for a few days + longer retention
+on DETECTION EVENTS only. Frigate `cache` dir stays on masn's local NVMe; only finished segments
+go to the NAS (see 3.2 Frigate-over-network rule).
+
+CAMERA-SPECIFIC TUNING: Duo 2 panorama -> objects are small on a 180 deg frame, so if it is ever
+promoted to detection, raise the detect substream resolution and use ZONES, not full-frame.
+TrackMix -> camera-NATIVE auto-track, NOT Frigate `onvif_autotrack` (Reolink ONVIF flaky).
+
+AI TIERING for the SMART layer (cross-ref 12; assets reconciled 2026-07):
+  - Object detection (trip-wire, MUST-NEVER-BE-DOWN): masn HD 630. NOT the 5070 (opportunistic)
+    and NOT the Orin-first -- security detection has to be 24/7 on the always-on box.
+  - Event VLM understanding (Frigate GenAI: "a delivery driver in brown holding a package" +
+    semantic search): RTX 5070 box WHEN UP (preferred -- on-hand, Blackwell ~12 GB, fast) ->
+    fallback AGX Orin (always-on) -> cloud. Health-check fallback, same OpenAI-compatible API.
+  - Batch vision (semantic-search embeddings, face recognition, LPR): RTX 5070 box.
+  ASSETS ON HAND (2026-07): AGX Orin -- OWNED, NOT YET FLASHED (needs JetPack/L4T). RTX 5070 Linux
+  PC -- OWNED, opportunistic (not always-on; if ever run 24/7 it could host detection+VLM, but
+  that is power/noise/overkill -- keep it opportunistic). Quadro P620 -- declined.
+  WHY the 5070 is not the detector: it is opportunistic/not always-on; the trip-wire cannot depend
+  on a box that is sometimes off. It IS the preferred GenAI/VLM + batch-vision endpoint when up.
+
+SEQUENCING: masn Frigate does NOT depend on the Orin or the 5070. Stand up basic Frigate
+(detection + record) on masn first; add the GenAI/VLM layer once the Orin (or 5070) is flashed.
 
 ### BoM grand total
 
