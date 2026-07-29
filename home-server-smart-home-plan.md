@@ -484,6 +484,33 @@ Camera notes (Frigate):
   WiiM -> NuTone AUX plays a chime/announcement over the existing speakers. Keep the IM-3303 for
   music + room-to-room intercom (see 6.5). The two systems don't integrate electrically -- HA bridges them.
 
+- AS-BUILT / HA ONBOARDING (2026-07-28): all 5 Reolink units mounted, on the LAN, and added to HA
+  via the native Reolink integration (auto-discovered over SSDP; completed each Discovered flow with
+  user `admin`). They ship with HTTP/HTTPS/RTSP/ONVIF OFF -- only Reolink's Baichuan port 9000 was
+  open -- and the integration authenticated over Baichuan and enabled the rest itself; no per-camera
+  toggling was needed. Identify cameras by MAC/IP, NEVER by DHCP hostname (see swap note below).
+
+  | HA device | IP | MAC (ec:71:db:..) | Model | Role | Area |
+  |-----------|------|-------------------|-------|------|------|
+  | Driveway  | .86  | 1d:b7:f6 | TrackMix PoE       | garage gable -> driveway/street | Outside |
+  | West Gate | .22  | 66:c9:f4 | CX810              | west side-yard gate choke point | Outside |
+  | East Gate | .130 | b9:a5:98 | CX810              | east side-yard gate choke point | Outside |
+  | Backyard  | .217 | 06:a2:d7 | Duo 2 PoE          | mid back wall, 180 deg backyard | Outside |
+  | Doorbell  | .151 | 5f:04:3f | Video Doorbell PoE | front door + press event        | Entrance |
+  | Doorbell Chime | -- | (accessory) | Reolink Chime | front-door chime              | Entrance |
+
+  HOSTNAME SWAP (do not trust it): the DHCP hostnames of the two identical CX810s are crossed --
+  .130 broadcasts hostname `west` but is physically the EAST gate; .22's hostname is generic `cx810`
+  but it is the WEST gate. Cause: the twins are indistinguishable hardware, mislabelled at install.
+  HA is CORRECT regardless -- it names devices from the camera's internal device-name (already right)
+  and keys them by MAC, so "West Gate"/"East Gate" in HA match reality. Frigate/firewall configs must
+  key on MAC or the IPs in this table, not the hostname. Fix is cosmetic only; left camera-side as-is.
+
+  TODO: reserve these 5 IPs on the UCG-Fiber (DHCP reservation by MAC, as done for the SLZB-06) --
+  Frigate will reference cameras by IP and an unpinned lease would break streams silently. Reserve
+  before standing up Frigate. When the Cameras VLAN lands, re-point the reservations (one dashboard),
+  do NOT set device-side static IPs.
+
 ### 6.4 Smart home (Matter/Thread)
 
 | Item | Qty | Est. each | Est. total | Notes |
