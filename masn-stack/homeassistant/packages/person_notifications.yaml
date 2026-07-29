@@ -1,0 +1,32 @@
+# Person-detection notifications from Frigate.
+# Fires when any camera's person_occupancy flips off -> on, and pushes a snapshot to the phone.
+# Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
+# is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+automation:
+  - id: frigate_person_notifications
+    alias: "Frigate: person detected"
+    mode: parallel
+    max: 10
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.driveway_person_occupancy
+          - binary_sensor.front_door_person_occupancy
+          - binary_sensor.west_gate_person_occupancy
+          - binary_sensor.east_gate_person_occupancy
+          - binary_sensor.backyard_person_occupancy
+        from: "off"
+        to: "on"
+    variables:
+      cam: "{{ trigger.entity_id.split('.')[1] | replace('_person_occupancy', '') }}"
+      cam_name: "{{ cam | replace('_', ' ') | title }}"
+    action:
+      - service: notify.mobile_app_pixel_8_pro
+        data:
+          title: "Person detected"
+          message: "Person at {{ cam_name }}"
+          data:
+            image: "/api/camera_proxy/camera.{{ cam }}"
+            tag: "frigate-person-{{ cam }}"
+            channel: "Person detection"
+            clickAction: "/lovelace/cameras"
