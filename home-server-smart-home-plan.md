@@ -1061,10 +1061,20 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
 - SECURITY: Frigate's first-run generated admin password was exposed in a log grep and ROTATED
   (user table in /config/frigate.db cleared -> regenerated). UI on :8971 (LAN only, no port-forward).
 
-TODO next (not done): (a) HA<->Frigate rich entities need the frigate-hass-integration via HACS
-(MQTT discovery alone gives switches/sensors but not the camera/clips UX); (b) add the remaining 3
-cameras + the TrackMix TELE lens; (c) NAS mount + retention bump; (d) motion-mask street/neighbours
-per 6.11; (e) doorbell person-detect -> backyard/porch light + WiiM chime automations.
+RICH HA ENTITIES -- DONE (2026-07-28): frigate-hass-integration v5.15.4 installed DIRECTLY (not via
+HACS -- avoids the GitHub-OAuth device flow) into config/custom_components/frigate, HA restarted,
+config entry added pointing at http://127.0.0.1:5000. Gave HA 65 entities: proxy camera.driveway /
+camera.front_door (clips/recordings in the HA media browser), person/motion/all occupancy binary
+sensors, last-person image, object-count + fps + cpu sensors, detect/recordings/snapshots/motion
+switches, detector inference-speed. To reach the unauthenticated Frigate API from host-mode HA
+without exposing it, port 5000 is published 127.0.0.1-ONLY (8971 stays the LAN-facing authed UI).
+NOTE: config/custom_components is masn-only (config/ is gitignored like .env) -- reinstall from the
+v5.15.4 zipball if rebuilding; not reproducible from the repo. HACS is an optional future add (for
+update management + the frigate-hass-card Lovelace card).
+
+TODO next (not done): (a) add the remaining 3 cameras + the TrackMix TELE lens; (b) NAS mount +
+retention bump; (c) motion-mask street/neighbours per 6.11; (d) doorbell person-detect ->
+backyard/porch light + WiiM chime automations; (e) optional: a Frigate Lovelace card on the dashboard.
 
 ---
 

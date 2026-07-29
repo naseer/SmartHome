@@ -87,6 +87,7 @@ services:
         tmpfs: { size: "1g" }
     ports:
       - "8971:8971"                 # authenticated UI
+      - "127.0.0.1:5000:5000"       # internal unauth API, localhost ONLY -> for the HA frigate integration
       - "8554:8554"                 # RTSP restream
       - "8555:8555/tcp"
       - "8555:8555/udp"             # WebRTC
