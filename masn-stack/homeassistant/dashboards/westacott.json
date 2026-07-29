@@ -138,57 +138,6 @@
               }
             }
           ]
-        },
-        {
-          "type": "grid",
-          "cards": [
-            {
-              "type": "heading",
-              "heading_style": "title",
-              "heading": "Cameras",
-              "icon": "mdi:cctv"
-            },
-            {
-              "type": "picture-entity",
-              "entity": "camera.garage_fluent_lens_0",
-              "name": "Driveway",
-              "camera_view": "auto",
-              "show_state": false,
-              "grid_options": { "columns": 6 }
-            },
-            {
-              "type": "picture-entity",
-              "entity": "camera.outside_doorbell_fluent",
-              "name": "Front Door",
-              "camera_view": "auto",
-              "show_state": false,
-              "grid_options": { "columns": 6 }
-            },
-            {
-              "type": "picture-entity",
-              "entity": "camera.west_fluent",
-              "name": "West Gate",
-              "camera_view": "auto",
-              "show_state": false,
-              "grid_options": { "columns": 6 }
-            },
-            {
-              "type": "picture-entity",
-              "entity": "camera.east_fluent",
-              "name": "East Gate",
-              "camera_view": "auto",
-              "show_state": false,
-              "grid_options": { "columns": 6 }
-            },
-            {
-              "type": "picture-entity",
-              "entity": "camera.backyard_fluent",
-              "name": "Backyard",
-              "camera_view": "auto",
-              "show_state": false,
-              "grid_options": { "columns": 6 }
-            }
-          ]
         }
       ]
     },
