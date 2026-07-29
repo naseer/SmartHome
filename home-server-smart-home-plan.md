@@ -1040,10 +1040,20 @@ all household users. Optional (Tailscale is the $0 alternative).
 Frigate 0.17.2 ENABLED in /opt/stack/docker-compose.yml (was scaffolded/commented). Scope = a
 working vertical slice: 2 cameras with PERSON detection, everything else deferred.
 
-- CAMERAS (2): `driveway` (TrackMix .86 WIDE lens) + `front_door` (doorbell .151). Detect on the
-  low-res SUB stream (896x512 / 640x480 h264 -- cheap iGPU decode); record the MAIN stream by
-  stream-copy (driveway main is HEVC 4K, doorbell h264). go2rtc fronts each camera (one RTSP
-  connection re-shared to detect/record/live -- Reolink caps simultaneous connections).
+- CAMERAS (5 as of 2026-07-29): driveway (TrackMix .86 wide), front_door (doorbell .151),
+  west_gate (.22), east_gate (.130), backyard (Duo 2 .217). All PERSON detection on the low-res
+  h264 SUB stream (cheap iGPU decode: 896x512 / 640x480 / 640x360 / 640x360 / 1536x576); record the
+  MAIN stream by stream-copy. go2rtc fronts each (one RTSP connection re-shared). Load check with 5
+  cams: detector ~9 ms, skipped_fps=0 on all -> HD 630 NOT saturated, headroom remains.
+  RECORDING TIERS: driveway + front_door = 24/7 CONTINUOUS 15d; west_gate/east_gate/backyard =
+  EVENT-BASED (per-camera `record.continuous.days: 0` -> only alerts/detections clips, ~0 idle
+  storage). Promote any to continuous by removing its record override.
+  CODEC/SCRUB NOTE: every Reolink 4K/high-res MAIN is HEVC (h265) -- only front_door (doorbell) is
+  h264. Reolink 4K firmware is h265-ONLY at full res (verified via GetEnc: mainStream vType=[h265],
+  no h264 option; h264 only on the tiny sub). Chrome/Firefox can't seek h265 without an OS HEVC
+  decoder (Win: MS Store "HEVC Video Extensions"; Mac: built-in, Safari always works; Linux: none ->
+  would need a server-side transcode). So h265 recordings scrub fine on Mac/Safari but not bare
+  Chrome-on-Linux. Not fixable camera-side at 4K.
 - DETECTOR: OpenVINO on the HD 630 iGPU (`device: GPU`), bundled ssdlite_mobilenet_v2 model.
   ~10 ms/inference measured. `objects.track: [person]` only.
 - MQTT: `host: mosquitto` (Frigate is BRIDGED -> service name, NOT 127.0.0.1 which is host-only).
@@ -1086,7 +1096,7 @@ live + Ring-style timeline scrub + clips, using the family's existing HA login (
 UI). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
 a HARD browser refresh is required after first install or the tab shows "custom element doesn't exist".
 
-TODO next (not done): (a) add the remaining 3 cameras + the TrackMix TELE lens; (b) motion-mask
+TODO next (not done): (a) add the TrackMix TELE lens (2nd channel); (b) motion-mask
 street/neighbours per 6.11; (c) doorbell person-detect -> backyard/porch light + WiiM chime
 automations; (d) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount
 (see STORAGE caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).

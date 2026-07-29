@@ -56,6 +56,18 @@ go2rtc:
       - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.151:554/h264Preview_01_main
     front_door_sub:           # doorbell sub (h264 640x480) -> detect
       - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.151:554/h264Preview_01_sub
+    west_gate:                # CX810 main (HEVC 4K) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.22:554/h264Preview_01_main
+    west_gate_sub:            # sub (h264 640x360) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.22:554/h264Preview_01_sub
+    east_gate:                # CX810 main (HEVC 4K) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.130:554/h264Preview_01_main
+    east_gate_sub:            # sub (h264 640x360) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.130:554/h264Preview_01_sub
+    backyard:                 # Duo 2 stitched main (HEVC 4608x1728) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.217:554/h264Preview_01_main
+    backyard_sub:             # sub (h264 1536x576) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.217:554/h264Preview_01_sub
 
 cameras:
   driveway:
@@ -87,3 +99,59 @@ cameras:
       width: 640
       height: 480
       fps: 5
+
+  # --- The 3 below are EVENT-BASED (no 24/7 continuous): record clips around person
+  #     events only. Promote any to continuous by removing its `record:` override. ---
+  west_gate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/west_gate
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/west_gate_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 640
+      height: 360
+      fps: 5
+    record:
+      continuous:
+        days: 0
+
+  east_gate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/east_gate
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/east_gate_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 640
+      height: 360
+      fps: 5
+    record:
+      continuous:
+        days: 0
+
+  backyard:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/backyard
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/backyard_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 1536
+      height: 576
+      fps: 5
+    record:
+      continuous:
+        days: 0
