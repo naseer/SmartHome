@@ -66,34 +66,36 @@ services:
       # (no host D-Bus mount: W200 is Wi-Fi, no BLE commissioning needed)
 
   # ============================================================================
-  # ENABLE IN PHASE 3 (cameras present). OpenVINO detect on the HD 630 iGPU.
+  # Frigate -- ENABLED 2026-07-28 (basic: 2 cameras, person detect). OpenVINO on HD 630 iGPU.
   # ============================================================================
-  # frigate:
-  #   container_name: frigate
-  #   image: ghcr.io/blakeblackshear/frigate:stable
-  #   restart: unless-stopped
-  #   stop_grace_period: 30s
-  #   shm_size: "512mb"
-  #   devices:
-  #     - /dev/dri/renderD128         # HD 630: OpenVINO detect + VAAPI decode
-  #   group_add:
-  #     - "993"                       # render GID -- CONFIRM via `getent group render`
-  #   volumes:
-  #     - /etc/localtime:/etc/localtime:ro
-  #     - ./frigate/config:/config
-  #     - /mnt/nas/frigate:/media/frigate   # NAS: recordings/snapshots/exports
-  #     - type: tmpfs                 # cache LOCAL in RAM, never on NAS
-  #       target: /tmp/cache
-  #       tmpfs: { size: "1g" }
-  #   ports:
-  #     - "8971:8971"                 # authenticated UI
-  #     - "8554:8554"                 # RTSP restream
-  #     - "8555:8555/tcp"
-  #     - "8555:8555/udp"             # WebRTC
-  #   environment:
-  #     FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"
-  #     LIBVA_DRIVER_NAME: "iHD"
-  #   depends_on: [mosquitto]
+  frigate:
+    container_name: frigate
+    image: ghcr.io/blakeblackshear/frigate:stable
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: "512mb"
+    devices:
+      - /dev/dri/renderD128         # HD 630: OpenVINO detect + VAAPI decode
+    group_add:
+      - "993"                       # render GID (confirmed via `getent group render`)
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./frigate/config:/config
+      - ./frigate/media:/media/frigate    # LOCAL for now; migrate to /mnt/nas/frigate once SMB is mounted
+      - type: tmpfs                 # cache in RAM
+        target: /tmp/cache
+        tmpfs: { size: "1g" }
+    ports:
+      - "8971:8971"                 # authenticated UI
+      - "8554:8554"                 # RTSP restream
+      - "8555:8555/tcp"
+      - "8555:8555/udp"             # WebRTC
+    environment:
+      FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"   # = Reolink admin pw (in .env)
+      FRIGATE_MQTT_USER: "${MQTT_USER}"
+      FRIGATE_MQTT_PASSWORD: "${MQTT_PASSWORD}"
+      LIBVA_DRIVER_NAME: "iHD"
+    depends_on: [mosquitto]
 
   # ============================================================================
   # SLZB-06 ZIGBEE COORDINATOR (CC2652P, LAN mode, central floor 1) -- ONLINE 2026-07 @ 192.168.50.21.

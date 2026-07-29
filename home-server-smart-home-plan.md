@@ -1035,6 +1035,37 @@ bays free to grow); continuous recording via dual-stream; everything on one UPS 
 Recurring cost: Nabu Casa (HA Cloud) **$6.50/mo** -- per instance, covers all cameras and
 all household users. Optional (Tailscale is the $0 alternative).
 
+### 6.11.1 Frigate AS-BUILT -- basic bring-up (2026-07-28)
+
+Frigate 0.17.2 ENABLED in /opt/stack/docker-compose.yml (was scaffolded/commented). Scope = a
+working vertical slice: 2 cameras with PERSON detection, everything else deferred.
+
+- CAMERAS (2): `driveway` (TrackMix .86 WIDE lens) + `front_door` (doorbell .151). Detect on the
+  low-res SUB stream (896x512 / 640x480 h264 -- cheap iGPU decode); record the MAIN stream by
+  stream-copy (driveway main is HEVC 4K, doorbell h264). go2rtc fronts each camera (one RTSP
+  connection re-shared to detect/record/live -- Reolink caps simultaneous connections).
+- DETECTOR: OpenVINO on the HD 630 iGPU (`device: GPU`), bundled ssdlite_mobilenet_v2 model.
+  ~10 ms/inference measured. `objects.track: [person]` only.
+- MQTT: `host: mosquitto` (Frigate is BRIDGED -> service name, NOT 127.0.0.1 which is host-only).
+  Creds via `{FRIGATE_MQTT_USER/PASSWORD}` env from .env. Confirmed publishing frigate/# topics.
+- STORAGE: recording to LOCAL disk `./frigate/media` (root vg, ~69 GB free), retain 3 days
+  motion-mode + alerts/detections 14 days. The NAS SMB share is NOT mounted yet (creds in .env);
+  the compose still points at ./frigate/media. TODO: mount //NAS/frigate at /mnt/nas/frigate (needs
+  root `mount`/fstab) and switch the compose volume back to /mnt/nas/frigate:/media/frigate, then
+  raise retention toward the 15-day continuous plan.
+- FRIGATE 0.17 GOTCHAS (cost two restarts): (1) OpenVINO needs an EXPLICIT `model:` block with
+  path /openvino-model/ssdlite_mobilenet_v2.xml -- omitting it crashes the detector with
+  `stat: path ... NoneType`. (2) `detect.enabled` now defaults to FALSE -- must be set true per
+  camera or the detector idles (det_fps 0).
+- render GID confirmed 993 (`getent group render`); /dev/dri/renderD128 passed through; iHD driver.
+- SECURITY: Frigate's first-run generated admin password was exposed in a log grep and ROTATED
+  (user table in /config/frigate.db cleared -> regenerated). UI on :8971 (LAN only, no port-forward).
+
+TODO next (not done): (a) HA<->Frigate rich entities need the frigate-hass-integration via HACS
+(MQTT discovery alone gives switches/sensors but not the camera/clips UX); (b) add the remaining 3
+cameras + the TrackMix TELE lens; (c) NAS mount + retention bump; (d) motion-mask street/neighbours
+per 6.11; (e) doorbell person-detect -> backyard/porch light + WiiM chime automations.
+
 ---
 
 ## 7. Cable-Pull List (during drywall)
