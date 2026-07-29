@@ -66,6 +66,11 @@ the v7.x bundle (all ~50 chunk files into that dir) and re-create the resource
 (`lovelace/resources/create`, res_type `module`). After first install, HARD-refresh the browser or the
 Cameras tab renders "custom element doesn't exist: advanced-camera-card".
 
+GOTCHA (cost a restart): HA registers the `/local/` static route (-> `config/www`) at STARTUP. If the
+`www` folder is created while HA is running (as it was here), `/local/...` 404s until HA is restarted,
+and the card shows a generic "configuration error" (the JS never loads). Fix: create `www` FIRST, then
+`docker compose restart homeassistant`, then register the resource.
+
 ## Editing
 
 Either edit the JSON here and re-apply, or edit in the HA UI and pull the config back down
