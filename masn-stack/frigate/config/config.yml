@@ -6,8 +6,8 @@
 mqtt:
   host: mosquitto            # Frigate is BRIDGED -> reach the broker by service name, NOT 127.0.0.1
   port: 1883
-  user: "{FRIGATE_MQTT_USER}"
-  password: "{FRIGATE_MQTT_PASSWORD}"
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
 
 # UI on :8971 served over plain HTTP (trusted LAN admin tool). Removes the self-signed-cert
 # "Not Secure"/strikethrough warning. Put behind a reverse proxy for real TLS if ever exposed.
@@ -41,13 +41,13 @@ record:
   continuous:
     days: 15
   alerts:
-    retain: { days: 30 }
+    retain: {days: 30}
   detections:
-    retain: { days: 30 }
+    retain: {days: 30}
 
 snapshots:
   enabled: true
-  retain: { default: 14 }
+  retain: {default: 14}
 
 objects:
   track: [person]             # basic: person only (add car/package/etc later)
@@ -92,6 +92,9 @@ cameras:
       height: 512
       fps: 5
 
+    motion:
+      mask: 
+        0.001,0.002,0.002,0.239,0.108,0.131,0.153,0.124,0.237,0.118,0.355,0.125,0.392,0.102,0.427,0.094,0.48,0.091,0.536,0.102,0.552,0.123,0.583,0.15,0.614,0.158,0.65,0.165,0.673,0.172,0.686,0.176,0.701,0.177,0.748,0.157,0.834,0.175,0.884,0.212,0.895,0.225,0.924,0.242,0.946,0.254,0.977,0.267,0.995,0.284,0.996,0.002
   front_door:
     ffmpeg:
       inputs:
@@ -106,6 +109,13 @@ cameras:
       width: 640
       height: 480
       fps: 5
+    motion:
+      mask:
+        - 0.404,0.572,0.834,0.537,0.819,0.282,0.41,0.214
+        - 0.981,0.516,0.977,0.341,0.88,0.302,0.893,0.507
+        - 0.004,0.533,0.101,0.558,0.141,0.261,0.029,0.246
+        - 0.405,0.581,0.405,0.633,0.81,0.586,0.832,0.542
+        - 0.003,0.553,0.296,0.583,0.3,0.631,0.001,0.592
 
   # --- The 3 below are EVENT-BASED (no 24/7 continuous): record clips around person
   #     events only. Promote any to continuous by removing its `record:` override. ---
@@ -127,6 +137,8 @@ cameras:
       continuous:
         days: 0
 
+    motion:
+      mask: 0.623,0.212,0.791,0.173,0.85,0.006,0.666,0.006
   east_gate:
     ffmpeg:
       inputs:
@@ -145,6 +157,8 @@ cameras:
       continuous:
         days: 0
 
+    motion:
+      mask: 0.13,0.009,0.105,0.378,0.147,0.742,0.008,0.769,0.004,0.01
   backyard:
     ffmpeg:
       inputs:
@@ -162,3 +176,8 @@ cameras:
     record:
       continuous:
         days: 0
+    motion:
+      mask:
+        - 0.303,0.087,0.142,0.251,0.09,0.338,0.071,0.4,0.05,0.473,0.004,0.48,0.005,0.01,0.3,0.005,0.351,0.024
+        - 0.995,0.192,0.833,0.043,0.807,0.005,0.94,0.01,0.974,0.005,0.992,0.01
+version: 0.17-0

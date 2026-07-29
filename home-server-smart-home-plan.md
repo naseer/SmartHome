@@ -1102,9 +1102,17 @@ Ring smooth-scrub equivalent (drag = previews; play = full recording). Card show
 ribbon mini-timeline under live (`live.controls.timeline: {mode: below, style: ribbon}`). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
 a HARD browser refresh is required after first install or the tab shows "custom element doesn't exist".
 
-TODO next (not done): (a) add the TrackMix TELE lens (2nd channel); (b) motion-mask
-street/neighbours per 6.11; (c) doorbell person-detect -> backyard/porch light + WiiM chime
-automations; (d) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount
+MASKS + NOTIFICATIONS -- DONE (2026-07-29): motion masks on all 5 cameras (driveway street band,
+front_door road+houses, west/east gate neighbour+hedge, backyard above-fence foliage) -- drawn in the
+Frigate UI mask editor by the user, coords pulled back into this repo's config.yml. Person-detection
+push notifications live: `automation.frigate_person_detected` (packages/person_notifications.yaml) ->
+snapshot + camera name to the Pixel 8 Pro (notify targets also: mobile_app_sara_phone, mobile_app_mna).
+NOTE: the Frigate UI config-save PRESERVES comments but normalizes quotes/braces and appends `version:`,
+and can shuffle a comment's position -- after any UI mask edit, pull masn's config.yml back into the repo.
+
+TODO next (not done): (a) add the TrackMix TELE lens (2nd channel); (b) doorbell person-detect ->
+backyard/porch light + WiiM chime automations; (c) extend person alerts to Sara/mna phones once tuning
+settles; (d) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount
 (see STORAGE caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).
 
 ---
