@@ -1077,11 +1077,19 @@ NOTE: config/custom_components is masn-only (config/ is gitignored like .env) --
 v5.15.4 zipball if rebuilding; not reproducible from the repo. HACS is an optional future add (for
 update management + the frigate-hass-card Lovelace card).
 
+DASHBOARD CARD -- DONE (2026-07-29): advanced-camera-card v7.27.4 (the renamed frigate-hass-card)
+installed DIRECTLY (not HACS). The 52-file chunked bundle lives in config/www/advanced-camera-card/
+(masn-only -- www is under gitignored config/), registered as a Lovelace module resource
+(/local/advanced-camera-card/advanced-camera-card.js). westacott.json (in repo) gained a 2nd view
+"Cameras" (panel) with a custom:advanced-camera-card for camera.driveway + camera.front_door ->
+live + Ring-style timeline scrub + clips, using the family's existing HA login (no separate Frigate
+UI). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
+a HARD browser refresh is required after first install or the tab shows "custom element doesn't exist".
+
 TODO next (not done): (a) add the remaining 3 cameras + the TrackMix TELE lens; (b) motion-mask
 street/neighbours per 6.11; (c) doorbell person-detect -> backyard/porch light + WiiM chime
-automations; (d) optional: a Frigate Lovelace card on the dashboard (needs HACS frigate-hass-card);
-(e) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount (see STORAGE
-caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).
+automations; (d) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount
+(see STORAGE caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).
 
 ---
 

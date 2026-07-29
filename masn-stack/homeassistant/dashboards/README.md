@@ -56,6 +56,16 @@ This is why a freshly created dashboard works immediately but a taken-over Overv
 It looks exactly like a browser cache problem and is completely immune to cache clearing --
 if it reproduces for OTHER user accounts, it is this, not cache.
 
+## Custom cards (advanced-camera-card)
+
+`westacott.json`'s **Cameras** view uses `custom:advanced-camera-card` (the renamed frigate-hass-card).
+That card is NOT part of HA -- it is a Lovelace resource whose JS lives at
+`config/www/advanced-camera-card/` on masn (masn-only; `config/` is gitignored) and is registered as a
+module resource `/local/advanced-camera-card/advanced-camera-card.js`. If rebuilding masn: re-download
+the v7.x bundle (all ~50 chunk files into that dir) and re-create the resource
+(`lovelace/resources/create`, res_type `module`). After first install, HARD-refresh the browser or the
+Cameras tab renders "custom element doesn't exist: advanced-camera-card".
+
 ## Editing
 
 Either edit the JSON here and re-apply, or edit in the HA UI and pull the config back down

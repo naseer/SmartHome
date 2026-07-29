@@ -191,6 +191,21 @@
           ]
         }
       ]
+    },
+    {
+      "title": "Cameras",
+      "path": "cameras",
+      "icon": "mdi:cctv",
+      "type": "panel",
+      "cards": [
+        {
+          "type": "custom:advanced-camera-card",
+          "cameras": [
+            { "camera_entity": "camera.driveway" },
+            { "camera_entity": "camera.front_door" }
+          ]
+        }
+      ]
     }
   ]
 }
