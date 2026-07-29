@@ -9,6 +9,11 @@ mqtt:
   user: "{FRIGATE_MQTT_USER}"
   password: "{FRIGATE_MQTT_PASSWORD}"
 
+# UI on :8971 served over plain HTTP (trusted LAN admin tool). Removes the self-signed-cert
+# "Not Secure"/strikethrough warning. Put behind a reverse proxy for real TLS if ever exposed.
+tls:
+  enabled: false
+
 detectors:
   ov:
     type: openvino
@@ -31,6 +36,8 @@ ffmpeg:
 # Revisit continuous.days when the other 3 cameras are added.
 record:
   enabled: true
+  preview:
+    quality: high             # crisper timeline-scrub thumbnails (Ring-like smooth scrub)
   continuous:
     days: 15
   alerts:

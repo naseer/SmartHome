@@ -206,7 +206,12 @@
             { "camera_entity": "camera.west_gate" },
             { "camera_entity": "camera.east_gate" },
             { "camera_entity": "camera.backyard" }
-          ]
+          ],
+          "live": {
+            "controls": {
+              "timeline": { "mode": "below", "style": "ribbon" }
+            }
+          }
         }
       ]
     }

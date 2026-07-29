@@ -1074,7 +1074,10 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
 - render GID confirmed 993 (`getent group render`); /dev/dri/renderD128 passed through; iHD driver.
 - SECURITY: Frigate's first-run generated admin password was exposed in a log grep and ROTATED
   (user table in /config/frigate.db cleared -> regenerated). Password reset again 2026-07-29 and is
-  now USER-SET (not a generated value). UI on :8971 (LAN only, no port-forward).
+  now USER-SET (not a generated value). UI on :8971 (LAN only, no port-forward). TLS DISABLED
+  2026-07-29 (`tls.enabled: false`) -> plain HTTP on :8971, to drop the self-signed-cert
+  "Not Secure"/strikethrough warning. Acceptable on the trusted, VLAN-isolated LAN (Frigate login
+  is then cleartext, but LAN-only). For a real padlock, front Frigate with a reverse proxy + cert.
 
 RICH HA ENTITIES -- DONE (2026-07-28): frigate-hass-integration v5.15.4 installed DIRECTLY (not via
 HACS -- avoids the GitHub-OAuth device flow) into config/custom_components/frigate, HA restarted,
@@ -1091,9 +1094,12 @@ DASHBOARD CARD -- DONE (2026-07-29): advanced-camera-card v7.27.4 (the renamed f
 installed DIRECTLY (not HACS). The 52-file chunked bundle lives in config/www/advanced-camera-card/
 (masn-only -- www is under gitignored config/), registered as a Lovelace module resource
 (/local/advanced-camera-card/advanced-camera-card.js). westacott.json (in repo) gained a 2nd view
-"Cameras" (panel) with a custom:advanced-camera-card for camera.driveway + camera.front_door ->
+"Cameras" (panel) with a custom:advanced-camera-card for all 5 Frigate proxy cameras ->
 live + Ring-style timeline scrub + clips, using the family's existing HA login (no separate Frigate
-UI). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
+UI). SMOOTH SCRUB (2026-07-29): Frigate auto-generates low-res h264 PREVIEWS (record.preview.quality
+raised medium->high) that power fast timeline scrubbing even for the H.265 cameras -- this is the
+Ring smooth-scrub equivalent (drag = previews; play = full recording). Card shows an always-on
+ribbon mini-timeline under live (`live.controls.timeline: {mode: below, style: ribbon}`). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
 a HARD browser refresh is required after first install or the tab shows "custom element doesn't exist".
 
 TODO next (not done): (a) add the TrackMix TELE lens (2nd channel); (b) motion-mask
