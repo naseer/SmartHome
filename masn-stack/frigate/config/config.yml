@@ -1,6 +1,6 @@
-# Frigate -- basic bring-up 2026-07-28. OpenVINO detect on the HD 630 iGPU.
-# SCOPE: 2 cameras with PERSON detection (Driveway + Front Door). Recordings -> LOCAL disk
-# (./frigate/media) for now; migrate to the NAS SMB share once it is mounted (needs root mount).
+# Frigate -- 2 cameras (Driveway + Front Door) with PERSON detection. OpenVINO on the HD 630 iGPU.
+# Recordings -> NAS SMB share, mounted at /mnt/nas/frigate (see tools/mount-nas-frigate.sh),
+# bound into the container as /media/frigate. 24/7 CONTINUOUS retention for a Ring-style timeline.
 # Add the other 3 cameras + car/tele lens later by extending go2rtc + cameras.
 
 mqtt:
@@ -26,16 +26,17 @@ model:
 ffmpeg:
   hwaccel_args: preset-vaapi  # HD 630 VAAPI decode (LIBVA_DRIVER_NAME=iHD set in compose)
 
-# LOCAL-disk retention (modest; not the 15-day NAS plan). Motion-only keeps 2 cameras small.
+# NAS-backed retention: 15 days of gapless 24/7 footage (scrub any moment, Ring-style),
+# 30 days of review items. ~130 GB/day for these 2 cameras -> ~2 TB for 15 days (8 TB free).
+# Revisit continuous.days when the other 3 cameras are added.
 record:
   enabled: true
-  retain:
-    days: 3
-    mode: motion
+  continuous:
+    days: 15
   alerts:
-    retain: { days: 14 }
+    retain: { days: 30 }
   detections:
-    retain: { days: 14 }
+    retain: { days: 30 }
 
 snapshots:
   enabled: true

@@ -1048,11 +1048,15 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
   ~10 ms/inference measured. `objects.track: [person]` only.
 - MQTT: `host: mosquitto` (Frigate is BRIDGED -> service name, NOT 127.0.0.1 which is host-only).
   Creds via `{FRIGATE_MQTT_USER/PASSWORD}` env from .env. Confirmed publishing frigate/# topics.
-- STORAGE: recording to LOCAL disk `./frigate/media` (root vg, ~69 GB free), retain 3 days
-  motion-mode + alerts/detections 14 days. The NAS SMB share is NOT mounted yet (creds in .env);
-  the compose still points at ./frigate/media. TODO: mount //NAS/frigate at /mnt/nas/frigate (needs
-  root `mount`/fstab) and switch the compose volume back to /mnt/nas/frigate:/media/frigate, then
-  raise retention toward the 15-day continuous plan.
+- STORAGE: recording to the NAS SMB share (done 2026-07-29). `//192.168.50.49/frigate` mounted at
+  /mnt/nas/frigate via `tools/mount-nas-frigate.sh` (cifs, root-only creds file at
+  /etc/cifs-credentials/frigate, fstab `_netdev,nofail,vers=3.1.1,uid=0,gid=0`), bound into the
+  container as /media/frigate. 8 TB free. Retention now **24/7 CONTINUOUS 15 days** + alerts/
+  detections 30 days (~130 GB/day for these 2 cameras -> ~2 TB/15d). Local test footage cleared,
+  reclaimed ~35 GB on the root vg. CAVEAT: this is a host bind-mount of a network share -- if the
+  NAS is DOWN at boot, Docker could start Frigate against an empty local /mnt/nas/frigate and write
+  to root-disk. Harden later with a docker cifs named-volume (Docker owns the mount, won't start the
+  container without it) or fstab `x-systemd.automount`. Normal boot (NAS up) re-mounts fine.
 - FRIGATE 0.17 GOTCHAS (cost two restarts): (1) OpenVINO needs an EXPLICIT `model:` block with
   path /openvino-model/ssdlite_mobilenet_v2.xml -- omitting it crashes the detector with
   `stat: path ... NoneType`. (2) `detect.enabled` now defaults to FALSE -- must be set true per
@@ -1072,9 +1076,11 @@ NOTE: config/custom_components is masn-only (config/ is gitignored like .env) --
 v5.15.4 zipball if rebuilding; not reproducible from the repo. HACS is an optional future add (for
 update management + the frigate-hass-card Lovelace card).
 
-TODO next (not done): (a) add the remaining 3 cameras + the TrackMix TELE lens; (b) NAS mount +
-retention bump; (c) motion-mask street/neighbours per 6.11; (d) doorbell person-detect ->
-backyard/porch light + WiiM chime automations; (e) optional: a Frigate Lovelace card on the dashboard.
+TODO next (not done): (a) add the remaining 3 cameras + the TrackMix TELE lens; (b) motion-mask
+street/neighbours per 6.11; (c) doorbell person-detect -> backyard/porch light + WiiM chime
+automations; (d) optional: a Frigate Lovelace card on the dashboard (needs HACS frigate-hass-card);
+(e) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount (see STORAGE
+caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).
 
 ---
 

@@ -81,7 +81,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./frigate/config:/config
-      - ./frigate/media:/media/frigate    # LOCAL for now; migrate to /mnt/nas/frigate once SMB is mounted
+      - /mnt/nas/frigate:/media/frigate   # NAS SMB share (see tools/mount-nas-frigate.sh; fstab _netdev,nofail)
       - type: tmpfs                 # cache in RAM
         target: /tmp/cache
         tmpfs: { size: "1g" }
