@@ -1063,7 +1063,8 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
   camera or the detector idles (det_fps 0).
 - render GID confirmed 993 (`getent group render`); /dev/dri/renderD128 passed through; iHD driver.
 - SECURITY: Frigate's first-run generated admin password was exposed in a log grep and ROTATED
-  (user table in /config/frigate.db cleared -> regenerated). UI on :8971 (LAN only, no port-forward).
+  (user table in /config/frigate.db cleared -> regenerated). Password reset again 2026-07-29 and is
+  now USER-SET (not a generated value). UI on :8971 (LAN only, no port-forward).
 
 RICH HA ENTITIES -- DONE (2026-07-28): frigate-hass-integration v5.15.4 installed DIRECTLY (not via
 HACS -- avoids the GitHub-OAuth device flow) into config/custom_components/frigate, HA restarted,
