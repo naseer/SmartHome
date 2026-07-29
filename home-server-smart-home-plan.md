@@ -1045,9 +1045,11 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
   h264 SUB stream (cheap iGPU decode: 896x512 / 640x480 / 640x360 / 640x360 / 1536x576); record the
   MAIN stream by stream-copy. go2rtc fronts each (one RTSP connection re-shared). Load check with 5
   cams: detector ~9 ms, skipped_fps=0 on all -> HD 630 NOT saturated, headroom remains.
-  RECORDING TIERS: driveway + front_door = 24/7 CONTINUOUS 15d; west_gate/east_gate/backyard =
-  EVENT-BASED (per-camera `record.continuous.days: 0` -> only alerts/detections clips, ~0 idle
-  storage). Promote any to continuous by removing its record override.
+  RECORDING: ALL 5 now 24/7 CONTINUOUS 15d (2026-07-29 -- the 3 event-based cams were promoted by
+  removing their `record.continuous.days: 0` overrides, on user request to monitor storage). Baseline
+  at switch: 55 GB / 8 TB. Est. ~300+ GB/day for 5 cams -> ~4.7 TB for 15d (fits 8 TB; Frigate
+  auto-prunes oldest to keep ~10% free). Watching a few days before finalizing retention; revert any
+  cam to event-based by re-adding `record: {continuous: {days: 0}}`.
   CODEC/SCRUB NOTE: every Reolink 4K/high-res MAIN is HEVC (h265) -- only front_door (doorbell) is
   h264. Reolink 4K firmware is h265-ONLY at full res (verified via GetEnc: mainStream vType=[h265],
   no h264 option; h264 only on the tiny sub). Chrome/Firefox can't seek h265 without an OS HEVC

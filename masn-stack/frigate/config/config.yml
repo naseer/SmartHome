@@ -117,8 +117,8 @@ cameras:
         - 0.405,0.581,0.405,0.633,0.81,0.586,0.832,0.542
         - 0.003,0.553,0.296,0.583,0.3,0.631,0.001,0.592
 
-  # --- The 3 below are EVENT-BASED (no 24/7 continuous): record clips around person
-  #     events only. Promote any to continuous by removing its `record:` override. ---
+  # west_gate / east_gate / backyard: promoted to 24/7 CONTINUOUS 2026-07-29 (inherit global
+  # record.continuous.days: 15). Monitoring NAS storage growth for a few days before finalizing.
   west_gate:
     ffmpeg:
       inputs:
@@ -133,10 +133,6 @@ cameras:
       width: 640
       height: 360
       fps: 5
-    record:
-      continuous:
-        days: 0
-
     motion:
       mask: 0.623,0.212,0.791,0.173,0.85,0.006,0.666,0.006
   east_gate:
@@ -153,10 +149,6 @@ cameras:
       width: 640
       height: 360
       fps: 5
-    record:
-      continuous:
-        days: 0
-
     motion:
       mask: 0.13,0.009,0.105,0.378,0.147,0.742,0.008,0.769,0.004,0.01
   backyard:
@@ -173,9 +165,6 @@ cameras:
       width: 1536
       height: 576
       fps: 5
-    record:
-      continuous:
-        days: 0
     motion:
       mask:
         - 0.303,0.087,0.142,0.251,0.09,0.338,0.071,0.4,0.05,0.473,0.004,0.48,0.005,0.01,0.3,0.005,0.351,0.024
