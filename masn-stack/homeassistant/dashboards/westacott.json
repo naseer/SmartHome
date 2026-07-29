@@ -202,7 +202,10 @@
           "type": "custom:advanced-camera-card",
           "cameras": [
             { "camera_entity": "camera.driveway" },
-            { "camera_entity": "camera.front_door" }
+            { "camera_entity": "camera.front_door" },
+            { "camera_entity": "camera.west_gate" },
+            { "camera_entity": "camera.east_gate" },
+            { "camera_entity": "camera.backyard" }
           ]
         }
       ]
