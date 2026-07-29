@@ -506,10 +506,21 @@ Camera notes (Frigate):
   and keys them by MAC, so "West Gate"/"East Gate" in HA match reality. Frigate/firewall configs must
   key on MAC or the IPs in this table, not the hostname. Fix is cosmetic only; left camera-side as-is.
 
-  TODO: reserve these 5 IPs on the UCG-Fiber (DHCP reservation by MAC, as done for the SLZB-06) --
-  Frigate will reference cameras by IP and an unpinned lease would break streams silently. Reserve
-  before standing up Frigate. When the Cameras VLAN lands, re-point the reservations (one dashboard),
-  do NOT set device-side static IPs.
+  DHCP RESERVATIONS: done 2026-07-28 on the UCG-Fiber (by MAC, as with the SLZB-06). When the
+  Cameras VLAN lands, re-point the reservations (one dashboard), do NOT set device-side static IPs.
+
+  GOOGLE EXPOSURE (2026-07-28): one primary sub-stream per physical camera exposed to Google
+  (camera.garage_fluent_lens_0 = TrackMix WIDE, west_fluent, east_fluent, backyard_fluent,
+  outside_doorbell_fluent) -- the low-res `fluent` streams, which is what Nabu Casa wants for casting
+  to a Nest Hub. Only ONE stream per camera is exposed so Google Home shows one device each, not the
+  clear/snapshot duplicates. REMINDER: this HA instance records exposure in core.entity_registry
+  options["cloud.google_assistant"]["should_expose"], NOT the homeassistant.exposed_entities store --
+  verify there, or you get a false "nothing exposed" (see the exposure-trap note). The
+  homeassistant/expose_entity WS API writes to the correct place (used here, live, no restart).
+
+  DASHBOARD: westacott.json gained a "Cameras" section (5 picture-entity cards, camera_view auto ->
+  snapshot that goes live on tap; TrackMix shown as its WIDE lens). Applied to both `-` (Overview)
+  and dashboard-westacott. No restart needed -- Overview was already in storage mode.
 
 ### 6.4 Smart home (Matter/Thread)
 
