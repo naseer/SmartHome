@@ -1064,11 +1064,17 @@ working vertical slice: 2 cameras with PERSON detection, everything else deferre
   /mnt/nas/frigate via `tools/mount-nas-frigate.sh` (cifs, root-only creds file at
   /etc/cifs-credentials/frigate, fstab `_netdev,nofail,vers=3.1.1,uid=0,gid=0`), bound into the
   container as /media/frigate. 8 TB free. Retention now **24/7 CONTINUOUS 15 days** + alerts/
-  detections 30 days (~130 GB/day for these 2 cameras -> ~2 TB/15d). Local test footage cleared,
-  reclaimed ~35 GB on the root vg. CAVEAT: this is a host bind-mount of a network share -- if the
-  NAS is DOWN at boot, Docker could start Frigate against an empty local /mnt/nas/frigate and write
-  to root-disk. Harden later with a docker cifs named-volume (Docker owns the mount, won't start the
-  container without it) or fstab `x-systemd.automount`. Normal boot (NAS up) re-mounts fine.
+  detections 30 days. MEASURED RATE (2026-07-30, all 5 cams continuous ~17 h): ~281 GB/day ->
+  ~4.2 TB at the 15-day steady state, comfortably inside the ~7.2 TB usable (8 TB minus Frigate's 10%
+  reserve). 15 days holds; no trim needed.
+  MOUNT HARDENED (2026-07-30): switched from the host bind-mount to a DOCKER-MANAGED cifs named-volume
+  (`stack_frigate_media`, `frigate_media:/media/frigate` in compose) -> if the NAS is unreachable,
+  Docker REFUSES to start Frigate instead of writing to root-disk (verified: it failed hard when the
+  creds were wrong). GOTCHA that cost a round: Docker's local cifs driver calls mount(2) directly (NOT
+  the mount.cifs helper), so `credentials=<file>` is silently ignored -> "permission denied"; creds
+  MUST be inline `username=/password=` in the volume `o:` (from .env, `${NAS_FRIGATE_SMB_USER/PASSWORD}`).
+  The old fstab mount at /mnt/nas/frigate is now redundant (still mounts, unused) -- can be removed
+  from /etc/fstab with sudo whenever; harmless to leave.
 - FRIGATE 0.17 GOTCHAS (cost two restarts): (1) OpenVINO needs an EXPLICIT `model:` block with
   path /openvino-model/ssdlite_mobilenet_v2.xml -- omitting it crashes the detector with
   `stat: path ... NoneType`. (2) `detect.enabled` now defaults to FALSE -- must be set true per
@@ -1165,9 +1171,9 @@ tracking (physically moves the tele ch02) -- so wide = fixed detection stream, t
 capture. (User to confirm the wide stays fixed on the next driveway subject.)
 
 TODO next (not done): (a) doorbell person-detect -> backyard/porch light + WiiM chime automations;
-(b) extend person alerts to Sara/mna phones once tuning settles; (c) hardening: move the NAS mount to a
-docker cifs named-volume or x-systemd.automount (see STORAGE caveat); optionally grant PERFMON cap to
-restore the Intel GPU-utilization stat (cosmetic); (d) optional: add driveway_tele to the dashboard card.
+(b) extend person alerts to Sara once the zone-gated quiet is trusted (currently mna only); (c) optional:
+grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic); (d) optional: remove the now-
+redundant /mnt/nas/frigate fstab line (sudo). [DONE: NAS mount hardened to docker cifs volume; tele on dashboard.]
 
 ---
 

@@ -81,7 +81,9 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./frigate/config:/config
-      - /mnt/nas/frigate:/media/frigate   # NAS SMB share (see tools/mount-nas-frigate.sh; fstab _netdev,nofail)
+      - frigate_media:/media/frigate      # Docker-managed cifs volume (see bottom). HARDENED: if the NAS
+                                          # is unreachable, Docker refuses to start Frigate rather than
+                                          # writing recordings to local disk (the old bind-mount risk).
       - type: tmpfs                 # cache in RAM
         target: /tmp/cache
         tmpfs: { size: "1g" }
@@ -122,3 +124,13 @@ services:
 
 volumes:
   postgres:
+  # NAS recordings share, mounted BY DOCKER (not fstab) so the container won't start without it.
+  # Docker's cifs driver calls mount(2) directly (no mount.cifs helper), so creds must be INLINE
+  # username=/password= (a credentials=<file> is silently ignored -> permission denied). Values come
+  # from .env at `docker compose up` time (not written in this file). NAS_IP/SHARE from .env; vers 3.1.1.
+  frigate_media:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${NAS_FRIGATE_SMB_USER},password=${NAS_FRIGATE_SMB_PASSWORD},uid=0,gid=0,file_mode=0664,dir_mode=0775,vers=3.1.1"
+      device: "//${NAS_IP}/${NAS_FRIGATE_SHARE}"
