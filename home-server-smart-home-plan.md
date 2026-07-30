@@ -1112,6 +1112,20 @@ low-latency LIVE; Review tab for fast scrubbing. CAVEATS: first load shows Friga
 persists); works only via the internal HTTP URL on the LAN (https/Nabu-Casa remote = mixed-content +
 LAN-IP unreachable). To drop the login prompt, could set Frigate `auth.enabled: false` (LAN-only).
 
+ZONES + ZONE-GATED NOTIFICATIONS (2026-07-30): the user (correctly, the canonical way) replaced the
+motion masks with a property ZONE per camera (driveway=front_area, front_door=front_zone,
+west_gate=west_side_, east_gate=east_side, backyard=backyard_zone) + `review.alerts.required_zones`.
+Those were drawn in the Frigate UI (live config only) -- PULLED back into repo config.yml (they were
+at risk from repo deploys; this is the recurring UI-vs-repo sync gotcha -- always pull masn first).
+KEY FIX: the person notification was firing for out-of-zone people because it triggered on RAW
+`frigate/events`, which ignore zones -- `required_zones` only affects Frigate's *alert severity*, not
+raw events. AND Frigate's alert severity turned out UNreliable (some alerts fired with zones=[]), so
+the automation now gates directly on `entered_zones`: fire only when a person's event transitions from
+no-zones to in-a-zone (before empty -> after non-empty). Verified both ways (in-zone fires, out-of-zone
+silent). CONSEQUENCE: with zones + this gate, the per-camera OBJECT MASKS are redundant for alerting
+(decoys outside zones never notify anyway); they were kept only to keep known decoys out of the event
+list -- removable. Object-mask history below for reference.
+
 OBJECT MASK (2026-07-30): west_gate got repeated NIGHT "person" hits at 0.7-0.85 -- diagnosed by
 pulling event snapshots: 2 of 3 were the NEIGHBOUR'S GAS METER (fixed decoy, same top-centre spot,
 misclassified in grainy ColorX night video), the 3rd a real person on our side (a keeper). Fix =
