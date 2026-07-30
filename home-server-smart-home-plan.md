@@ -1119,7 +1119,12 @@ misclassified in grainy ColorX night video), the 3rd a real person on our side (
 where they were): west_gate person mask 0.42,0.02,0.68,0.02,0.68,0.30,0.42,0.30. Works because the
 filter tests the box's FEET: meter's feet ~y0.22 (inside mask) vs a standing person's feet ~y0.40
 (below it) -> meter suppressed, real side-yard people still alert. The object filter mask is the tool
-for ANY stationary false positive (statue, reflection, meter). Watch east_gate/backyard for the same.
+for ANY stationary false positive (statue, reflection, meter). front_door hit the SAME class of bug
+(2026-07-30): a fixed object ACROSS THE STREET (right side) that the MORNING SUN (~8am) lit up -> ~20
+false person hits (0.7-0.85) in ~18 min, same spot each time. Fix: front_door person mask
+0.70,0.24,0.97,0.24,0.97,0.58,0.70,0.58 (across-street area, off the walkway -> real visitors safe).
+So the trigger can be NIGHT NOISE (west_gate) or LOW-SUN GLARE (front_door), but the fix is the same
+object filter mask. Watch east_gate/backyard for the same.
 
 MASKS + NOTIFICATIONS -- DONE (2026-07-29): motion masks on all 5 cameras (driveway street band,
 front_door road+houses, west/east gate neighbour+hedge, backyard above-fence foliage) -- drawn in the

@@ -120,6 +120,12 @@ cameras:
         - 0.004,0.533,0.101,0.558,0.141,0.261,0.029,0.246
         - 0.405,0.581,0.405,0.633,0.81,0.586,0.832,0.542
         - 0.003,0.553,0.296,0.583,0.3,0.631,0.001,0.592
+    objects:
+      filters:
+        person:
+          # Ignore "person" on the fixed object across the street (right side) that the MORNING
+          # SUN lights up ~8am -> ~20 false hits at 0.7-0.85. Off the walkway/porch, so visitors are safe.
+          mask: 0.70,0.24,0.97,0.24,0.97,0.58,0.70,0.58
 
   # west_gate / east_gate / backyard: promoted to 24/7 CONTINUOUS 2026-07-29 (inherit global
   # record.continuous.days: 15). Monitoring NAS storage growth for a few days before finalizing.
