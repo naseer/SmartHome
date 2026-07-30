@@ -5,10 +5,13 @@
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
-  # Event-driven (MQTT frigate/events) so each notification carries the Frigate EVENT id ->
-  # the snapshot is the actual detection and tapping opens THAT event's clip. Triggering off the
-  # events topic (not the occupancy sensor) is what gives us the id. driveway_tele has detection
-  # disabled, so it never produces person events here.
+  # Event-driven (MQTT frigate/events): the event carries the Frigate EVENT id (snapshot = the actual
+  # detection, tap = that event's clip) AND `entered_zones`. We notify ONLY when a person FIRST enters
+  # one of the user-drawn property ZONES (before had no zones, after does) -> neighbour/street/decoy
+  # detections OUTSIDE the zones never notify. This zone gate is what makes the per-camera object masks
+  # redundant for alerting (they now only keep known decoys out of the event list). Note: Frigate's own
+  # "alert" severity was NOT a reliable gate here -- some alerts fired with zones=[] -- so we test
+  # entered_zones directly. driveway_tele has detection disabled, so it never produces person events.
   - id: frigate_person_notifications
     alias: "Frigate: person detected"
     mode: parallel
@@ -17,8 +20,13 @@ automation:
       - platform: mqtt
         topic: frigate/events
     condition:
-      - "{{ trigger.payload_json['type'] == 'new' }}"
-      - "{{ trigger.payload_json['after']['label'] == 'person' }}"
+      - condition: template
+        value_template: >
+          {% set a = trigger.payload_json['after'] %}
+          {% set b = trigger.payload_json['before'] %}
+          {{ a['label'] == 'person'
+             and (a['entered_zones'] | default([])) | count > 0
+             and ((b['entered_zones'] | default([])) if b else []) | count == 0 }}
     variables:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
