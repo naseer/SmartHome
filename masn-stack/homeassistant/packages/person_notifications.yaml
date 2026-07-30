@@ -5,33 +5,34 @@
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
+  # Event-driven (MQTT frigate/events) so each notification carries the Frigate EVENT id ->
+  # the snapshot is the actual detection and tapping opens THAT event's clip. Triggering off the
+  # events topic (not the occupancy sensor) is what gives us the id. driveway_tele has detection
+  # disabled, so it never produces person events here.
   - id: frigate_person_notifications
     alias: "Frigate: person detected"
     mode: parallel
     max: 10
     trigger:
-      - platform: state
-        entity_id:
-          - binary_sensor.driveway_person_occupancy
-          - binary_sensor.front_door_person_occupancy
-          - binary_sensor.west_gate_person_occupancy
-          - binary_sensor.east_gate_person_occupancy
-          - binary_sensor.backyard_person_occupancy
-        from: "off"
-        to: "on"
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - "{{ trigger.payload_json['type'] == 'new' }}"
+      - "{{ trigger.payload_json['after']['label'] == 'person' }}"
     variables:
-      cam: "{{ trigger.entity_id.split('.')[1] | replace('_person_occupancy', '') }}"
-      cam_name: "{{ cam | replace('_', ' ') | title }}"
+      id: "{{ trigger.payload_json['after']['id'] }}"
+      camera: "{{ trigger.payload_json['after']['camera'] }}"
+      cam_name: "{{ camera | replace('_', ' ') | title }}"
     action:
       - service: notify.mobile_app_mna
         data:
           title: "Person detected"
           message: "Person at {{ cam_name }}"
           data:
-            image: "/api/camera_proxy/camera.{{ cam }}"
-            tag: "frigate-person-{{ cam }}"
+            image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
+            tag: "{{ id }}"
             channel: "Person detection"
-            clickAction: "/lovelace/cameras"
+            clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
 
   # Doorbell button PRESS (the physical bell) -> high-priority alert to the household phones.
   - id: doorbell_pressed_notification
