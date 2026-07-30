@@ -1,7 +1,7 @@
 # Camera / doorbell notifications.
-#  1) Frigate person detection -> snapshot to the phone (during tuning: Pixel only).
+#  1) Frigate person detection -> snapshot to naseer's phone (mna) only during tuning.
 #  2) Reolink doorbell button press (binary_sensor.outside_doorbell_visitor off->on) -> high-priority
-#     alert with the front-door snapshot to the household phones.
+#     alert with the front-door snapshot to the parents' phones (mna + Sara). (pixel_8_pro = son.)
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
@@ -23,7 +23,7 @@ automation:
       cam: "{{ trigger.entity_id.split('.')[1] | replace('_person_occupancy', '') }}"
       cam_name: "{{ cam | replace('_', ' ') | title }}"
     action:
-      - service: notify.mobile_app_pixel_8_pro
+      - service: notify.mobile_app_mna
         data:
           title: "Person detected"
           message: "Person at {{ cam_name }}"
@@ -45,7 +45,7 @@ automation:
     action:
       - repeat:
           for_each:
-            - notify.mobile_app_pixel_8_pro
+            - notify.mobile_app_mna
             - notify.mobile_app_sara_phone
           sequence:
             - service: "{{ repeat.item }}"
