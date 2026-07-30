@@ -1112,10 +1112,20 @@ snapshot + camera name to the Pixel 8 Pro (notify targets also: mobile_app_sara_
 NOTE: the Frigate UI config-save PRESERVES comments but normalizes quotes/braces and appends `version:`,
 and can shuffle a comment's position -- after any UI mask edit, pull masn's config.yml back into the repo.
 
-TODO next (not done): (a) add the TrackMix TELE lens (2nd channel); (b) doorbell person-detect ->
-backyard/porch light + WiiM chime automations; (c) extend person alerts to Sara/mna phones once tuning
-settles; (d) hardening: move the NAS mount to a docker cifs named-volume or x-systemd.automount
-(see STORAGE caveat); optionally grant PERFMON cap to restore the Intel GPU-utilization stat (cosmetic).
+TELE LENS -- DONE (2026-07-29): TrackMix TELE (ch02, h264Preview_02, 1080p h264 -- NOT hevc, so it
+scrubs fine) added as `driveway_tele` -- 6th stream. RECORD-ONLY + EVENT-BASED: `detect.enabled: false`
+(no object detection -- moving auto-track frame would break detection/masks + waste inference; verified
+det_fps=0, zero extra iGPU load), `record.continuous.days: 0` + `motion.days: 14` so it captures the
+auto-tracked close-ups only when the lens swings (motion-gated). Object detection stays on the WIDE
+lens (ch01/driveway). TRACKMIX TRACKING CONFIG: user disabled DIGITAL tracking (was digitally
+pan/zooming the wide ch01 stream Frigate records -> caused a moving recording) but kept PAN/TILT
+tracking (physically moves the tele ch02) -- so wide = fixed detection stream, tele = moving close-up
+capture. (User to confirm the wide stays fixed on the next driveway subject.)
+
+TODO next (not done): (a) doorbell person-detect -> backyard/porch light + WiiM chime automations;
+(b) extend person alerts to Sara/mna phones once tuning settles; (c) hardening: move the NAS mount to a
+docker cifs named-volume or x-systemd.automount (see STORAGE caveat); optionally grant PERFMON cap to
+restore the Intel GPU-utilization stat (cosmetic); (d) optional: add driveway_tele to the dashboard card.
 
 ---
 
