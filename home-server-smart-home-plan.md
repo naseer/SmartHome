@@ -1112,6 +1112,15 @@ low-latency LIVE; Review tab for fast scrubbing. CAVEATS: first load shows Friga
 persists); works only via the internal HTTP URL on the LAN (https/Nabu-Casa remote = mixed-content +
 LAN-IP unreachable). To drop the login prompt, could set Frigate `auth.enabled: false` (LAN-only).
 
+OBJECT MASK (2026-07-30): west_gate got repeated NIGHT "person" hits at 0.7-0.85 -- diagnosed by
+pulling event snapshots: 2 of 3 were the NEIGHBOUR'S GAS METER (fixed decoy, same top-centre spot,
+misclassified in grainy ColorX night video), the 3rd a real person on our side (a keeper). Fix =
+`objects.filters.person.mask` (NOT motion mask / not threshold -- scores were high, detections real
+where they were): west_gate person mask 0.42,0.02,0.68,0.02,0.68,0.30,0.42,0.30. Works because the
+filter tests the box's FEET: meter's feet ~y0.22 (inside mask) vs a standing person's feet ~y0.40
+(below it) -> meter suppressed, real side-yard people still alert. The object filter mask is the tool
+for ANY stationary false positive (statue, reflection, meter). Watch east_gate/backyard for the same.
+
 MASKS + NOTIFICATIONS -- DONE (2026-07-29): motion masks on all 5 cameras (driveway street band,
 front_door road+houses, west/east gate neighbour+hedge, backyard above-fence foliage) -- drawn in the
 Frigate UI mask editor by the user, coords pulled back into this repo's config.yml. Push notifications

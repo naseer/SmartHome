@@ -139,6 +139,12 @@ cameras:
       fps: 5
     motion:
       mask: 0.623,0.212,0.791,0.173,0.85,0.006,0.666,0.006
+    objects:
+      filters:
+        person:
+          # Ignore "person" on the neighbour's GAS METER (fixed decoy, top-centre) -- it was
+          # misclassified 0.7-0.85 at night. Covers the meter + surrounding neighbour strip.
+          mask: 0.42,0.02,0.68,0.02,0.68,0.30,0.42,0.30
   east_gate:
     ffmpeg:
       inputs:
