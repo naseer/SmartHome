@@ -1114,9 +1114,15 @@ LAN-IP unreachable). To drop the login prompt, could set Frigate `auth.enabled: 
 
 MASKS + NOTIFICATIONS -- DONE (2026-07-29): motion masks on all 5 cameras (driveway street band,
 front_door road+houses, west/east gate neighbour+hedge, backyard above-fence foliage) -- drawn in the
-Frigate UI mask editor by the user, coords pulled back into this repo's config.yml. Person-detection
-push notifications live: `automation.frigate_person_detected` (packages/person_notifications.yaml) ->
-snapshot + camera name to the Pixel 8 Pro (notify targets also: mobile_app_sara_phone, mobile_app_mna).
+Frigate UI mask editor by the user, coords pulled back into this repo's config.yml. Push notifications
+live (packages/person_notifications.yaml): (1) `automation.frigate_person_detected` is EVENT-DRIVEN
+(trigger = MQTT frigate/events, type=new, label=person -- NOT the occupancy sensor; the events topic is
+what carries the event id) -> image = the detection snapshot, TAP opens THAT event's clip
+(clickAction /api/frigate/notifications/<id>/<cam>/clip.mp4; snapshot + clip endpoints verified 200) ->
+to naseer (`mna`) only during tuning. (2) `automation.doorbell_pressed` = Reolink visitor sensor ->
+whole household (mna + Sara + son's pixel_8_pro), tap = live Cameras view (see who's there now).
+RECIPIENT GOTCHA (fixed 2026-07-30): notifications first went to pixel_8_pro = the SON's phone; naseer's
+phone is `mna`. MOBILE PUSH != sensor connection: FCM push can fail while the app's sensor link works.
 NOTE: the Frigate UI config-save PRESERVES comments but normalizes quotes/braces and appends `version:`,
 and can shuffle a comment's position -- after any UI mask edit, pull masn's config.yml back into the repo.
 
