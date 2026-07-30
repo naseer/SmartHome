@@ -1104,6 +1104,14 @@ Ring smooth-scrub equivalent (drag = previews; play = full recording). Card show
 ribbon mini-timeline under live (`live.controls.timeline: {mode: below, style: ribbon}`). Rebuild note: re-download the bundle + re-register the resource (config/ is not in the repo);
 a HARD browser refresh is required after first install or the tab shows "custom element doesn't exist".
 
+REVIEW TAB (2026-07-30): the card's scrubbing/clip-opening is sluggish because it fetches all media
+THROUGH HA's proxy (hass-web-proxy-lib); native Frigate is far faster (direct). Added a 3rd view
+"Review" = an `iframe` card embedding the native Frigate UI (http://192.168.50.50:8971 -- Frigate sets
+no X-Frame-Options, so it embeds) -> native speed inside HA, no proxy hop. Cameras tab stays for
+low-latency LIVE; Review tab for fast scrubbing. CAVEATS: first load shows Frigate login (cookie then
+persists); works only via the internal HTTP URL on the LAN (https/Nabu-Casa remote = mixed-content +
+LAN-IP unreachable). To drop the login prompt, could set Frigate `auth.enabled: false` (LAN-only).
+
 MASKS + NOTIFICATIONS -- DONE (2026-07-29): motion masks on all 5 cameras (driveway street band,
 front_door road+houses, west/east gate neighbour+hedge, backyard above-fence foliage) -- drawn in the
 Frigate UI mask editor by the user, coords pulled back into this repo's config.yml. Person-detection
