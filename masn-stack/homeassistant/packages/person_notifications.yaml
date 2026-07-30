@@ -1,7 +1,7 @@
 # Camera / doorbell notifications.
 #  1) Frigate person detection -> snapshot to naseer's phone (mna) only during tuning.
 #  2) Reolink doorbell button press (binary_sensor.outside_doorbell_visitor off->on) -> high-priority
-#     alert with the front-door snapshot to the parents' phones (mna + Sara). (pixel_8_pro = son.)
+#     alert with the front-door snapshot to the whole household (mna + Sara + son's pixel_8_pro).
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
@@ -47,6 +47,7 @@ automation:
           for_each:
             - notify.mobile_app_mna
             - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
           sequence:
             - service: "{{ repeat.item }}"
               data:
