@@ -1,5 +1,7 @@
-# Person-detection notifications from Frigate.
-# Fires when any camera's person_occupancy flips off -> on, and pushes a snapshot to the phone.
+# Camera / doorbell notifications.
+#  1) Frigate person detection -> snapshot to the phone (during tuning: Pixel only).
+#  2) Reolink doorbell button press (binary_sensor.outside_doorbell_visitor off->on) -> high-priority
+#     alert with the front-door snapshot to the household phones.
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
@@ -30,3 +32,31 @@ automation:
             tag: "frigate-person-{{ cam }}"
             channel: "Person detection"
             clickAction: "/lovelace/cameras"
+
+  # Doorbell button PRESS (the physical bell) -> high-priority alert to the household phones.
+  - id: doorbell_pressed_notification
+    alias: "Doorbell: pressed"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.outside_doorbell_visitor
+        from: "off"
+        to: "on"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_pixel_8_pro
+            - notify.mobile_app_sara_phone
+          sequence:
+            - service: "{{ repeat.item }}"
+              data:
+                title: "Doorbell"
+                message: "Someone is at the front door"
+                data:
+                  image: "/api/camera_proxy/camera.front_door"
+                  tag: "doorbell-press"
+                  channel: "Doorbell"
+                  importance: high
+                  priority: high
+                  ttl: 0
+                  clickAction: "/lovelace/cameras"
