@@ -1703,8 +1703,17 @@ exception (returning to On after an outage may be wanted for security lighting).
 
 ## 15. Open Items / To Confirm
 
-- [ ] **TASK (queued 2026-07-21): add the UniFi Network integration to HA.** Gateway confirmed as
-      UniFi OS at 192.168.50.1 (UCG-Fiber), https/443, no `unifi` config entry in HA yet.
+- [x] **DONE (2026-07-30): UniFi Network integration added to HA.** `unifi` entry, site "Default",
+      loaded, host 192.168.50.1:443, local admin, SSL-verify off. Client tracking turned OFF via the
+      options flow (track_clients + more_options.track_wired_clients = false; track_devices kept ON)
+      -> client device_trackers dropped 14 -> 7 and won't grow as devices join. Got ~61 enabled
+      entities: AP/switch/gateway devices, PoE-port switches, restart buttons, firmware `update`s,
+      per-device sensors. NOTE: the AP(s) + switch come IN with this integration -- do NOT add them
+      separately. Separately, an `upnp` entry ("UniFi Dream Machine", from SSDP) provides basic WAN
+      throughput/external-IP sensors -- kept for internet monitoring; it is NOT the UniFi integration.
+      (original task text below.)
+      Gateway confirmed as
+      UniFi OS at 192.168.50.1 (UCG-Fiber), https/443.
       1. FIRST create a LOCAL UniFi account -- NOT the ui.com cloud account. UniFi -> Settings ->
          Admins & Users -> Add Admin -> "Restrict to Local Access Only". A cloud account breaks
          when 2FA is on, stops working when the internet is down (exactly when local monitoring
