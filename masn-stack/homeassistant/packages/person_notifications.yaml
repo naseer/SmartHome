@@ -2,6 +2,8 @@
 #  1) Frigate person detection -> snapshot to naseer's phone (mna) only during tuning.
 #  2) Reolink doorbell button press (binary_sensor.outside_doorbell_visitor off->on) -> high-priority
 #     alert with the front-door snapshot to the whole household (mna + Sara + son's pixel_8_pro).
+#  Both carry ACTION BUTTONS: "Live view" (URI -> Cameras tab) + "Light on" (turns on that camera's
+#  floodlight; front_door -> porch potlights) via the notification_action_light automation. Siren omitted.
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 automation:
@@ -41,6 +43,12 @@ automation:
             tag: "{{ id }}"
             channel: "Person detection"
             clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
+            actions:
+              - action: "URI"
+                title: "Live view"
+                uri: "/lovelace/cameras"
+              - action: "light_{{ camera }}"
+                title: "Light on"
 
   # Doorbell button PRESS (the physical bell) -> high-priority alert to the household phones.
   - id: doorbell_pressed_notification
@@ -70,3 +78,36 @@ automation:
                   priority: high
                   ttl: 0
                   clickAction: "/lovelace/cameras"
+                  actions:
+                    - action: "URI"
+                      title: "Live view"
+                      uri: "/lovelace/cameras"
+                    - action: "light_front_door"
+                      title: "Porch light"
+
+  # Handles the "Light on" / "Porch light" action buttons above. The action id is "light_<camera>";
+  # we strip the prefix and turn on that camera's floodlight (front_door has none -> porch potlights).
+  # "Live view" uses a URI action (opened by the app directly, no automation). Siren buttons omitted.
+  - id: notification_action_light
+    alias: "Notification action: light on"
+    mode: parallel
+    max: 10
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+    variables:
+      cam: "{{ trigger.event.data.action[6:] }}"
+      light_map:
+        driveway: light.garage_floodlight
+        west_gate: light.west_floodlight
+        east_gate: light.east_floodlight
+        backyard: light.backyard_floodlight
+        front_door: light.smart_wi_fi_dimmer_switch_4
+      target_light: "{{ light_map.get(cam, 'none') }}"
+    condition:
+      - "{{ (trigger.event.data.action | default('')).startswith('light_') }}"
+      - "{{ target_light != 'none' }}"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: "{{ target_light }}"

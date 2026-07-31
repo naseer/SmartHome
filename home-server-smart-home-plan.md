@@ -1155,8 +1155,18 @@ what carries the event id) -> image = the detection snapshot, TAP opens THAT eve
 (clickAction /api/frigate/notifications/<id>/<cam>/clip.mp4; snapshot + clip endpoints verified 200) ->
 to naseer (`mna`) only during tuning. (2) `automation.doorbell_pressed` = Reolink visitor sensor ->
 whole household (mna + Sara + son's pixel_8_pro), tap = live Cameras view (see who's there now).
+ACTION BUTTONS (2026-07-31): both notifications carry "Live view" (URI action -> /lovelace/cameras,
+handled by the app) + "Light on" (custom action id `light_<camera>` -> `automation.notification_action_light_on`
+strips the prefix and turns on that camera's floodlight; front_door -> porch potlights
+smart_wi_fi_dimmer_switch_4). Verified end-to-end (fired the event, garage_floodlight off->on). SIREN
+buttons intentionally omitted for now (per user). To add later: same handler, siren_<camera> ->
+`siren.<prefix>_siren` (driveway=garage/west/east/backyard/outside_doorbell), ideally 2-step confirm.
 RECIPIENT GOTCHA (fixed 2026-07-30): notifications first went to pixel_8_pro = the SON's phone; naseer's
 phone is `mna`. MOBILE PUSH != sensor connection: FCM push can fail while the app's sensor link works.
+CONNECTION (fixed 2026-07-31): app was using Nabu Casa CLOUD even at home (all disconnects from
+127.0.0.1, "No PONG" drops) because Home-Wi-Fi-SSID wasn't set + external_url was None. Fixed: set
+external_url to the nabu.casa URL (server) + user set internal URL + home SSIDs (MASN, humans) in the app.
+Remaining phone-side: set HA app battery to Unrestricted to stop Android Doze silencing the keepalive.
 NOTE: the Frigate UI config-save PRESERVES comments but normalizes quotes/braces and appends `version:`,
 and can shuffle a comment's position -- after any UI mask edit, pull masn's config.yml back into the repo.
 
