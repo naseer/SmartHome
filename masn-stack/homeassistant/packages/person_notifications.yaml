@@ -117,3 +117,45 @@ automation:
       - service: light.turn_on
         target:
           entity_id: "{{ target_light }}"
+
+  # Moving-VEHICLE notification: same event-driven pattern as person, but for car/bus/motorcycle and
+  # ONLY when the vehicle is MOVING (`not stationary`) AND first enters a property zone. A PARKED car
+  # (stationary -- e.g. your own cars sitting in the driveway) never notifies; street traffic outside
+  # the zones is ignored. To naseer (mna) for now, on its own "Vehicle detection" notification channel.
+  - id: frigate_vehicle_notifications
+    alias: "Frigate: moving vehicle"
+    mode: parallel
+    max: 10
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >
+          {% set a = trigger.payload_json['after'] %}
+          {% set b = trigger.payload_json['before'] %}
+          {{ a['label'] in ['car', 'bus', 'motorcycle']
+             and not a['stationary']
+             and (a['entered_zones'] | default([])) | count > 0
+             and ((b['entered_zones'] | default([])) if b else []) | count == 0 }}
+    variables:
+      id: "{{ trigger.payload_json['after']['id'] }}"
+      camera: "{{ trigger.payload_json['after']['camera'] }}"
+      cam_name: "{{ camera | replace('_', ' ') | title }}"
+      label: "{{ trigger.payload_json['after']['label'] | title }}"
+    action:
+      - service: notify.mobile_app_mna
+        data:
+          title: "Vehicle detected"
+          message: "{{ label }} moving at {{ cam_name }}"
+          data:
+            image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
+            tag: "{{ id }}"
+            channel: "Vehicle detection"
+            clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
+            actions:
+              - action: "URI"
+                title: "Live view"
+                uri: "/lovelace/cameras"
+              - action: "light_{{ camera }}"
+                title: "Light on"

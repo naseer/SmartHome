@@ -1161,6 +1161,14 @@ strips the prefix and turns on that camera's floodlight; front_door -> porch pot
 smart_wi_fi_dimmer_switch_4). Verified end-to-end (fired the event, garage_floodlight off->on). SIREN
 buttons intentionally omitted for now (per user). To add later: same handler, siren_<camera> ->
 `siren.<prefix>_siren` (driveway=garage/west/east/backyard/outside_doorbell), ideally 2-step confirm.
+VEHICLE DETECTION + MOVING-ONLY ALERTS (2026-07-31): added car/bus/motorcycle to `objects.track`
+(this OpenVINO model has NO "truck" label -> larger vehicles read as car/bus; bicycle excluded). New
+automation `automation.frigate_moving_vehicle` notifies (mna only, own "Vehicle detection" channel,
+same Live view + Light on buttons) ONLY when label in car/bus/motorcycle AND `not after.stationary`
+(MOVING) AND first enters a zone. Verified 3 ways: moving+in-zone fires; parked+in-zone silent (your
+own driveway cars); moving+no-zone silent (street). This is how you get "a car pulled up" without
+being spammed by parked cars -- Frigate can't tell YOUR car from a stranger's (needs ALPR), so
+"moving + in my zone" is the practical proxy.
 RECIPIENT GOTCHA (fixed 2026-07-30): notifications first went to pixel_8_pro = the SON's phone; naseer's
 phone is `mna`. MOBILE PUSH != sensor connection: FCM push can fail while the app's sensor link works.
 CONNECTION (fixed 2026-07-31): app was using Nabu Casa CLOUD even at home (all disconnects from
