@@ -1,5 +1,5 @@
 # Camera / doorbell notifications.
-#  1) Frigate person detection -> snapshot to naseer's phone (mna) only during tuning.
+#  1) Frigate person detection -> snapshot to the whole household (mna + Sara + son's pixel_8_pro).
 #  2) Reolink doorbell button press (binary_sensor.outside_doorbell_visitor off->on) -> high-priority
 #     alert with the front-door snapshot to the whole household (mna + Sara + son's pixel_8_pro).
 #  Both carry ACTION BUTTONS: "Live view" (URI -> Cameras tab) + "Light on" (turns on that camera's
@@ -34,21 +34,27 @@ automation:
       camera: "{{ trigger.payload_json['after']['camera'] }}"
       cam_name: "{{ camera | replace('_', ' ') | title }}"
     action:
-      - service: notify.mobile_app_mna
-        data:
-          title: "Person detected"
-          message: "Person at {{ cam_name }}"
-          data:
-            image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
-            tag: "{{ id }}"
-            channel: "Person detection"
-            clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
-            actions:
-              - action: "URI"
-                title: "Live view"
-                uri: "/lovelace/cameras"
-              - action: "light_{{ camera }}"
-                title: "Light on"
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - service: "{{ repeat.item }}"
+              data:
+                title: "Person detected"
+                message: "Person at {{ cam_name }}"
+                data:
+                  image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
+                  tag: "{{ id }}"
+                  channel: "Person detection"
+                  clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
+                  actions:
+                    - action: "URI"
+                      title: "Live view"
+                      uri: "/lovelace/cameras"
+                    - action: "light_{{ camera }}"
+                      title: "Light on"
 
   # Doorbell button PRESS (the physical bell) -> high-priority alert to the household phones.
   - id: doorbell_pressed_notification
