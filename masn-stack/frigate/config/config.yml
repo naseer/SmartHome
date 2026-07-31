@@ -50,7 +50,10 @@ snapshots:
   retain: {default: 14}
 
 objects:
-  track: [person]             # basic: person only (add car/package/etc later)
+  # person + vehicles. This model has no "truck" label (larger vehicles read as car/bus), so the
+  # vehicle set is car/bus/motorcycle. Zones still gate ALERTS -> a vehicle only "alerts" inside a
+  # camera's required_zone. bicycle deliberately excluded (bike, more person-adjacent).
+  track: [person, car, bus, motorcycle]
 
 # go2rtc restream -- one connection per camera, re-shared to detect/record/live.
 go2rtc:
