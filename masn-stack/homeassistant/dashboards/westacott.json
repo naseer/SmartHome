@@ -127,6 +127,18 @@
             },
             {
               "type": "button",
+              "name": "Garage Door",
+              "icon": "mdi:garage",
+              "show_state": false,
+              "grid_options": { "columns": 12 },
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.garage_door_pulse",
+                "confirmation": { "text": "Pulse the garage door?" }
+              }
+            },
+            {
+              "type": "button",
               "name": "All Lights Off",
               "icon": "mdi:lightbulb-group-off",
               "show_state": false,

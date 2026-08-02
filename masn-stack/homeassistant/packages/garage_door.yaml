@@ -1,0 +1,23 @@
+# Garage door -- Aqara Dual Relay Module T2 (device "garage_relay"), relay L1 wired across
+# the opener's push-button terminals in DRY (volt-free) contact mode. We drive a momentary
+# "button press" from HA: close L1, hold 500 ms, open L1. Both edges are confirmed by the
+# device (unlike the T2's firmware pulse mode, whose auto-release is NOT reported over Zigbee),
+# so the press is verifiable and the contact can't silently latch closed.
+#   - Keep the device in mode: dry (a device-side setting; do NOT set it to power/pulse).
+#   - L1 dry contacts carry only the opener's low-voltage button loop -- never mains.
+# Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo
+# copy is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+script:
+  garage_door_pulse:
+    alias: "Garage door: pulse"
+    icon: mdi:garage
+    mode: single            # ignore a second tap during the 500 ms press
+    sequence:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.garage_relay_l1
+      - delay:
+          milliseconds: 500
+      - service: switch.turn_off
+        target:
+          entity_id: switch.garage_relay_l1
