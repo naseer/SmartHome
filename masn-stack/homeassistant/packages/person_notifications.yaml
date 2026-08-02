@@ -118,12 +118,13 @@ automation:
         target:
           entity_id: "{{ target_light }}"
 
-  # Moving-VEHICLE notification (car/bus/motorcycle). MOVEMENT is detected via `position_changes` -- a
-  # monotonic count of real box movements -- crossing a threshold (>=3) WHILE inside a property zone.
-  # This beats the `stationary` flag, which is False for the first ~10s of ANY car event, so a parked
-  # car re-detected after occlusion/shadow used to false-fire. A truly parked car stays at low
-  # position_changes -> silent; street traffic outside the zones is ignored. To naseer (mna), on its
-  # own "Vehicle detection" channel. Tune the >=3 if it misses slow arrivals or still false-fires.
+  # Moving-VEHICLE notification (car/bus/motorcycle). Gated on ENTERING the driveway_lane zone, which
+  # in Frigate has a speed_threshold (5 km/h) + real-world distance calibration -- so a car counts as
+  # "in" the lane ONLY while actually driving through it. A parked car (speed 0), including the endless
+  # night re-detections of our own cars sitting in the driveway, never enters the lane -> silent. This
+  # replaced the position_changes heuristic, which still false-fired on jittery parked cars (lots of
+  # box-jitter, ~0 net movement). To naseer (mna) on the "Vehicle detection" channel. Tune the trigger
+  # speed via driveway_lane.speed_threshold in the Frigate config (raise if slow re-detects sneak in).
   - id: frigate_vehicle_notifications
     alias: "Frigate: moving vehicle"
     mode: parallel
@@ -137,9 +138,8 @@ automation:
           {% set a = trigger.payload_json['after'] %}
           {% set b = trigger.payload_json['before'] %}
           {{ a['label'] in ['car', 'bus', 'motorcycle']
-             and (a['entered_zones'] | default([])) | count > 0
-             and (a['position_changes'] | default(0)) >= 3
-             and ((b['position_changes'] | default(0)) if b else 0) < 3 }}
+             and 'driveway_lane' in (a['entered_zones'] | default([]))
+             and 'driveway_lane' not in ((b['entered_zones'] | default([])) if b else []) }}
     variables:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
