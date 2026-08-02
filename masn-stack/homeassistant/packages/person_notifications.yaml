@@ -118,13 +118,14 @@ automation:
         target:
           entity_id: "{{ target_light }}"
 
-  # Moving-VEHICLE notification (car/bus/motorcycle). Gated on ENTERING the driveway_lane zone, which
-  # in Frigate has a speed_threshold (5 km/h) + real-world distance calibration -- so a car counts as
-  # "in" the lane ONLY while actually driving through it. A parked car (speed 0), including the endless
-  # night re-detections of our own cars sitting in the driveway, never enters the lane -> silent. This
-  # replaced the position_changes heuristic, which still false-fired on jittery parked cars (lots of
-  # box-jitter, ~0 net movement). To naseer (mna) on the "Vehicle detection" channel. Tune the trigger
-  # speed via driveway_lane.speed_threshold in the Frigate config (raise if slow re-detects sneak in).
+  # Moving-VEHICLE notification (car/bus/motorcycle). DOUBLE speed gate to survive detection flicker:
+  #   1) entering driveway_lane -- that zone has an instantaneous speed_threshold (5 km/h) in Frigate,
+  #      so spatial presence alone isn't enough; and
+  #   2) average_estimated_speed >= 5 km/h -- the SMOOTHED speed, which ignores single-frame jitter.
+  # A parked car's box can flicker between two spots and spike the INSTANTANEOUS speed for one frame
+  # (enough to momentarily enter the lane), but its average stays ~0 (measured 0.78; parked cars top
+  # out ~3.5) -> gate 2 blocks it. A car actually driving through the lane clears both. To naseer (mna)
+  # on the "Vehicle detection" channel. If a genuine slow arrival is missed, lower the >= 5 average floor.
   - id: frigate_vehicle_notifications
     alias: "Frigate: moving vehicle"
     mode: parallel
@@ -139,7 +140,8 @@ automation:
           {% set b = trigger.payload_json['before'] %}
           {{ a['label'] in ['car', 'bus', 'motorcycle']
              and 'driveway_lane' in (a['entered_zones'] | default([]))
-             and 'driveway_lane' not in ((b['entered_zones'] | default([])) if b else []) }}
+             and 'driveway_lane' not in ((b['entered_zones'] | default([])) if b else [])
+             and (a['average_estimated_speed'] | default(0) | float) >= 5 }}
     variables:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
