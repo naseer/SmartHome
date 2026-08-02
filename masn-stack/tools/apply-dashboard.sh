@@ -7,7 +7,7 @@
 # container because aiohttp is already there.
 #
 # Usage:  ./apply-dashboard.sh <url_path> <config.json> [--dry-run]
-#   e.g.  ./apply-dashboard.sh dashboard-westacott ../homeassistant/dashboards/westacott.json
+#   e.g.  ./apply-dashboard.sh - ../homeassistant/dashboards/overview.json   # the single family dashboard
 #
 # Pass "-" as <url_path> to target the built-in default Overview (url_path null),
 # which is what every user lands on. Saving to it takes control from HA's

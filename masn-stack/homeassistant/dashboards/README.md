@@ -8,20 +8,20 @@ token at `~/.ha_token` (no sudo required).
 
 | File | Target `url_path` | Who sees it |
 |------|-------------------|-------------|
-| `westacott.json` | `-` (the built-in default **Overview**) | Everyone -- this is the family landing page |
-| `westacott.json` | `dashboard-westacott` | Everyone -- named sidebar entry, same content |
+| `overview.json` | `-` (the built-in default **Overview**) | Everyone -- the single family landing page |
 | `all-entities.json` | `all-entities` | Admin only -- HA's auto-generated "everything" view |
 
 ```sh
-./apply-dashboard.sh - ../homeassistant/dashboards/westacott.json          # default Overview
-./apply-dashboard.sh dashboard-westacott ../homeassistant/dashboards/westacott.json
+./apply-dashboard.sh - ../homeassistant/dashboards/overview.json           # default Overview
 ./apply-dashboard.sh all-entities ../homeassistant/dashboards/all-entities.json
 ```
 
-`westacott.json` is applied to BOTH targets, so re-run both commands after editing it or the
-two will drift. The named dashboard was briefly deleted 2026-07-21 and restored: the default
-Overview panel can be hidden per-device in browser localStorage (invisible to any server-side
-check), so a named sidebar entry is a reliable way in when Overview is not showing.
+CONSOLIDATED 2026-08-02: there is now a SINGLE family dashboard -- the built-in default
+**Overview**, fed from `overview.json`. The redundant named `dashboard-westacott` entry (a
+byte-identical copy) was deleted: keeping two in sync kept causing drift (a change would land in
+one but not the other). If you ever need a named-sidebar fallback again (the default Overview can
+be hidden per-device in browser localStorage), re-create it and apply `overview.json` to it too --
+but then you own the re-sync every edit.
 
 Add `--dry-run` to see the card counts without writing.
 
@@ -58,7 +58,7 @@ if it reproduces for OTHER user accounts, it is this, not cache.
 
 ## Custom cards (advanced-camera-card)
 
-`westacott.json`'s **Cameras** view uses `custom:advanced-camera-card` (the renamed frigate-hass-card).
+`overview.json`'s **Cameras** view uses `custom:advanced-camera-card` (the renamed frigate-hass-card).
 That card is NOT part of HA -- it is a Lovelace resource whose JS lives at
 `config/www/advanced-camera-card/` on masn (masn-only; `config/` is gitignored) and is registered as a
 module resource `/local/advanced-camera-card/advanced-camera-card.js`. If rebuilding masn: re-download
