@@ -137,6 +137,8 @@ automation:
   # To naseer (mna). Tune net>=0.1 / ratio>=0.5 if a real arrival is missed or flicker sneaks through.
   - id: frigate_vehicle_notifications
     alias: "Frigate: moving vehicle"
+    initial_state: false        # DISABLED 2026-08-02 (user: too noisy) -- re-enable after the
+                                # detector-model upgrade. Logic is the directness gate; kept intact.
     mode: parallel
     max: 10
     trace:
