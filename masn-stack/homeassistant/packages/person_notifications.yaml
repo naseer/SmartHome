@@ -6,6 +6,14 @@
 #  floodlight; front_door -> porch potlights) via the notification_action_light automation. Siren omitted.
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+
+# Fetch a single Frigate event (incl. data.path_data) from the localhost-only internal API. Used by the
+# moving-vehicle automation to judge trajectory directness. HA is host-network so 127.0.0.1:5000 works.
+rest_command:
+  frigate_get_event:
+    url: "http://127.0.0.1:5000/api/events/{{ event_id }}"
+    method: GET
+
 automation:
   # Event-driven (MQTT frigate/events): the event carries the Frigate EVENT id (snapshot = the actual
   # detection, tap = that event's clip) AND `entered_zones`. We notify ONLY when a person FIRST enters
@@ -118,18 +126,21 @@ automation:
         target:
           entity_id: "{{ target_light }}"
 
-  # Moving-VEHICLE notification (car/bus/motorcycle). DOUBLE speed gate to survive detection flicker:
-  #   1) entering driveway_lane -- that zone has an instantaneous speed_threshold (5 km/h) in Frigate,
-  #      so spatial presence alone isn't enough; and
-  #   2) average_estimated_speed >= 5 km/h -- the SMOOTHED speed, which ignores single-frame jitter.
-  # A parked car's box can flicker between two spots and spike the INSTANTANEOUS speed for one frame
-  # (enough to momentarily enter the lane), but its average stays ~0 (measured 0.78; parked cars top
-  # out ~3.5) -> gate 2 blocks it. A car actually driving through the lane clears both. To naseer (mna)
-  # on the "Vehicle detection" channel. If a genuine slow arrival is missed, lower the >= 5 average floor.
+  # Moving-VEHICLE notification (car/bus/motorcycle). Speed metrics were abandoned: a PARKED car's box
+  # FLICKERS between two fixed spots (e.g. two cars nearby), fabricating a steady 5-11 km/h estimated
+  # speed -- so neither instantaneous nor AVERAGE speed can tell flicker from a real slow car. The one
+  # thing flicker can't fake is DIRECTION. So we gate on TRAJECTORY DIRECTNESS: pre-filter on entering
+  # the speed-gated driveway_lane, wait ~8s for the track to accumulate points, pull the event's
+  # path_data from Frigate, and fire only if the path is roughly STRAIGHT -- net displacement / total
+  # path length >= 0.5 AND net >= 0.1. Real cars travel in a line (ratio ~1.0); parked-car flicker
+  # oscillates in place (ratio <= 0.13). Costs an ~8s alert delay (fine for "a car is arriving").
+  # To naseer (mna). Tune net>=0.1 / ratio>=0.5 if a real arrival is missed or flicker sneaks through.
   - id: frigate_vehicle_notifications
     alias: "Frigate: moving vehicle"
     mode: parallel
     max: 10
+    trace:
+      stored_traces: 25
     trigger:
       - platform: mqtt
         topic: frigate/events
@@ -140,14 +151,39 @@ automation:
           {% set b = trigger.payload_json['before'] %}
           {{ a['label'] in ['car', 'bus', 'motorcycle']
              and 'driveway_lane' in (a['entered_zones'] | default([]))
-             and 'driveway_lane' not in ((b['entered_zones'] | default([])) if b else [])
-             and (a['average_estimated_speed'] | default(0) | float) >= 5 }}
+             and 'driveway_lane' not in ((b['entered_zones'] | default([])) if b else []) }}
     variables:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
       cam_name: "{{ camera | replace('_', ' ') | title }}"
       label: "{{ trigger.payload_json['after']['label'] | title }}"
     action:
+      # Let the track accumulate a few points, then judge its SHAPE from Frigate's path_data.
+      - delay: {seconds: 8}
+      - service: rest_command.frigate_get_event
+        data:
+          event_id: "{{ id }}"
+        response_variable: ev
+      - variables:
+          fire: >
+            {% set c = ev.content if (ev is defined and ev.status | default(0) == 200) else none %}
+            {% if c is string %}{% set c = c | from_json %}{% endif %}
+            {% set pd = (c.data.path_data) if (c is mapping and c.get('data') and c.data.get('path_data')) else [] %}
+            {% if pd | length < 2 %}false
+            {% else %}
+              {% set ns = namespace(total=0.0, prev=None) %}
+              {% for p in pd %}
+                {% set xy = p[0] %}
+                {% if ns.prev is not none %}
+                  {% set ns.total = ns.total + ((xy[0]-ns.prev[0])**2 + (xy[1]-ns.prev[1])**2)**0.5 %}
+                {% endif %}
+                {% set ns.prev = xy %}
+              {% endfor %}
+              {% set f = pd[0][0] %}{% set l = pd[-1][0] %}
+              {% set net = ((l[0]-f[0])**2 + (l[1]-f[1])**2)**0.5 %}
+              {{ net >= 0.1 and ns.total > 0 and (net / ns.total) >= 0.5 }}
+            {% endif %}
+      - condition: "{{ fire | trim | bool }}"
       - service: notify.mobile_app_mna
         data:
           title: "Vehicle detected"
