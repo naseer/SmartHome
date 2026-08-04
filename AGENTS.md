@@ -19,16 +19,34 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - `masn-stack/` — reproducible Docker stack + Phase 0 scripts (see below).
 - `AGENTS.md` (this file), `.gitignore`.
 
-## Status (as of 2026-06-29)
+## Status (as of 2026-08-04)
 
-- **BLOCKED:** NAS arrived, but the 1st IronWolf Pro 12 TB was **DOA (clicking)** on first power-up
-  (2026-06-29). Returned/RMA'd. Phase 0 is paused until a working disk arrives. Do NOT wipe masn
-  (it holds the only copy of the 382 GB media library; no valid NAS backup target yet). Burn-in the
-  replacement before trusting it.
-- Original plan: NAS up → copy media → AHCI + clean install → bring stack online (resumes once disk replaced).
-- **Greenfield**: user confirmed NO irreplaceable data on masn → backup-before-wipe gate WAIVED,
-  EXCEPT copy the media library to the NAS first (see runbook).
-- Storage: **1× 14 TB now, mirror added in a few months** (Google stays the off-site copy meanwhile).
+**LIVE — the stack is in daily use.** Phase 0 is DONE; masn runs the full local-first stack and the
+smart home is operational. What's running:
+
+- **Core**: HA + Mosquitto + Postgres (recorder → Postgres) on Ubuntu 24.04 / NVMe / AHCI. HA at
+  `http://192.168.50.50:8123`, Nabu Casa linked. NAS mounts (`/mnt/nas/{frigate,backups,media}`) live.
+- **Cameras**: **Frigate on OpenVINO (HD 630 iGPU)** with **6 cameras + the TrackMix tele lens**,
+  go2rtc restream, 24/7 continuous recording to the NAS. PERSON detection.
+  See `masn-stack/frigate/config/config.yml`.
+- **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —
+  opens/closes via `script.garage_door_pulse`; see the `garage-relay-status` memory).
+- **Dashboards**: a SINGLE default **Overview** (Home / Cameras / Review), deployed from
+  `masn-stack/homeassistant/dashboards/overview.json` via `tools/apply-dashboard.sh`. (The old duplicate
+  `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)
+- **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
+  detector upgrade — the weak ssdlite model false-fired on parked-car box flicker. Full rationale + the
+  directness-gate solution (kept, disabled, for when vehicles return) are in the
+  `frigate-vehicle-notifications` memory.
+
+Open threads (tracked in the `camera-detector-and-ui-todos` memory): detector upgrade (leaning: migrate
+Frigate to the Orin, or a free YOLO-NAS swap on the Dell), auto-dismiss of notifications whose Frigate clip
+expired, and Ring-style timeline scrubbing.
+
+Historical (reference): the 1st NAS disk (IronWolf Pro 12 TB) was DOA 2026-06-29 and RMA'd; the build
+proceeded on a 14 TB Toshiba N300 (mirror to be added later). masn was greenfield — no irreplaceable data
+except the 382 GB media library, which was copied to the NAS before the wipe. Storage is 1× 14 TB now
+(Google stays the off-site copy until the mirror is added).
 
 ## Key architecture decisions (quick ref — full rationale in the plan)
 
@@ -105,8 +123,9 @@ mountpoint is `/mnt/nas/backups` but the SHARE is `//NAS/backup` (singular). Nab
 **Recorder→Postgres DONE + VERIFIED (2026-07-06)**: `recorder.db_url: !secret recorder_db_url` in
 configuration.yaml; the URL (`postgresql://hauser:***@127.0.0.1:5432/homeassistant`) lives in
 `config/secrets.yaml` (600); 13 HA tables created in the `homeassistant` DB, `states` growing.
-Orphaned `home-assistant_v2.db*` (SQLite) can be deleted. REMAINING: enable Frigate/Z2M as hardware
-arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT it when done.
+Orphaned `home-assistant_v2.db*` (SQLite) can be deleted. (Frigate/Z2M were subsequently enabled once the
+cameras + SLZB-06 arrived — see the top "Status" section for current live state.) NOTE: user set
+**passwordless sudo temporarily** for setup — REVERT it when done.
 
 1. **NAS wizard (user, web UI)**: btrfs single-disk pool (UGOS); shares `media` / `frigate` / `backups` /
    `family-shared` / per-member private / encrypted `sensitive-docs` (§6.8). All over SMB (UGOS
@@ -124,10 +143,12 @@ arrives. NOTE: user set **passwordless sudo temporarily** for setup — REVERT i
 
 ## masn-stack usage
 
-- `docker-compose.yml`: **HA + Mosquitto + Postgres active**; Frigate / Zigbee2MQTT are
-  COMMENTED — enable each as its hardware arrives (cameras / SLZB-06). Audio = NuTone IM-3303 + a
+- `docker-compose.yml`: **HA + Mosquitto + Postgres + Frigate + Zigbee2MQTT + matter-server all ACTIVE**
+  (Frigate/Z2M were enabled once the cameras + SLZB-06 came online). Audio = NuTone IM-3303 + a
   standalone WiiM at the AUX (no audio container on masn). Mosquitto+Postgres bind to `127.0.0.1`
-  only (host-mode HA reaches them; LAN can't). NAS SMB (cifs) mounts use `nofail`.
+  only (host-mode HA reaches them; LAN can't) — GOTCHA if Frigate ever moves to the Orin: the broker
+  would then need LAN exposure, and Frigate's `:5000` API/auth is localhost-only too. NAS SMB (cifs)
+  mounts use `nofail`.
 - `.env.example` → copy to `.env`, fill, `chmod 600` (gitignored). Never commit real secrets.
 - `copy-media.sh`, `setup-masn.sh`: review before running; need sudo. Idempotent-ish.
 
