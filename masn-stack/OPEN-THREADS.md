@@ -27,7 +27,8 @@ Kept in the repo, disabled, ready to re-enable once the detector is upgraded:
   zone is left in place (`distances: 9.5,6.5,9.5,6.5` real-world m per side; `speed_threshold: 5` km/h).
   To restore vehicles: re-add `car,bus,motorcycle` to `objects.track`.
 - `homeassistant/packages/person_notifications.yaml`: `rest_command: frigate_get_event` (fetches
-  `http://127.0.0.1:5000/api/events/{event_id}`) + automation `frigate_vehicle_notifications` with
+  `http://127.0.0.1:5000/api/events/{event_id}`) + the automation aliased "Frigate: moving vehicle"
+  (entity `automation.frigate_moving_vehicle` — verified 2026-08-04, state `off`) with
   `initial_state: false` (stays OFF across restarts) and `trace: {stored_traces: 25}`. Flow: MQTT trigger
   on car/bus/motorcycle entering `driveway_lane` → `delay: 8s` → REST-fetch the event → compute a `fire`
   variable from the directness template (fires only when `net/total >= 0.5`) → `condition` on `fire` →

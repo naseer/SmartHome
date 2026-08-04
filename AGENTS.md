@@ -30,7 +30,11 @@ smart home is operational. What's running:
   go2rtc restream, 24/7 continuous recording to the NAS. PERSON detection.
   See `masn-stack/frigate/config/config.yml`.
 - **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —
-  opens/closes via `script.garage_door_pulse`; see the `garage-relay-status` memory).
+  opens/closes via `script.garage_door_pulse`; see the `garage-relay-status` memory) and the **garage
+  door contact sensor** (ThirdReality). The two are combined into **`cover.garage_door`** (template cover:
+  state from the contact, movement from a relay pulse) — use that entity, not the raw script. An
+  **auto-close after 30 min open** automation rides on it (2-min "Keep open" warning, then close +
+  verify, 3 attempts). Both garage devices are `retain: true` in Z2M so state survives an HA restart.
 - **Dashboards**: a SINGLE default **Overview** (Home / Cameras / Review), deployed from
   `masn-stack/homeassistant/dashboards/overview.json` via `tools/apply-dashboard.sh`. (The old duplicate
   `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)

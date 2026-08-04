@@ -5,6 +5,12 @@
 # so the press is verifiable and the contact can't silently latch closed.
 #   - Keep the device in mode: dry (a device-side setting; do NOT set it to power/pulse).
 #   - L1 dry contacts carry only the opener's low-voltage button loop -- never mains.
+# POSITION is reported by a separate Zigbee contact sensor on the door itself
+# (`binary_sensor.garage_door_sensor_contact`, device_class door: on = OPEN). The relay is a dumb
+# TOGGLE -- it has no idea which way the door will move -- so the two are married into a template
+# cover below: state comes from the contact sensor, movement from a pulse, and we only ever pulse
+# when the door is not already in the state being asked for (so open_cover on an open door is a no-op
+# instead of closing it).
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo
 # copy is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
 script:
@@ -21,3 +27,180 @@ script:
       - service: switch.turn_off
         target:
           entity_id: switch.garage_relay_l1
+
+# cover.garage_door -- the single entity everything else (dashboard, automations, voice) should use.
+# There is no "opening"/"closing" feedback to be had: one contact sensor only knows fully-closed vs
+# not-closed, so the cover reports just open/closed and never an in-motion state. Unavailable is
+# passed through rather than guessed at -- a dead sensor battery must NOT read as "closed".
+template:
+  - cover:
+      - name: "Garage Door"
+        unique_id: garage_door_cover
+        device_class: garage
+        # Only the CONTACT gates availability -- the relay's own state says nothing about the door, and
+        # letting it gate would blank out a perfectly good status readout. NOTE: both Zigbee devices are
+        # set `retain: true` in Z2M's configuration.yaml precisely so this survives an HA restart; without
+        # it the sleepy contact sensor reads `unknown` (-> cover unavailable, auto-close silently dead)
+        # until the door next moves. Keep retain on if these devices are ever re-paired.
+        availability: "{{ has_value('binary_sensor.garage_door_sensor_contact') }}"
+        state: >
+          {{ 'open' if is_state('binary_sensor.garage_door_sensor_contact', 'on') else 'closed' }}
+        open_cover:
+          - condition: state
+            entity_id: binary_sensor.garage_door_sensor_contact
+            state: "off"
+          - action: script.garage_door_pulse
+        close_cover:
+          - condition: state
+            entity_id: binary_sensor.garage_door_sensor_contact
+            state: "on"
+          - action: script.garage_door_pulse
+        # A pulse mid-travel is what the wall button does to halt the door, so stop == pulse.
+        stop_cover:
+          - action: script.garage_door_pulse
+
+automation:
+  # Auto-close a door left open for 30+ minutes.
+  #
+  # Shape of it: warn the household first and give a 2-minute "Keep open" escape hatch, then close and
+  # VERIFY -- an opener whose photo-eye is broken will reverse straight back to open, so a fire-and-forget
+  # pulse is not a close. Up to 3 attempts, then escalate loudly rather than silently leaving it open.
+  #
+  # Two triggers: the state trigger fires promptly at the 30-minute mark, and the half-hourly time_pattern
+  # re-arms the whole thing afterwards -- a `for:` state trigger only fires ONCE per open, so without the
+  # pattern a "Keep open" (or a failed close) would mean never being asked again until the door cycles.
+  # The template condition is what actually enforces "open for >= 30 min" for both.
+  - id: garage_auto_close
+    alias: "Garage: auto-close after 30 min open"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: cover.garage_door
+        to: "open"
+        for: "00:30:00"
+      - platform: time_pattern
+        minutes: "/30"
+    condition:
+      - condition: state
+        entity_id: cover.garage_door
+        state: "open"
+      # Timed off the CONTACT SENSOR, not the cover: a template reload re-creates cover.garage_door and
+      # resets its last_changed, which would silently restart the 30-minute clock every time this file is
+      # edited. The binary_sensor's timestamp tracks the actual door.
+      - condition: template
+        value_template: >
+          {{ now() - states.binary_sensor.garage_door_sensor_contact.last_changed
+             >= timedelta(minutes=30) }}
+      # Don't start a close cycle while someone is out there -- they are probably mid-errand and the
+      # nag would be noise. The next half-hourly pass picks it up once the driveway is clear.
+      - condition: state
+        entity_id: binary_sensor.garage_person
+        state: "off"
+    action:
+      - repeat:
+          for_each: &phones
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Garage still open"
+                message: >
+                  Open for {{ ((now() - states.binary_sensor.garage_door_sensor_contact.last_changed)
+                                .total_seconds() // 60) | int }} minutes -- closing in 2 minutes.
+                data:
+                  tag: "garage-auto-close"
+                  channel: "Garage"
+                  image: "/api/camera_proxy/camera.garage_fluent_lens_0"
+                  clickAction: "/lovelace/0"
+                  actions:
+                    - action: "garage_keep_open"
+                      title: "Keep open"
+
+      - wait_for_trigger:
+          - platform: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "garage_keep_open"
+          # Someone closed it by hand during the grace period -- nothing left to do.
+          - platform: state
+            entity_id: cover.garage_door
+            to: "closed"
+        timeout: "00:02:00"
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ wait.trigger is not none }}"
+        then:
+          - action: notify.mobile_app_mna
+            data:
+              message: "clear_notification"
+              data:
+                tag: "garage-auto-close"
+          - stop: "Cancelled -- kept open by request, or already closed"
+
+      # Close, then confirm the door actually stayed shut. A reversal (photo-eye blocked, obstruction)
+      # leaves the contact open, so we re-pulse -- but only 3 times, then hand it to a human.
+      - repeat:
+          sequence:
+            - action: cover.close_cover
+              target:
+                entity_id: cover.garage_door
+            - wait_template: "{{ is_state('cover.garage_door', 'closed') }}"
+              timeout: "00:00:45"
+              continue_on_timeout: true
+          # `count:` and `until:` are mutually exclusive, so the 3-attempt cap rides along in the
+          # until-condition as repeat.index.
+          until:
+            - condition: template
+              value_template: >
+                {{ is_state('cover.garage_door', 'closed') or repeat.index >= 3 }}
+
+      - if:
+          - condition: state
+            entity_id: cover.garage_door
+            state: "closed"
+        then:
+          - action: notify.mobile_app_mna
+            data:
+              title: "Garage closed"
+              message: "Auto-closed after 30 minutes open."
+              data:
+                tag: "garage-auto-close"
+                channel: "Garage"
+        else:
+          - repeat:
+              for_each: *phones
+              sequence:
+                - action: "{{ repeat.item }}"
+                  data:
+                    title: "Garage WON'T close"
+                    message: "Tried 3 times and it is still open -- check for an obstruction."
+                    data:
+                      tag: "garage-auto-close"
+                      channel: "Garage"
+                      importance: high
+                      priority: high
+                      ttl: 0
+                      image: "/api/camera_proxy/camera.garage_fluent_lens_0"
+                      clickAction: "/lovelace/cameras"
+
+  # Low battery on the door contact means the cover goes unavailable and auto-close stops working
+  # silently -- so say so once, when it trips.
+  - id: garage_sensor_battery_low
+    alias: "Garage: door sensor battery low"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.garage_door_sensor_battery_low
+        from: "off"
+        to: "on"
+    action:
+      - action: notify.mobile_app_mna
+        data:
+          title: "Garage door sensor battery low"
+          message: "Replace the battery -- garage status and auto-close depend on it."
+          data:
+            tag: "garage-sensor-battery"
+            channel: "Garage"

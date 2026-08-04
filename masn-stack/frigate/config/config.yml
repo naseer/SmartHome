@@ -19,14 +19,28 @@ detectors:
     type: openvino
     device: GPU               # HD 630 iGPU via /dev/dri
 
-# Frigate 0.17 requires an explicit model path for OpenVINO (bundled in the image).
+# YOLO-NAS-S @ 320x320, COCO pretrained (swapped in from ssdlite_mobilenet_v2 2026-08-04).
+# WHY: ssdlite was too weak -- it conflated our two adjacent parked cars and flickered their
+# boxes between fixed positions, fabricating phantom motion. That is what forced vehicle
+# detection off (see OPEN-THREADS.md). YOLO-NAS is a stronger architecture at a cost the
+# HD 630 can absorb (baseline was 10.2 ms / ~26 inf-sec = ~27% utilised).
+#
+# The .onnx is NOT bundled in the Frigate image and is NOT auto-downloaded -- regenerate it
+# with tools/export-yolonas.sh (a local port of upstream's Colab notebook) and drop the
+# result in /opt/stack/frigate/config/. Must be FLAT_FORMAT (single 7-wide output) or the
+# OpenVINO detector rejects it at startup.
+#
+# NOTE the labelmap change: ssdlite used the 91-class COCO map, YOLO-NAS uses the 80-class
+# one. Class indices differ, but Frigate matches objects by NAME, so zones/filters/masks
+# that say "person" keep working untouched.
 model:
-  width: 300
-  height: 300
-  input_tensor: nhwc
+  model_type: yolonas
+  width: 320
+  height: 320
+  input_tensor: nchw
   input_pixel_format: bgr
-  path: /openvino-model/ssdlite_mobilenet_v2.xml
-  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+  path: /config/yolo_nas_s.onnx
+  labelmap_path: /labelmap/coco-80.txt
 
 ffmpeg:
   hwaccel_args: preset-vaapi  # HD 630 VAAPI decode (LIBVA_DRIVER_NAME=iHD set in compose)
@@ -102,11 +116,8 @@ cameras:
 
     motion: {}
     zones:
-      front_area:
-        coordinates: 
-          0.001,0.324,0.001,0.238,0.117,0.125,0.233,0.123,0.265,0.105,0.374,0.104,0.418,0.105,0.465,0.111,0.58,0.133,0.649,0.152,0.739,0.17,0.812,0.195,0.895,0.232,0.919,0.258,0.988,0.528,0.997,0.998,0.001,0.993
-        loitering_time: 0
-        friendly_name: Front Area
+      # Zones below were redrawn by the user in the Frigate UI (2026-08-04) and are
+      # authoritative -- this file was synced FROM the live config, not the other way.
       # Speed-gated lane for MOVING-vehicle alerts. distances = real-world metres of each
       # side, in coordinate order: P1->P2 left/depth 9.5, P2->P3 street/width 6.5,
       # P3->P4 right/depth 9.5, P4->P1 garage/width 6.5 (driveway measured 6.5 x 9.5 m).
@@ -117,9 +128,18 @@ cameras:
         distances: 9.5,6.5,9.5,6.5
         speed_threshold: 5
         loitering_time: 0
+        inertia: 3
+      front:
+        coordinates: 0.001,0.278,0.05,0.266,0.95,0.317,1,1,0,1
+        loitering_time: 0
+        friendly_name: Front
+    # Zone-gate driveway alerts, as before. The UI edit had dropped this (leaving alerts
+    # ungated); restored 2026-08-04 pointing at the redrawn zone -- `front` is the successor
+    # to the old `front_area`. NOT driveway_lane: that zone has a speed_threshold, so
+    # stationary objects are never "in" it and would never alert.
     review:
       alerts:
-        required_zones: front_area
+        required_zones: front
   front_door:
     ffmpeg:
       inputs:
