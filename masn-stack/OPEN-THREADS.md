@@ -95,12 +95,13 @@ because Frigate's `openvino.py` otherwise rejects the model at startup.
   not yet been tested against the thing that motivated it. That is thread 1's next step.
 - **Frigate+ ($50/yr)** — model TUNED to your own cameras (12 trainings/yr), `model_type: yolonas` on
   OpenVINO. Still the best accuracy-per-effort if staying on the Dell, and now a drop-in (same model_type).
-- **Migrate Frigate to the Jetson Orin** — still the standing preference, and the latency numbers above
-  strengthen the case: the HD 630 is now ~37% utilised per process for PERSON alone, so adding vehicles
-  back eats real headroom. "Using the Orin" = moving the whole Frigate container (detectors run
-  in-process, not as a remote service). Two gotchas: (a) mosquitto binds `127.0.0.1` on masn → must be
-  LAN-exposed for a cross-box Frigate; (b) Frigate's `:5000` API/auth is localhost-only too. Orin is
-  OWNED but NOT YET FLASHED (JetPack/L4T needed).
+- **Migrate Frigate to the Jetson AGX Orin — DECIDED 2026-08-04, plan written.** See
+  **`../docs/orin-frigate-migration.md`** for the full plan (flash JetPack **6.2.2**, not 7.2 — Frigate
+  publishes no jp7 image; the masn-side un-coupling; shadow-run then cutover; rollback). The HD 630 hit
+  the plan's own documented relief-valve trigger (">~25ms = saturating"; we measured 28-31 ms), and the
+  swap made video playback crawl because detection and VAAPI decode share the one iGPU. Orin is OWNED
+  but NOT YET FLASHED. Note this reverses the plan's "security detection stays on the always-on box"
+  principle — the Orin becomes must-never-be-down.
 - **Coral TPU for the Dell** — REJECTED for accuracy: fast, but runs the SAME small model class, so NO
   accuracy gain. Doesn't solve the flicker.
 
