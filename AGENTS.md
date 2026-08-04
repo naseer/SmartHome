@@ -35,13 +35,12 @@ smart home is operational. What's running:
   `masn-stack/homeassistant/dashboards/overview.json` via `tools/apply-dashboard.sh`. (The old duplicate
   `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)
 - **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
-  detector upgrade — the weak ssdlite model false-fired on parked-car box flicker. Full rationale + the
-  directness-gate solution (kept, disabled, for when vehicles return) are in the
-  `frigate-vehicle-notifications` memory.
+  detector upgrade — the weak ssdlite model false-fired on parked-car box flicker.
 
-Open threads (tracked in the `camera-detector-and-ui-todos` memory): detector upgrade (leaning: migrate
-Frigate to the Orin, or a free YOLO-NAS swap on the Dell), auto-dismiss of notifications whose Frigate clip
-expired, and Ring-style timeline scrubbing.
+**Open camera/detector threads → `masn-stack/OPEN-THREADS.md`** (git-tracked, portable): the disabled
+vehicle detection + the directness-gate fix kept for later, the detector upgrade (leaning: migrate Frigate
+to the Orin, or a free YOLO-NAS swap on the Dell), auto-dismiss of expired-clip notifications, and
+Ring-style timeline scrubbing. Read that file to resume any of them.
 
 Historical (reference): the 1st NAS disk (IronWolf Pro 12 TB) was DOA 2026-06-29 and RMA'd; the build
 proceeded on a 14 TB Toshiba N300 (mirror to be added later). masn was greenfield — no irreplaceable data
