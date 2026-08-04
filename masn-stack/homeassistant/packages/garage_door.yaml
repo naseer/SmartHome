@@ -186,6 +186,54 @@ automation:
                       image: "/api/camera_proxy/camera.garage_fluent_lens_0"
                       clickAction: "/lovelace/cameras"
 
+  # Every opening -> a snapshot alert to the household. Deliberately LOW importance and no sound: this
+  # fires on ordinary comings and goings, so it should read as a log line you can glance at, not an alarm.
+  # The shared `garage-open` tag means a second opening REPLACES the first rather than stacking.
+  # `from: closed` (not just `to: open`) keeps unavailable->open -- a sensor waking up on a door that was
+  # already open -- from being announced as a fresh opening.
+  - id: garage_opened_notification
+    alias: "Garage: opened"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: cover.garage_door
+        from: "closed"
+        to: "open"
+    action:
+      - repeat:
+          for_each: *phones
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Garage opened"
+                message: "{{ now().strftime('%-I:%M %p') }}"
+                data:
+                  tag: "garage-open"
+                  channel: "Garage"
+                  importance: low
+                  image: "/api/camera_proxy/camera.garage_fluent_lens_0"
+                  clickAction: "/lovelace/0"
+
+  # Closing retires the "opened" alert instead of sending a second one -- the useful signal is "is it open
+  # right now", and a close notification on top of the open one would just double the noise.
+  - id: garage_closed_clear_notification
+    alias: "Garage: closed -- clear the opened alert"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: cover.garage_door
+        from: "open"
+        to: "closed"
+    action:
+      - repeat:
+          for_each: *phones
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "garage-open"
+
   # Low battery on the door contact means the cover goes unavailable and auto-close stops working
   # silently -- so say so once, when it trips.
   - id: garage_sensor_battery_low
