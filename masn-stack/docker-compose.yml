@@ -28,7 +28,13 @@ services:
     image: eclipse-mosquitto:2
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1883:1883"       # localhost only (host-mode HA reaches it here)
+      # Two explicit bindings, NOT 0.0.0.0. Loopback keeps host-mode HA working unchanged
+      # (its config entry points at 127.0.0.1); the LAN binding is what lets Frigate reach
+      # the broker once it moves to the Orin. Deliberately NOT published on all interfaces,
+      # which would also expose it on the tailnet.
+      # Safe to expose: mosquitto.conf sets allow_anonymous false + password_file.
+      - "127.0.0.1:1883:1883"
+      - "${MASN_LAN_IP}:1883:1883"  # LAN only -> cross-box Frigate (see docs/orin-frigate-migration.md)
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data

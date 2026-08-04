@@ -121,4 +121,7 @@ Dashboard deploys target the single Overview: `tools/apply-dashboard.sh - homeas
 
 ## Deferred housekeeping
 
-- MQTT broker password rotation — a password leaked in a traceback (an earlier session); user said "later".
+- ~~MQTT broker password rotation~~ — **DONE 2026-08-04.** The leaked password (from an earlier
+  session's traceback) is rotated. Done as part of Orin migration Phase 1, because the same change
+  moved the broker off loopback-only onto the LAN — which is exactly when "later" stopped being an
+  acceptable answer. Old credential verified REJECTED afterwards.

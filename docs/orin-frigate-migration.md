@@ -88,10 +88,14 @@ python3 -c "import onnxruntime; print(onnxruntime.get_available_providers())"` s
 ## 4. Phase 1 — un-couple masn (do this BEFORE moving anything)
 
 Three things currently assume Frigate is on localhost. All are in git.
+**(a) and (d) are DONE (2026-08-04); (b) and (c) wait for the Orin to have an address.**
 
-**(a) mosquitto is localhost-only.** `docker-compose.yml:31` binds `127.0.0.1:1883:1883`. A Frigate on
-another box cannot reach it. Change to a LAN bind. This is safe as-is — `mosquitto.conf` already sets
-`allow_anonymous false` with a password file — but see (d).
+**(a) mosquitto is localhost-only.** — **DONE.** It now publishes **two explicit bindings**:
+`127.0.0.1:1883` (so host-mode HA keeps working with its config entry untouched) and
+`${MASN_LAN_IP}:1883` for the cross-box Frigate. Deliberately *not* `0.0.0.0`, which would also
+expose it on the tailnet. `MASN_LAN_IP` is a new `.env` key (documented in `.env.example`).
+Verified: both listeners present, all three clients (HA, Z2M, Frigate) reconnected, and a remote
+client authenticated against the LAN IP successfully.
 
 **(b) Frigate's `:5000` is localhost-only AND unauthenticated.** `docker-compose.yml:92` binds
 `127.0.0.1:5000:5000`. `homeassistant/packages/person_notifications.yaml:14` calls
@@ -102,10 +106,23 @@ IP only.
 
 **(c) The HA Frigate integration** points at the Frigate URL — update to the Orin's address.
 
-**(d) Rotate the MQTT password while you are here.** OPEN-THREADS carries a deferred item: a broker
-password leaked in a traceback in an earlier session, deferred as "later". Moving the broker from
-loopback-only to LAN-reachable is exactly the moment that stops being acceptable. Rotate as part of
-(a), not after.
+**(d) Rotate the MQTT password.** — **DONE**, alongside (a): moving the broker from loopback-only to
+LAN-reachable is exactly the moment the deferred "later" stopped being acceptable.
+
+Consumers pick the credential up three different ways, which is the part worth remembering:
+Frigate and Z2M read `${MQTT_PASSWORD}` from `/opt/stack/.env` (restart suffices), but **Home
+Assistant stores it in a UI config entry** at `.storage/core.config_entries` — root-owned, and HA
+rewrites that file on shutdown, so it must be edited with HA STOPPED (do it from a throwaway
+container; masn's `.storage` is not writable by the login user). Backups of the passwd file, `.env`
+and `core.config_entries` were taken first.
+
+Verified after: old credential REJECTED, all three clients reconnected, HA at 661 entities with the
+MQTT-backed `cover.garage_door` still reporting, unavailable-entity count unchanged at 134 (all
+vehicle entities, expected while vehicles are off).
+
+Future improvement, not done: split the single shared `mqtt` user into per-service accounts
+(`ha`/`z2m`/`frigate`), matching the per-share least-privilege pattern already used for the NAS. That
+would let the Orin's credential be revoked independently of the house.
 
 ## 5. Phase 2 — Frigate on the Orin, in shadow
 
