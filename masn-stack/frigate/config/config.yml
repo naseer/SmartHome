@@ -14,10 +14,18 @@ mqtt:
 tls:
   enabled: false
 
+# TWO detector processes, both on the HD 630. A detector process runs inferences
+# SERIALLY, so with YOLO-NAS at ~22.6 ms a single process caps out near 44 det/sec --
+# and we offer ~31 det/sec, which measured at 70% utilisation with backyard already
+# skipping frames. ssdlite (8.2 ms) never needed a second process; YOLO-NAS does.
+# Verify after any model change with tools/frigate-detector-stats.sh.
 detectors:
-  ov:
+  ov_0:
     type: openvino
     device: GPU               # HD 630 iGPU via /dev/dri
+  ov_1:
+    type: openvino
+    device: GPU
 
 # YOLO-NAS-S @ 320x320, COCO pretrained (swapped in from ssdlite_mobilenet_v2 2026-08-04).
 # WHY: ssdlite was too weak -- it conflated our two adjacent parked cars and flickered their

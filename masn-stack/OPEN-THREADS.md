@@ -6,9 +6,9 @@ in `../AGENTS.md`; this file is the detail. Last updated 2026-08-04.
 
 ## Frigate — current live state
 
-OpenVINO on the HD 630 iGPU, model `ssdlite_mobilenet_v2` (300x300, coco), **6 cameras + the TrackMix
-tele lens** via go2rtc, 24/7 continuous recording to the NAS, **PERSON detection only**. Config:
-`frigate/config/config.yml`.
+OpenVINO on the HD 630 iGPU, model **`yolo_nas_s` (320x320, coco-80)** as of 2026-08-04, **6 cameras +
+the TrackMix tele lens** via go2rtc, 24/7 continuous recording to the NAS, **PERSON detection only**.
+Config: `frigate/config/config.yml`. Two detector processes (`ov_0`/`ov_1`), both on the iGPU.
 
 ## 1. Vehicle detection + notifications — DISABLED, with a fix kept for later
 
@@ -21,7 +21,12 @@ spikes) nor `average_estimated_speed` (inflated by the repeated spikes) separate
 Real cars ~0.99-1.0 (straight down the lane); flicker ≤0.13 (oscillates in place). Only knowable from
 `data.path_data` (the centroid track), which Frigate populates ~8 s after lane entry.
 
-Kept in the repo, disabled, ready to re-enable once the detector is upgraded:
+**Detector is now upgraded (thread 2 done), so this is unblocked and is the next step.** Re-enable
+detection only first — `automation.frigate_moving_vehicle` is `off`, so no pushes fire — and watch
+whether YOLO-NAS still flickers the parked cars. If the flicker is gone the directness gate may be
+belt-and-braces rather than load-bearing; keep it either way.
+
+Kept in the repo, disabled, ready to re-enable now that the detector is upgraded:
 
 - `frigate/config/config.yml`: `objects.track: [person]` (vehicles removed). The `driveway_lane` speed
   zone is left in place (`distances: 9.5,6.5,9.5,6.5` real-world m per side; `speed_threshold: 5` km/h).
@@ -40,22 +45,64 @@ after a reload. Speed estimation needs a 4-point zone + `distances` + metric `un
 expose `zones` (not `entered_zones`), `data.path_data` (list of `[[x,y],ts]`), `data.average_estimated_speed`,
 `current_estimated_speed`, `velocity_angle`.
 
-## 2. Detector upgrade (unblocks bringing vehicles back)
+## 2. Detector upgrade — YOLO-NAS SWAP DONE on the Dell (2026-08-04)
 
-The ssdlite model is too weak. Options evaluated:
+**The free swap is live.** `ssdlite_mobilenet_v2` → `yolo_nas_s` @ 320x320, still OpenVINO on the HD 630.
+Measured with `tools/frigate-detector-stats.sh`:
 
+| | ssdlite (before) | YOLO-NAS, 1 detector | YOLO-NAS, 2 detectors |
+|---|---|---|---|
+| inference | 8.2 ms | 22.6 ms | ~30.9 ms (GPU contention) |
+| utilisation | 23% | 70% | 43.9% per process |
+| capacity vs offered | 121 vs 28 det/s | 44 vs 31 det/s | 65 vs 28 det/s |
+| skipped frames | 0 | backyard dropping | ~0.4% of frames |
+
+(2-detector column is a 20-sample / 5-minute run, not a spot check.)
+
+YOLO-NAS is ~2.7x the latency of ssdlite, which pushed a single detector process to 70% and made
+`backyard` (the heaviest camera) drop frames. **A second detector process is therefore part of this
+change, not optional** — `ov_0` + `ov_1`, both on the iGPU. Two processes contend for the same GPU so
+per-inference latency rises to ~31 ms, but total capacity roughly doubles to ~65 det/sec against ~28
+offered. Detections verified correct after the swap (person @ 0.79-0.87).
+
+Honest caveat: skipping is **not** quite zero — ~0.03/s spread across backyard/driveway/east_gate/
+west_gate, about 0.4% of offered frames, where ssdlite was a clean 0. At 44% average utilisation this is
+burst/queue contention, not saturation, and Frigate tracks objects across frames so it is not worth
+chasing. A third detector process is the lever if it ever matters, at the cost of yet more GPU contention
+(latency already went 22.6 → 31 ms going from one process to two).
+
+### Getting the model file
+
+Not bundled in the Frigate image and NOT auto-downloaded. `tools/export-yolonas.sh` regenerates it
+locally (a port of upstream's Colab notebook to a throwaway `python:3.11` container). Its pins are all
+load-bearing and were each found the hard way:
+
+- **Python 3.11** — super-gradients (Deci-AI, unmaintained) breaks on 3.12+.
+- **torch==2.2.2** — newer torch routes `torch.onnx.export` through the dynamo exporter, which needs
+  `onnxscript`, which upgrades `onnx` past 1.16, which deleted `onnx.mapping`, which `onnx_graphsurgeon`
+  (used to bake NMS into the graph) still calls. Net result is a 1 MB truncated file, not a model.
+- **numpy<2** — torch 2.2 predates the numpy 2 ABI break (`Could not infer dtype of numpy.float32`).
+- **opencv-python-headless** — the plain wheel's cv2 wants X11 libs a slim image lacks. Both wheels own
+  the same `cv2/` dir, so you must uninstall BOTH then install headless, or you end up with no cv2.
+- **the sed** — Deci's weight hosts are dead; upstream rewrites them to a CloudFront mirror.
+
+The script validates the graph before you deploy it (~50 MB, 1 input, 1 output, final dim 7 = FLAT_FORMAT)
+because Frigate's `openvino.py` otherwise rejects the model at startup.
+
+### Still open
+
+- **Does this actually fix the parked-car flicker?** UNVERIFIED — vehicles are still off, so the swap has
+  not yet been tested against the thing that motivated it. That is thread 1's next step.
+- **Frigate+ ($50/yr)** — model TUNED to your own cameras (12 trainings/yr), `model_type: yolonas` on
+  OpenVINO. Still the best accuracy-per-effort if staying on the Dell, and now a drop-in (same model_type).
+- **Migrate Frigate to the Jetson Orin** — still the standing preference, and the latency numbers above
+  strengthen the case: the HD 630 is now ~37% utilised per process for PERSON alone, so adding vehicles
+  back eats real headroom. "Using the Orin" = moving the whole Frigate container (detectors run
+  in-process, not as a remote service). Two gotchas: (a) mosquitto binds `127.0.0.1` on masn → must be
+  LAN-exposed for a cross-box Frigate; (b) Frigate's `:5000` API/auth is localhost-only too. Orin is
+  OWNED but NOT YET FLASHED (JetPack/L4T needed).
 - **Coral TPU for the Dell** — REJECTED for accuracy: fast, but runs the SAME small model class, so NO
   accuracy gain. Doesn't solve the flicker.
-- **YOLO-NAS / YOLOv9 on OpenVINO (free swap on the Dell)** — better architecture, `model_type: yolonas`
-  runs on OpenVINO. The HD 630 has ~5x headroom measured (~9.47 ms inference, ~21.8 inf/sec at load,
-  ~20% util, 0 skipped) → a bigger model fits. Zero-cost option.
-- **Frigate+ ($50/yr)** — model TUNED to your own cameras (12 trainings/yr), `model_type: yolonas` on
-  OpenVINO. Best accuracy-per-effort if staying on the Dell.
-- **Migrate Frigate to the Jetson Orin** — user is LEANING here (matches the plan's "heavy AI on the
-  Orin" design). "Using the Orin" = moving the whole Frigate container (detectors run in-process, not as a
-  remote service). Two gotchas: (a) mosquitto binds `127.0.0.1` on masn → must be LAN-exposed for a
-  cross-box Frigate; (b) Frigate's `:5000` API/auth is localhost-only too. Orin is OWNED but NOT YET
-  FLASHED (JetPack/L4T needed).
 
 ## 3. Auto-dismiss notifications whose Frigate clip expired
 

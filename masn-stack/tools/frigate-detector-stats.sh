@@ -61,11 +61,19 @@ print(f"  {label:<16} {total:6.2f}/s")
 
 print()
 avg_ms = mean([mean(x) for x in speeds.values()])
-util = total * (avg_ms / 1000.0)
-ndet = len(speeds)
-print(f"utilisation: {util:.2%} of one detector process ({ndet} configured)")
+ndet = len(speeds) or 1
+
+# Frigate load-balances detections across detector processes, so each one sees
+# total/ndet. Dividing here is what makes the number comparable across configs --
+# without it, adding a detector looks like it made things WORSE.
+per_proc = total / ndet
+util = per_proc * (avg_ms / 1000.0)
+capacity = ndet * (1000.0 / avg_ms) if avg_ms else 0
+
+print(f"detector processes: {ndet}   capacity ~{capacity:.1f} det/s   offered {total:.1f} det/s")
+print(f"utilisation: {util:.1%} per process ({per_proc:.1f} det/s each @ {avg_ms:.1f} ms)")
 if util > 0:
-    print(f"headroom:    {1.0 / util:.1f}x  -> a model up to ~{avg_ms / util:.0f} ms would still keep up")
+    print(f"headroom:    {1.0 / util:.1f}x  -> up to ~{avg_ms / util:.0f} ms per inference at this load")
 if util >= 0.85:
     print("WARNING: at/near saturation -- add a detector or shrink the model")
 '

@@ -28,6 +28,9 @@ smart home is operational. What's running:
   `http://192.168.50.50:8123`, Nabu Casa linked. NAS mounts (`/mnt/nas/{frigate,backups,media}`) live.
 - **Cameras**: **Frigate on OpenVINO (HD 630 iGPU)** with **6 cameras + the TrackMix tele lens**,
   go2rtc restream, 24/7 continuous recording to the NAS. PERSON detection.
+  Detector model is **`yolo_nas_s` @ 320 (swapped off ssdlite 2026-08-04)** running on **two** detector
+  processes — YOLO-NAS costs ~31 ms vs ssdlite's 8 ms, so one process could not keep up. Regenerate the
+  model with `masn-stack/tools/export-yolonas.sh`; check load with `tools/frigate-detector-stats.sh`.
   See `masn-stack/frigate/config/config.yml`.
 - **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —
   opens/closes via `script.garage_door_pulse`; see the `garage-relay-status` memory) and the **garage
