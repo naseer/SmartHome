@@ -23,12 +23,19 @@
               "type": "weather-forecast",
               "entity": "weather.forecast_home",
               "forecast_type": "daily",
-              "grid_options": { "columns": 6, "rows": 3 }
+              "grid_options": {
+                "columns": 6,
+                "rows": 3
+              }
             },
             {
               "type": "tile",
               "entity": "sensor.dining_room_thermostat_hub_w200_humidity",
-              "features": [{ "type": "trend-graph" }]
+              "features": [
+                {
+                  "type": "trend-graph"
+                }
+              ]
             }
           ]
         },
@@ -45,26 +52,40 @@
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_3",
               "name": "Kitchen",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_2",
               "name": "Family Room",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_5",
               "name": "Library",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "button",
               "name": "First Floor Lights Off",
               "icon": "mdi:lightbulb-group-off",
               "show_state": false,
-              "grid_options": { "columns": 12 },
+              "grid_options": {
+                "columns": 12
+              },
               "tap_action": {
                 "action": "perform-action",
                 "perform_action": "light.turn_off",
@@ -94,19 +115,41 @@
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch",
               "name": "Office",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "tile",
               "entity": "light.girls_bedroom_girls_lights",
               "name": "Girls Bedroom",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_6",
               "name": "Master Bedroom",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "light.momdad_lights",
+              "name": "MomDad",
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             }
           ]
         },
@@ -123,26 +166,45 @@
               "type": "tile",
               "entity": "light.smart_wi_fi_dimmer_switch_4",
               "name": "Potlights",
-              "features": [{ "type": "light-brightness" }]
+              "features": [
+                {
+                  "type": "light-brightness"
+                }
+              ]
             },
             {
               "type": "tile",
               "entity": "cover.garage_door",
               "name": "Garage Door",
-              "grid_options": { "columns": 12 },
-              "features": [{ "type": "cover-open-close" }],
-              "tap_action": { "action": "more-info" }
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "cover-open-close"
+                }
+              ],
+              "tap_action": {
+                "action": "more-info"
+              }
             },
             {
               "type": "button",
               "name": "All Lights Off",
               "icon": "mdi:lightbulb-group-off",
               "show_state": false,
-              "grid_options": { "columns": 12 },
+              "grid_options": {
+                "columns": 12
+              },
               "tap_action": {
                 "action": "perform-action",
                 "perform_action": "light.turn_off",
-                "target": { "floor_id": ["first", "second"] }
+                "target": {
+                  "floor_id": [
+                    "first",
+                    "second"
+                  ]
+                }
               }
             }
           ]
@@ -158,16 +220,31 @@
         {
           "type": "custom:advanced-camera-card",
           "cameras": [
-            { "camera_entity": "camera.driveway" },
-            { "camera_entity": "camera.front_door" },
-            { "camera_entity": "camera.west_gate" },
-            { "camera_entity": "camera.east_gate" },
-            { "camera_entity": "camera.backyard" },
-            { "camera_entity": "camera.driveway_tele" }
+            {
+              "camera_entity": "camera.driveway"
+            },
+            {
+              "camera_entity": "camera.front_door"
+            },
+            {
+              "camera_entity": "camera.west_gate"
+            },
+            {
+              "camera_entity": "camera.east_gate"
+            },
+            {
+              "camera_entity": "camera.backyard"
+            },
+            {
+              "camera_entity": "camera.driveway_tele"
+            }
           ],
           "live": {
             "controls": {
-              "timeline": { "mode": "below", "style": "ribbon" }
+              "timeline": {
+                "mode": "below",
+                "style": "ribbon"
+              }
             }
           }
         }
