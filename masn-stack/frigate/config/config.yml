@@ -78,6 +78,25 @@ objects:
   # car/bus/motorcycle here. The driveway_lane speed zone is left in place for that day.
   track: [person]
 
+  # Size gate against YOLO-NAS's false "person" hits on fixed objects ACROSS THE STREET
+  # (a porch column on the neighbour's house, a post by their driveway). Measured over the
+  # first 2h of YOLO-NAS, the two populations separate cleanly by SIZE and not by score:
+  #
+  #   false positives  box height 0.046-0.119   area 0.09-0.40% of frame   score 0.70-0.88
+  #   real people      box height 0.332, 0.729  area 1.3%, 21%             score 0.74-0.96
+  #
+  # Scores OVERLAP, so raising `threshold` cannot separate them -- area can, with a ~3x gap.
+  # 0.005 sits in that gap: 1.4x above the largest false hit, 2.7x below the smallest real
+  # person seen. Expressed as a fraction (0-0.99) so it is resolution-independent and means
+  # the same thing on every camera regardless of detect width/height.
+  #
+  # TRADEOFF: this also suppresses a genuinely DISTANT person (someone out at the street on
+  # the driveway cam is near this size). The approach paths -- walkway, porch, driveway -- are
+  # all well above it. Loosen toward 0.003 if anyone real is ever missed.
+  filters:
+    person:
+      min_area: 0.005
+
 # go2rtc restream -- one connection per camera, re-shared to detect/record/live.
 go2rtc:
   streams:
@@ -120,7 +139,7 @@ cameras:
       enabled: true             # 0.17 defaults this OFF
       width: 896
       height: 512
-      fps: 5
+      fps: 3
 
     motion: {}
     zones:
@@ -161,7 +180,7 @@ cameras:
       enabled: true             # 0.17 defaults this OFF
       width: 640
       height: 480
-      fps: 5
+      fps: 3
     motion: {}
     objects:
       filters:
@@ -169,6 +188,9 @@ cameras:
           # Ignore "person" on the fixed object across the street (right side) that the MORNING
           # SUN lights up ~8am -> ~20 false hits at 0.7-0.85. Off the walkway/porch, so visitors are safe.
           mask: 0.70,0.24,0.97,0.24,0.97,0.58,0.70,0.58
+          # Repeated here because a camera-level `person` filter may replace the global one
+          # wholesale rather than merging into it. See the global block for the measurements.
+          min_area: 0.005
 
   # west_gate / east_gate / backyard: promoted to 24/7 CONTINUOUS 2026-07-29 (inherit global
   # record.continuous.days: 15). Monitoring NAS storage growth for a few days before finalizing.
@@ -194,7 +216,7 @@ cameras:
       enabled: true
       width: 640
       height: 360
-      fps: 5
+      fps: 3
     motion: {}
     objects:
       filters:
@@ -202,6 +224,11 @@ cameras:
           # Ignore "person" on the neighbour's GAS METER (fixed decoy, top-centre) -- it was
           # misclassified 0.7-0.85 at night. Covers the meter + surrounding neighbour strip.
           mask: 0.42,0.02,0.68,0.02,0.68,0.30,0.42,0.30
+          # Repeated here because a camera-level `person` filter may replace the global one
+          # wholesale rather than merging into it. See the global block for the measurements.
+          # west_gate is the one camera whose false hit landed INSIDE its alert zone
+          # (area 0.23%), so the size gate is doing real work here, not just tidying the UI.
+          min_area: 0.005
     zones:
       west_side_:
         coordinates: 
@@ -224,7 +251,7 @@ cameras:
       enabled: true
       width: 640
       height: 360
-      fps: 5
+      fps: 3
     motion: {}
     zones:
       east_side:
@@ -248,7 +275,7 @@ cameras:
       enabled: true
       width: 1536
       height: 576
-      fps: 5
+      fps: 3
     motion: {}
     zones:
       backyard_zone:
