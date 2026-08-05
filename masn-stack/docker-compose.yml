@@ -104,6 +104,11 @@ services:
       FRIGATE_MQTT_USER: "${MQTT_USER}"
       FRIGATE_MQTT_PASSWORD: "${MQTT_PASSWORD}"
       LIBVA_DRIVER_NAME: "iHD"
+      # Frigate+ (subscribed 2026-08-05). Presence of this key is what flips `plus.enabled` to true
+      # and puts the "Send to Frigate+" button on snapshots. Set it with set-plus-key.sh -- never
+      # inline it here. Requires snapshots.clean_copy (already true) since Frigate+ trains on the
+      # UNANNOTATED image. Carries across to the Orin unchanged.
+      PLUS_API_KEY: "${PLUS_API_KEY:-}"
     depends_on: [mosquitto]
 
   # ============================================================================

@@ -70,6 +70,10 @@ record:
 snapshots:
   enabled: true
   retain: {default: 14}
+  # LOAD-BEARING for Frigate+ (subscribed 2026-08-05): submissions train on the CLEAN, unannotated
+  # image, not the one with bounding boxes burned in. This is Frigate's default, but it is stated
+  # explicitly here so a future default change cannot silently break model training.
+  clean_copy: true
 
 objects:
   # PERSON only. Vehicle detection (car/bus/motorcycle) DISABLED 2026-08-02: the weak ssdlite model
