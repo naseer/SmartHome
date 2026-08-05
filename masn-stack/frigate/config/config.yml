@@ -76,11 +76,33 @@ snapshots:
   clean_copy: true
 
 objects:
-  # PERSON only. Vehicle detection (car/bus/motorcycle) DISABLED 2026-08-02: the weak ssdlite model
-  # spawned a flurry of false parked-car events (box flicker between our own parked cars). Revisit when
-  # the detector is upgraded (YOLO-NAS / likely on the Orin). To bring vehicles back, re-add
-  # car/bus/motorcycle here. The driveway_lane speed zone is left in place for that day.
-  track: [person]
+  # VEHICLES RE-ENABLED 2026-08-05 as a TEST, after being disabled 2026-08-02.
+  #
+  # History: the weak ssdlite model spawned a flurry of false parked-car events -- two adjacent
+  # PARKED cars whose boxes oscillated between fixed positions, fabricating a steady 5-11 km/h
+  # estimated speed. The detector has since been upgraded to yolo_nas_s (2026-08-04), and the
+  # question that upgrade was meant to answer has never actually been tested.
+  #
+  # THIS IS DETECTION ONLY -- no notifications. `automation.frigate_moving_vehicle` is `off` with
+  # `initial_state: false` (verified off 2026-08-05, last_triggered 2026-08-02), so events are
+  # generated for inspection and nothing pushes to a phone. Do NOT turn that automation on until
+  # the flicker question below is answered.
+  #
+  # WHAT TO LOOK FOR: do the two parked cars still oscillate? Inspect `data.path_data` on any
+  # car event and compute directness = net displacement / total path length. Real cars ~0.99-1.0;
+  # flicker <=0.13. See OPEN-THREADS.md thread 1.
+  #
+  # EXPECT MORE REVIEW ITEMS in the UI while this runs -- that is the data, not a fault. Deliberately
+  # NO car min_area/threshold filter yet: the point is to observe the RAW behaviour before tuning it.
+  # Second purpose: these events are the training images to submit to Frigate+ (thread 5).
+  #
+  # NO `bus` -- Frigate's built-in /labelmap/coco-80.txt REMAPS bus (COCO idx 5) and truck (idx 7)
+  # onto `car`, so buses and trucks are already covered by tracking `car`. Listing `bus` makes
+  # Frigate log "not supported by the current model" on every camera and silently drop it.
+  # (OPEN-THREADS thread 1 said to re-add "car,bus,motorcycle" -- that instruction was wrong.)
+  #
+  # To revert: set this back to `track: [person]`. The driveway_lane speed zone stays either way.
+  track: [person, car, motorcycle]
 
   # Size gate against YOLO-NAS's false "person" hits on fixed objects ACROSS THE STREET
   # (a porch column on the neighbour's house, a post by their driveway). Measured over the
