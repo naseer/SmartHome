@@ -95,6 +95,9 @@ because Frigate's `openvino.py` otherwise rejects the model at startup.
   not yet been tested against the thing that motivated it. That is thread 1's next step.
 - **Frigate+ ($50/yr)** — model TUNED to your own cameras (12 trainings/yr), `model_type: yolonas` on
   OpenVINO. Still the best accuracy-per-effort if staying on the Dell, and now a drop-in (same model_type).
+  **USER APPROVED buying it, 2026-08-05** — see thread 5, which folds it together with packages / face
+  recognition / LPR. It is now a candidate answer to the flicker question above, not just an accuracy
+  upgrade: you can submit the actual oscillating parked cars as training images.
 - **Migrate Frigate to the Jetson AGX Orin — DECIDED 2026-08-04, plan written.** See
   **`../docs/orin-frigate-migration.md`** for the full plan (flash JetPack **6.2.2**, not 7.2 — Frigate
   publishes no jp7 image; the masn-side un-coupling; shadow-run then cutover; rollback). The HD 630 hit
@@ -118,6 +121,70 @@ Smooth scrubbing doesn't work in the current UI. The `custom:advanced-camera-car
 confirmed JANKY — tapping jumps to a clip and the scrubber disappears. Plan: use **Frigate's native History
 UI** directly (not iframed) as a phone PWA of `http://192.168.50.50:8971`, rather than the camera card.
 Dashboard deploys target the single Overview: `tools/apply-dashboard.sh - homeassistant/dashboards/overview.json`.
+
+## 5. Recognition — packages, specific people, specific cars (Frigate+ APPROVED 2026-08-05)
+
+Researched 2026-08-05 against the Frigate 0.17 docs. Three *separate* mechanisms; only packages costs
+money. **All of this is POST-CUTOVER work** — see the sequencing trap below.
+
+### Packages -> Frigate+ only ($50/yr, user approved)
+
+No free path exists. Stock COCO-80 has no `package` class, so no model swap reaches it. Frigate+ base
+models add `package` plus delivery logos (`amazon`, `usps`, `ups`, `fedex`, `dhl`), and also `face` and
+`license_plate` — which directly improve the two features below. 12 fine-tunings/yr; new base models
+Jan/Apr/Jul/Oct 15; trained models stay accessible after cancelling.
+
+**Frigate+ SUPERSEDES the model-choice table in the migration doc §6.3.** Config becomes
+`path: plus://<model_id>` and **all other model fields must be REMOVED — they are set automatically**.
+So you do not independently pick YOLOv9-at-640; Frigate+ decides the architecture and resolution. Which
+architectures/resolutions it offers on the jp6/TensorRT path was NOT determined — the docs point at a
+"Base Models" tab to test each. Settle that before assuming the 640 plan survives.
+
+**GOTCHA: "Frigate+ models generally have much higher scores than the default model"** — thresholds must
+be re-tuned after switching. That directly touches the hard-won `min_area: 0.005` and the score-overlap
+finding (false hits 0.09-0.40% of frame vs real people 1.3-21%). Do not carry the old thresholds over
+blind.
+
+### Specific people -> Face Recognition (built in, free, 0.16+)
+
+Detects `person` FIRST, then finds/recognises the face. Match attaches as a **`sub_label`**, so it flows
+into the existing `person_notifications.yaml` — "Person detected" becomes "<name> detected" with no
+restructuring. Two tiers: `small` (FaceNet, CPU) and **`large` (ArcFace, needs GPU/NPU) — take `large`
+on the Orin**, this is exactly the headroom the AGX buys. Enrol via UI wizard; 20-30 varied images per
+person. Defaults: `detection_threshold` 0.7, `recognition_threshold` 0.9, `min_area` 500px,
+`unknown_score` 0.8. With Frigate+ add `face` to tracked objects for native detection instead of the
+CV2 fallback.
+
+### Specific cars -> LPR (built in, free, 0.16+)
+
+Detects `car`/`motorcycle` FIRST, then OCRs the plate, refining as the vehicle crosses frame.
+`known_plates` maps plate -> label, again a `sub_label`. Supports regex (`"[S5]LL 1234"` catches OCR
+confusions) and `match_distance` tolerance; `format`, `enhancement` (0-10) and `min_area` for tuning.
+**The TrackMix tele lens is the natural LPR camera** — there is a dedicated `type: "lpr"` camera mode
+that skips normal object detection and runs plate detection off motion. With Frigate+ add
+`license_plate` to tracked objects.
+
+GOTCHA found 2026-08-05: **`driveway_tele` currently has `detect.enabled: False`** (record/view only,
+5 fps, 896x512) — hence its 0.0 det_fps in stats. Using it for LPR means turning detection on for it,
+making it a 7th detect stream. **Do NOT do that on masn** — the HD 630 is already at 28-31 ms and had
+to have detect fps cut to 3. This is Orin-side work by construction. The dedicated `type: "lpr"` mode
+is the cheaper route since it bypasses normal object detection entirely.
+
+### SEQUENCING TRAP — read before starting any of this
+
+Both recognition features ride on the base detector: face recognition needs a `person` detection, LPR
+needs a `car` detection. **Vehicle detection is currently DISABLED (thread 1), so LPR is BLOCKED until
+Phase 4.2 of the migration re-enables vehicles.** Get detection healthy on the Orin first. Layering
+recognition onto a starved or flickering detector just relocates the problem.
+
+### UNVERIFIED — check right after flashing, before building on it
+
+The face-recognition and LPR docs both state an **AVX + AVX2** CPU requirement. Those are **x86**
+instruction sets; the Orin's ARM cores do not have them. Frigate groups these as "enrichments" and the
+enrichments page says *"Jetson devices will automatically be detected and used for enrichments in the
+`-tensorrt-jp6` image"* — strongly implying AVX describes the x86 CPU fallback and Jetson runs them on
+GPU. **The docs never say so explicitly.** Add a face-rec + LPR smoke test to the post-flash checks
+alongside the `TensorrtExecutionProvider` gate.
 
 ## Deferred housekeeping
 

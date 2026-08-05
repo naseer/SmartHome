@@ -99,7 +99,8 @@ must-never-be-down, so masn keeps the ability to take Frigate back.
 
 **Open camera/detector threads → `masn-stack/OPEN-THREADS.md`** (git-tracked, portable): the disabled
 vehicle detection + the directness-gate fix kept for later, auto-dismiss of expired-clip notifications,
-and Ring-style timeline scrubbing. Read that file to resume any of them.
+Ring-style timeline scrubbing, and **thread 5 — recognition (packages / specific people / specific cars),
+with Frigate+ APPROVED 2026-08-05**. Read that file to resume any of them.
 
 **Known bug, unfixed and independent of hardware**: Frigate's Review page returns **HTTP 503 on
 1-hour VOD playback** for some hours. `front_door` intermittently writes 2-second segments instead of
@@ -314,6 +315,18 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
 - **Flash the AGX Orin (JetPack 6.2.2)** and give it a static IP + SSH as `orin` — this unblocks the
   whole Frigate migration. First check afterwards: the jp6 image must report `TensorrtExecutionProvider`.
   See `docs/orin-frigate-migration.md` §3.
+  **BLOCKED 2026-08-05: waiting on an NVMe** — the M.2 Key-M slot is EMPTY (only the RTL8822CE Wi-Fi
+  card is on PCIe) and the drive must be installed BEFORE flashing, since SDK Manager can only target a
+  disk present at flash time. User is ordering one. eMMC was rejected because it is **soldered to the
+  module**, so wear-out becomes a module-level failure on a box this migration makes must-never-be-down
+  (cf. masn's worn WD Blue).
+  Also corrected: the **flash host is naahmed-linux, NOT masn** (the board is cabled here). It runs
+  Kubuntu 26.04 — outside SDK Manager's supported set, but SDK Manager is installed, logged in and
+  working anyway. `sdkmanager --cli` refuses to run while the GUI is open.
+  The board today is reachable at `nvidia@orin.internal` (192.168.50.200, DHCP, MAC `48:b0:2d:d8:93:c9`
+  — reserve that address now, the MAC survives a reflash). It currently runs a **debug** build:
+  Ubuntu 24.04.3 / kernel `6.8.12-debug-tegra` / `nv_tegra_release` = `R00 (debug) BOARD: generic`, with
+  **no JetPack at all** — no CUDA, no TensorRT, no Docker. Nothing on it is worth preserving.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
 - Buy (see plan BoM): SLZB-06 + USB-C brick (ZBT-2 returned; no Thread BR now), 12× Sinopé DM2500ZB (Zigbee dimmers), UniFi (UCG-Fiber + 10G DAC + 16-PoE + 3× U7 Pro; 1 UCG-Fiber + 1 U7 Pro Wall already ordered) + floor-2 MoCA kit,
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,

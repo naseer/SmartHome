@@ -51,9 +51,63 @@ starting on 6.2.2 is not a dead end.
 
 ## 3. Phase 0 — flash the Orin
 
-Host: **masn can be the flash host.** SDK Manager supports Ubuntu 24.04 x86_64, needs ~27 GB host +
-16 GB target free (masn has ~69 GB). It is headless, so use `sdkmanager --cli`. Requires an NVIDIA
-developer account.
+**BLOCKED as of 2026-08-05: waiting on an NVMe.** See "What the board actually is" below. Everything
+else in this section is ready to run the moment the drive is installed.
+
+### Flash host — naahmed-linux, NOT masn (corrected 2026-08-05)
+
+The original plan named masn as the flash host. It isn't: the Orin is physically cabled to
+**naahmed-linux**, the workstation this repo lives on. That box runs **Kubuntu 26.04**, which is
+outside SDK Manager's supported set (20.04 / 22.04 / 24.04) — but **SDK Manager installs and runs on
+26.04 anyway, and is already installed and logged in**. No Docker-container or manual-BSP workaround
+is needed. Keep masn out of it; there is no reason to move the board to the office.
+
+GOTCHA: `sdkmanager --cli` refuses to run while the GUI instance is open ("SDK Manager is already
+running"). Close the GUI before scripting anything.
+
+### What the board actually is (inventoried 2026-08-05, pre-flash)
+
+Reachable **on the LAN** at `nvidia@orin.internal` = `192.168.50.200` (DHCP, MAC `48:b0:2d:d8:93:c9`).
+It also brings up the USB device-mode link at `192.168.55.1`.
+
+| | |
+|---|---|
+| Model | NVIDIA Jetson AGX Orin Developer Kit |
+| OS | Ubuntu 24.04.3 (noble), kernel `6.8.12-debug-tegra`, built 2025-11-04 |
+| L4T | `R00 (debug), REVISION: 0.0, BOARD: generic` — a debug build, not a production release |
+| JetPack | **none** — no `nvidia-l4t-*` packages, no CUDA, no TensorRT, no `jetson_release` |
+| Docker | **not installed** |
+| Root | `/dev/mmcblk0p1` — the 64 GB eMMC (57.8 GB partition, 45 GB free) |
+
+Ubuntu 24.04 + kernel 6.8 is JetPack 7 lineage, and none of the L4T runtime is installed. So the
+reflash to 6.2.2 is confirmed necessary — as it stands this board cannot run the `jp6` Frigate image
+and has no CUDA at all. Nothing on it is worth preserving.
+
+**There is no NVMe.** The M.2 Key-M slot is empty: `lspci` shows only the RTL8822CE Wi-Fi card in the
+Key-E slot, and no `/dev/nvme*` block device exists (`/dev/nvme-fabrics` is a kernel control node, not
+a disk). **User is ordering an M.2 2280 drive (decided 2026-08-05); flash waits for it.**
+
+Why not just use the eMMC — the deciding argument was that **eMMC is soldered to the module**, so
+wear-out is a module-level problem rather than a $60 swap, on the box this migration makes
+must-never-be-down. This project already lost a boot device that way (masn's WD Blue,
+`Media_Wearout=001`). Secondary: Frigate writes `frigate.db` continuously 24/7, eMMC exposes only
+coarse 10%-bucket lifetime via `mmc extcsd read`, and §6 step 3 wants room for several TensorRT engine
+caches. Speed was NOT a real factor — recordings go to the NAS at 64 MB/s over 1GbE, so eMMC would
+never have bottlenecked the recording path.
+
+**The drive must be installed BEFORE flashing** — SDK Manager can only target a disk that is present
+at flash time, and moving root off eMMC afterwards means a second flash or a manual rootfs clone plus
+bootloader retarget.
+
+Ordered 2026-08-05: **SanDisk Optimus 5100 NVMe 500 GB** (`SDSP51500GAN-000E0`) — M.2 2280,
+PCIe 4.0 x4, ~6600/5600 MB/s, 5-yr warranty. Verified compatible: the slot is **M.2 Key-M, 2280,
+PCIe Gen4 x4, NVMe only — no SATA M.2**, so this is a direct match at full host link width.
+(Name confusion worth noting: "SanDisk Optimus" was formerly a 2.5-inch enterprise **SAS** line;
+the 5100 is the current M.2 NVMe reuse of the name.) Physical install: 4 screws on the **underside** of the devkit (under the rubber feet on
+some variants) split the case; the slot is **J1** on the carrier board, which NVIDIA's layout doc
+lists under *"Top View (Hidden under the Module)"* — i.e. beneath the module assembly. Remove the
+retaining screw at the 2280 standoff, insert at an angle, seat flat, refasten. IP `192.168.50.200` was
+reserved against the MAC on 2026-08-05.
 
 **The cabling gotcha:** the AGX Orin devkit has two USB-C ports and they are not interchangeable.
 - **Power** = the USB-C port *above the DC jack*.
@@ -61,13 +115,14 @@ developer account.
 
 Steps:
 
-1. Install SDK Manager on masn (`.deb` from developer.nvidia.com).
+1. ~~Install SDK Manager~~ — **DONE**, installed and logged in on naahmed-linux.
 2. **Force Recovery Mode**: hold the *middle* Force Recovery button while inserting the USB-C power
-   plug. It powers on directly into recovery.
-3. Connect the flashing USB-C port to masn. Confirm detection: `lsusb | grep -i nvidia`, and
-   `sdkmanager --cli --list-connected`.
-4. Flash, **targeting NVMe rather than the 64 GB eMMC** — Frigate's model cache, DB and logs all want
-   the faster, larger device:
+   plug. It powers on directly into recovery. Confirm with `lsusb`: recovery mode enumerates a
+   *different* NVIDIA ID than the booted board does. While booted it shows `0955:7020` ("L4T running
+   on Tegra") — if you still see `7020`, it is NOT in recovery.
+3. Connect the flashing USB-C port to naahmed-linux. Confirm detection: `lsusb | grep -i nvidia`.
+4. Flash, **targeting the NVMe rather than the 64 GB eMMC** — Frigate's model cache, DB and logs all
+   want the faster, larger, replaceable device:
    ```
    sdkmanager --cli --action install --login-type devzone \
      --product Jetson --version 6.2.2 --target-os Linux \
@@ -80,6 +135,12 @@ Steps:
    simplest path; SDK Manager can otherwise pre-seed the credentials.
 6. Post-flash: set a static IP or DHCP reservation, enable SSH, add it to `~/.ssh/config` as `orin`,
    set `nvpmodel` to the max power mode and run `jetson_clocks`.
+   The MAC (`48:b0:2d:d8:93:c9`) survives the reflash, so a UCG-Fiber DHCP reservation made now will
+   still apply afterwards. It currently lands on `192.168.50.200` by DHCP — worth reserving that same
+   address so `orin.internal` keeps resolving. Note there is **no `~/.ssh/config` entry yet**; today's
+   access works only because `orin.internal` resolves via the LAN, and the account is `nvidia` with a
+   password (no key installed). Install a key at OEM setup time.
+   Docker is NOT installed on the board today — it comes with JetPack, but verify per §5 step 1.
 
 Verify before going further: `docker run --rm ghcr.io/blakeblackshear/frigate:0.17.2-tensorrt-jp6
 python3 -c "import onnxruntime; print(onnxruntime.get_available_providers())"` should list
@@ -160,8 +221,37 @@ avoid is changing four things and not knowing which one cost what:
    automation `automation.frigate_moving_vehicle` is `off`, so this generates events for evaluation
    without sending pushes. **This is the actual goal of the whole exercise** — it finally answers
    whether a stronger detector fixes the parked-car box flicker, which has never been tested.
-3. **A bigger model / higher resolution** — YOLO-NAS at 640 rather than 320, or RF-DETR, which
-   OpenVINO refused on the HD 630 (needs Xe/Arc) but is available on CUDA.
+3. **A bigger model / higher resolution.** Researched 2026-08-05 against the Frigate 0.17 detector
+   docs. Note first that **`yolo_nas_s` is a poor fit for this hardware** — it was chosen for
+   OpenVINO on the HD 630, and on Nvidia Frigate gives full **CUDA Graphs** optimisation to YOLOv9,
+   YOLOx and RF-DETR but only *limited* support to YOLO-NAS. Carry it over for the §5 shadow
+   comparison (apples-to-apples), then move off it.
+
+   | Model | `model_type` | Resolutions | Sizes | CUDA Graphs |
+   |---|---|---|---|---|
+   | YOLOv9 | `yolo-generic` | 320, 640 | t/s/m/c/e | full |
+   | RF-DETR | `rfdetr` | **320 only** | N/S/M | full |
+   | D-FINE | `dfine` | 640 | s/m/l | no |
+   | YOLO-NAS | `yolonas` | 320, 640 | s/m/l | limited |
+
+   **Highest-value change is probably RESOLUTION, not architecture.** The false hits that forced
+   `min_area: 0.005` are fixed objects across the street occupying 0.09-0.40% of frame — at 320x320
+   input those are roughly 20px objects, and 640 quadruples the pixels on them. That is the direct
+   attack on the actual discrimination problem. It also means **RF-DETR's 320-only limit is a real
+   drawback here**: YOLOv9 at 640 may well beat RF-DETR at 320 for these distant small objects,
+   despite RF-DETR being the stronger architecture. Try `yolo-generic` at 640 FIRST.
+
+   RF-DETR remains worth testing for one specific reason: DETR-family models do set-based prediction
+   with **no NMS**, and parked-car box flicker is plausibly an NMS/anchor artifact. That attacks the
+   flicker failure mode structurally rather than just being "more accurate". HYPOTHESIS, untested —
+   see §8.1. D-FINE is the weakest fit on this box (no CUDA Graphs).
+
+   **CAVEAT — Frigate+ was approved 2026-08-05 and largely SUPERSEDES this table.** A Frigate+ model is
+   configured as `path: plus://<model_id>` with **all other model fields removed** (architecture and
+   resolution are set automatically), so the free choice above collapses to whatever Frigate+ offers on
+   the jp6/TensorRT path — not yet determined. Frigate+ is also a *better* answer to §8.1 than any
+   architecture swap, because it fine-tunes on your own submitted false positives. Decide Frigate+ vs
+   free-model-tuning BEFORE spending effort here. See `../masn-stack/OPEN-THREADS.md` thread 5.
 4. Reconsider `min_area: 0.005` and the detect-fps-driven tuning; some of it was compensation for a
    starved GPU and may no longer be needed.
 
@@ -182,9 +272,14 @@ the answer. Do not let that quietly stop being true.
 - **NVDEC for decode.** The Orin should decode camera streams on dedicated NVDEC silicon rather than
   the GPU — that separation is the whole architectural point. Verify Frigate is configured to use it
   (`h264_nvv4l2dec` / the jetson ffmpeg preset) rather than falling back to CPU decode.
-- **DLA.** Moot while the Orin is Frigate-only. If an LLM node ever lands there, revisit: DLA pinning
-  appears to require the legacy TensorRT detector with older YOLOv4/v7 models, so "modern model + DLA
-  placement" is unconfirmed and would need checking before the Orin is shared.
+- **DLA.** ~~Unconfirmed~~ — **ANSWERED 2026-08-05, and the answer is no.** The Frigate docs confirm
+  DLA placement (`-dla` model-name suffix, Xavier/Orin only) works exclusively through the **legacy
+  `tensorrt` detector with YOLOv3/v4/v7** models at 288-896. Modern models — YOLOv9, RF-DETR, D-FINE,
+  YOLO-NAS — run through the **`onnx` detector**, which has no DLA path. So **"best model" and "DLA
+  placement" are mutually exclusive in Frigate today**; you pick one. While the Orin is Frigate-only
+  this costs nothing (GPU headroom is enormous), so take the better model. It only becomes a real
+  trade-off if an LLM node lands here and starts competing for the GPU — at which point moving
+  detection to DLA would mean regressing to YOLOv7.
 - **Power/thermals/siting** — the Orin becomes always-on infrastructure; where it lives, and on what
   UPS, is unaddressed.
 - **The VOD 503 bug is independent of all this** and travels with you. `front_door` intermittently
