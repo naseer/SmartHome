@@ -46,10 +46,35 @@ answered for ssdlite: of **86** events that entered `driveway_lane`, only **18**
 the gate suppressed **68** (79% of zone entries were false). Whether YOLO-NAS still needs it is the
 open part. Keep the gate either way.
 
-**First-minutes observation under YOLO-NAS (2026-08-05, ~10 min, night, no traffic):** Frigate holds
-3-4 cars on `driveway` with `active_count: 0` — i.e. classified STATIONARY, which is the benign
-outcome; the old failure fabricated MOTION. Zero events generated in that window. Encouraging but far
-too short: needs daylight and real traffic before it means anything.
+### FIRST YOLO-NAS RESULT (2026-08-05, 1h window, daylight) — flicker NOT fixed, but DEFUSED
+
+15 car events in the first hour (14 on `driveway`). Verdict is genuinely mixed, and the headline
+percentage is misleading on its own:
+
+| | ssdlite | yolo_nas_s |
+|---|---|---|
+| flicker-like share | 44.5% | **66.7%** (10/15) |
+| event volume | ~105/h | **~21/h** |
+| fabricated speed, mean | 2.47 km/h | **0.57 km/h** |
+| fabricated speed, max | 12.65 km/h | **0.88 km/h** |
+| entered `driveway_lane` | 86 | **0** |
+| would have NOTIFIED | 18 | **0** |
+
+**The boxes still oscillate — but the amplitude collapsed.** Directness is still low, so the flicker
+is not gone as a detection-stability problem. What changed is magnitude: fabricated speed dropped ~4x
+and now never reaches the zone's `speed_threshold: 5`, so **nothing enters `driveway_lane` and the
+automation could not fire even if it were on**. Event volume also fell ~5x. Small sample (1h) — rerun
+over a full day before trusting the numbers.
+
+**Remaining symptom: the RED BORDER in the Frigate web UI.** Not HA, not Reolink's on-camera AI
+(`binary_sensor.garage_vehicle` had 0 ON transitions in 6h). It is Frigate's own Live view reacting to
+**`severity: alert` review items** — `driveway` has `review.alerts.required_zones: front`, the parked
+cars sit in `front`, and `car` is a default alert label. So every re-detection of a parked car raises
+an alert. Options if it becomes annoying: restrict driveway alert labels to `person` (cars stay as
+`detection` severity, no red), a `car` min_area gate, or a mask over the parked-car region.
+
+**This is the prime Frigate+ training case (thread 5)** — these events are exactly the images to
+submit.
 
 Kept in the repo, disabled, ready to re-enable now that the detector is upgraded:
 
