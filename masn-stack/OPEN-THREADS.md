@@ -21,10 +21,35 @@ spikes) nor `average_estimated_speed` (inflated by the repeated spikes) separate
 Real cars ~0.99-1.0 (straight down the lane); flicker ≤0.13 (oscillates in place). Only knowable from
 `data.path_data` (the centroid track), which Frigate populates ~8 s after lane entry.
 
-**Detector is now upgraded (thread 2 done), so this is unblocked and is the next step.** Re-enable
-detection only first — `automation.frigate_moving_vehicle` is `off`, so no pushes fire — and watch
-whether YOLO-NAS still flickers the parked cars. If the flicker is gone the directness gate may be
-belt-and-braces rather than load-bearing; keep it either way.
+**DETECTION RE-ENABLED 2026-08-05** (commit `ab8112c`) — `track: [person, car, motorcycle]`.
+Notifications stay off (`automation.frigate_moving_vehicle` verified `off`, last_triggered
+2026-08-02), so events generate for inspection and nothing pushes. NOTE the label correction: it is
+**NOT** `car,bus,motorcycle` as this thread previously said — Frigate's `/labelmap/coco-80.txt`
+remaps bus (idx 5) and truck (idx 7) onto `car`, so listing `bus` is dropped with a warning.
+
+**MEASURE IT WITH `tools/frigate-vehicle-flicker.sh`** (added 2026-08-05), which scores every car
+event by directness and reports what the automation would have done. Run a SHORT window (`12`) so it
+does not mix in pre-2026-08-05 ssdlite events; it cannot tell which detector produced an event.
+
+**ssdlite BASELINE to beat** (96h run = ~13h of active detection before the 2026-08-02 disable):
+
+| | |
+|---|---|
+| car events | 1363 |
+| flicker-like (directness <0.30) | 607 = **44.5%** |
+| real movement (>=0.5) | 529 = 38.8% |
+| driveway camera | 585 flicker of 1141 |
+| fabricated speed on flicker | mean 2.47 km/h, max 12.65 |
+
+**The directness gate is LOAD-BEARING, not belt-and-braces** — this thread's open question, now
+answered for ssdlite: of **86** events that entered `driveway_lane`, only **18** would have notified;
+the gate suppressed **68** (79% of zone entries were false). Whether YOLO-NAS still needs it is the
+open part. Keep the gate either way.
+
+**First-minutes observation under YOLO-NAS (2026-08-05, ~10 min, night, no traffic):** Frigate holds
+3-4 cars on `driveway` with `active_count: 0` — i.e. classified STATIONARY, which is the benign
+outcome; the old failure fabricated MOTION. Zero events generated in that window. Encouraging but far
+too short: needs daylight and real traffic before it means anything.
 
 Kept in the repo, disabled, ready to re-enable now that the detector is upgraded:
 
