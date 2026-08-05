@@ -133,8 +133,31 @@ Steps:
    drift between releases — prefer it the first time.
 5. First boot runs Ubuntu OEM setup (username/password). A monitor + keyboard on the Orin is the
    simplest path; SDK Manager can otherwise pre-seed the credentials.
-6. Post-flash: set a static IP or DHCP reservation, enable SSH, add it to `~/.ssh/config` as `orin`,
-   set `nvpmodel` to the max power mode and run `jetson_clocks`.
+6. Post-flash: set a static IP or DHCP reservation, enable SSH, add it to `~/.ssh/config` as `orin`.
+
+   **POWER MODE — start at the DEFAULT, scale up only if inference demands it (decided 2026-08-05).**
+   This REVERSES the original instruction here, which said to set `nvpmodel` to max and run
+   `jetson_clocks`. Reasons: six cameras are a small fraction of this board's capacity, the Orin is
+   becoming 24/7 always-on infrastructure, and MAXN on the 64 GB AGX runs to ~60 W for a workload that
+   does not need it. Scaling up later is one command; the risk of starting high is that nobody ever
+   turns it back down.
+
+   - **Do NOT run `jetson_clocks`.** That pins clocks to the maximum of whatever mode is active and
+     defeats DVFS. Leaving it off is the single biggest power saving and costs only a little latency
+     variance. It is also not persistent across reboot unless deliberately made so.
+   - **Check what the fresh flash actually defaults to** — `nvpmodel -q` for the current mode and
+     `nvpmodel -p --verbose` to list them. UNVERIFIED: the AGX Orin devkit is widely said to default
+     to mode 0 = MAXN, but that was not confirmed from NVIDIA docs. If it does default to MAXN, that
+     is NOT the conservative start intended here — set an explicit capped mode instead.
+   - **Then measure before changing anything**: `tools/frigate-detector-stats.sh`. The HD 630 baseline
+     to beat is 28-31 ms with detect fps 3. If the Orin clears that comfortably at a capped mode,
+     there is no argument for more power.
+   - Raise the mode only if measurement shows a real deficit — and note in §6 that fps 5, a bigger
+     model and vehicles all get spent from the same budget, so re-measure after each.
+
+   **If the voice/LLM node lands here too (user re-affirmed interest 2026-08-05), revisit this.** An
+   LLM sharing the GPU changes the sizing question completely — see §8 "DLA" and the co-location
+   warning in §1. Do not size the power mode for Frigate alone and then quietly add an LLM to it.
    The MAC (`48:b0:2d:d8:93:c9`) survives the reflash, so a UCG-Fiber DHCP reservation made now will
    still apply afterwards. It currently lands on `192.168.50.200` by DHCP — worth reserving that same
    address so `orin.internal` keeps resolving. Note there is **no `~/.ssh/config` entry yet**; today's
@@ -265,6 +288,33 @@ masn's Frigate, point HA back at `127.0.0.1`, re-bind mosquitto to loopback. The
 Given the Orin becomes must-never-be-down, also decide: what happens on an Orin failure? Today masn is
 the answer. Do not let that quietly stop being true.
 
+### DECIDED 2026-08-05: do NOT move HA to the Orin. masn stays.
+
+Asked because the Orin becomes always-on anyway and masn burns power. Rejected, for three reasons:
+
+1. **It collapses the fallback this very section demands.** Today an Orin failure costs cameras. With
+   HA there too it costs cameras, every automation, the garage door, the thermostat, notifications and
+   remote access simultaneously. Two boxes mean one can die and the house still works.
+2. **JetPack upgrades are REFLASHES, not `apt upgrade`.** A vendor-pinned embedded OS where 6 -> 7
+   wipes the device is fine for a camera appliance and bad for the machine running the house. masn's
+   plain Ubuntu Server upgrades in place for years.
+3. **The power premise is partly self-correcting.** Much of masn's current draw IS Frigate — YOLO-NAS
+   pins the HD 630 at its 1150 MHz maximum continuously. After the migration masn is a near-idle
+   i7-7700 running HA + Postgres + Mosquitto + Z2M + matter-server. Measure the machine you will
+   actually have, not the one you have now.
+
+**Action instead of consolidating: MEASURE.** Put one of the existing HA power-monitoring plugs on masn
+now for a baseline, re-read a week after Frigate moves, then tune idle draw (C-states,
+`powertop --auto-tune`). Expect the delta to make the question moot.
+
+Landmines if it is ever reconsidered: **matter-server fabric state** for the Aqara W200 (Matter
+re-commissioning is painful if the move corrupts it) and masn being the **Tailscale subnet router**
+advertising `192.168.50.0/24`, which would have to move too. One thing that would be easy: the SLZB-06
+is network-attached, so Zigbee has no USB passthrough to migrate.
+
+Revisit only if a second always-on box exists (so the Orin is not singular), or if measurement shows
+masn drawing far more than expected post-migration — deliberately, not as a side effect.
+
 ## 8. Open questions
 
 - **Does the migration actually fix the parked-car flicker?** Still unanswered. It is the reason for
@@ -281,7 +331,25 @@ the answer. Do not let that quietly stop being true.
   trade-off if an LLM node lands here and starts competing for the GPU — at which point moving
   detection to DLA would mean regressing to YOLOv7.
 - **Power/thermals/siting** — the Orin becomes always-on infrastructure; where it lives, and on what
-  UPS, is unaddressed.
+  UPS, is unaddressed. Power MODE is now decided (§3 step 6: start at default, no `jetson_clocks`,
+  scale up only on measured need). Siting and UPS are still open.
+
+- **VOICE/LLM CO-LOCATION on the Orin — user re-affirmed interest 2026-08-05.** `AGENTS.md` defers
+  this to Phase 7 (local Assist: whisper + Piper + Ollama over Wyoming), and the 64 GB of unified
+  memory is what makes a serious local model viable. But it is not a free addition, and the
+  consequences are specific:
+  - **It re-couples security to an experimental workload.** §1 already records that Frigate makes the
+    Orin must-never-be-down. An LLM stack is something you restart, upgrade and tinker with. If both
+    live here, tinkering risks the cameras. Container resource limits (GPU/memory) so the LLM cannot
+    starve the detector are a hard requirement, not a nicety.
+  - **It reopens the DLA question above.** While Frigate is alone the GPU has huge headroom, so the
+    better ONNX models win. If an LLM competes for the GPU, the escape hatch is moving detection to
+    DLA — which means regressing to the legacy `tensorrt` detector on YOLOv7. That is a real cost to
+    weigh BEFORE committing to co-location.
+  - **It changes the power sizing.** Do not pick a capped `nvpmodel` for Frigate alone and then add an
+    LLM underneath it without re-measuring.
+  - **Decide the failure story first.** With HA still on masn (see the consolidation decision), an
+    Orin failure costs cameras plus voice — recoverable. That is only true while masn stays.
 - **The VOD 503 bug is independent of all this** and travels with you. `front_door` intermittently
   writes 2-second segments instead of 10-second (hour 12 today: 1592 segments vs a normal ~360),
   overflowing nginx-vod's durations array so a 1-hour playback request returns HTTP 503. Moving

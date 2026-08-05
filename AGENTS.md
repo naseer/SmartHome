@@ -236,7 +236,10 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
   (MCP = device control, not config authoring). Starter package: `packages/system.yaml` (HA-start notice).
 - Voice assistant = DEFERRED to Phase 7 (Orin) per user (2026-07-07). Destination = fully-local Assist
   pipeline on the Jetson Orin (whisper + Piper + Ollama via Wyoming); cloud/Claude agent considered but
-  not wanted now. Do NOT re-propose until the Orin is online.
+  not wanted now. ~~Do NOT re-propose until the Orin is online.~~ **User re-affirmed the intent
+  2026-08-05**, so it is live again — but read `docs/orin-frigate-migration.md` §8 first: co-locating
+  an LLM with Frigate re-couples security to an experimental workload, needs container resource limits
+  so it cannot starve the detector, reopens the DLA trade-off, and changes the Orin's power sizing.
 
 ## nas-stack (runs ON the UGOS NAS, not masn)
 
