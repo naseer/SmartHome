@@ -19,21 +19,31 @@ Bias throughout: **local-first / no-cloud, security-first, test-before-commit, r
 - `masn-stack/` — reproducible Docker stack + Phase 0 scripts (see below).
 - `AGENTS.md` (this file), `.gitignore`.
 
-## Status (as of 2026-08-04)
+## Status (as of 2026-08-05)
 
 **LIVE — the stack is in daily use.** Phase 0 is DONE; masn runs the full local-first stack and the
 smart home is operational. What's running:
 
 - **Core**: HA + Mosquitto + Postgres (recorder → Postgres) on Ubuntu 24.04 / NVMe / AHCI. HA at
   `http://192.168.50.50:8123`, Nabu Casa linked. NAS mounts (`/mnt/nas/{frigate,backups,media}`) live.
+  **Mosquitto publishes on TWO explicit bindings (2026-08-04)**: `127.0.0.1:1883` (host-mode HA) and
+  `${MASN_LAN_IP}:1883` for the cross-box Frigate to come — NOT `0.0.0.0`, which would also expose it
+  on the tailnet. Its password was rotated at the same time (the old one had leaked in a traceback).
+  GOTCHA when changing MQTT creds: Frigate and Z2M read `${MQTT_PASSWORD}` from `/opt/stack/.env`, but
+  **HA keeps its copy in a UI config entry in root-owned `.storage` and rewrites that file on
+  shutdown** — edit it with HA STOPPED or the change is silently lost.
 - **Cameras**: **Frigate on OpenVINO (HD 630 iGPU)** with **6 cameras + the TrackMix tele lens**,
   go2rtc restream, 24/7 continuous recording to the NAS. PERSON detection.
   Detector model is **`yolo_nas_s` @ 320 (swapped off ssdlite 2026-08-04)** running on **two** detector
   processes — YOLO-NAS costs ~31 ms vs ssdlite's 8 ms, so one process could not keep up. Regenerate the
   model with `masn-stack/tools/export-yolonas.sh`; check load with `tools/frigate-detector-stats.sh`.
+  **Detect fps is 3, not 5** — cut as an emergency because detection and VAAPI decode share the one
+  HD 630, and YOLO-NAS pinned it at max clock so video playback crawled. Person `min_area: 0.005`
+  filters YOLO-NAS's false hits on fixed objects across the street (they are 0.09-0.40% of frame;
+  real people are 1.3-21%, and scores overlap so only SIZE separates them).
   See `masn-stack/frigate/config/config.yml`.
 - **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —
-  opens/closes via `script.garage_door_pulse`; see the `garage-relay-status` memory) and the **garage
+  opens/closes via `script.garage_door_pulse`) and the **garage
   door contact sensor** (ThirdReality). The two are combined into **`cover.garage_door`** (template cover:
   state from the contact, movement from a relay pulse) — use that entity, not the raw script. An
   **auto-close after 30 min open** automation rides on it (2-min "Keep open" warning, then close +
@@ -44,10 +54,23 @@ smart home is operational. What's running:
 - **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
   detector upgrade — the weak ssdlite model false-fired on parked-car box flicker.
 
+**NEXT BIG THING — Frigate moves to the Jetson AGX Orin.** DECIDED 2026-08-04, plan in
+**`docs/orin-frigate-migration.md`**. The HD 630 hit the relief-valve trigger the plan itself defined
+(">~25ms = saturating"; measured 28-31 ms), and detection + video decode now fight over the one iGPU.
+**Flash JetPack 6.2.2, NOT 7.2** — Frigate publishes no jp7 image. Phase 1a/1d (broker LAN bind +
+password rotation) are DONE; the rest waits on the Orin being flashed and given a static IP. Note it
+reverses the plan's "security detection stays on the always-on box" principle — the Orin becomes
+must-never-be-down, so masn keeps the ability to take Frigate back.
+
 **Open camera/detector threads → `masn-stack/OPEN-THREADS.md`** (git-tracked, portable): the disabled
-vehicle detection + the directness-gate fix kept for later, the detector upgrade (leaning: migrate Frigate
-to the Orin, or a free YOLO-NAS swap on the Dell), auto-dismiss of expired-clip notifications, and
-Ring-style timeline scrubbing. Read that file to resume any of them.
+vehicle detection + the directness-gate fix kept for later, auto-dismiss of expired-clip notifications,
+and Ring-style timeline scrubbing. Read that file to resume any of them.
+
+**Known bug, unfixed and independent of hardware**: Frigate's Review page returns **HTTP 503 on
+1-hour VOD playback** for some hours. `front_door` intermittently writes 2-second segments instead of
+10-second (2026-08-04 hour 12: 1592 segments vs a normal ~360), overflowing nginx-vod's durations
+array. 10-minute windows work. Episodic — hours 12 and 15 that day, other hours fine. Moving to the
+Orin will NOT fix it.
 
 Historical (reference): the 1st NAS disk (IronWolf Pro 12 TB) was DOA 2026-06-29 and RMA'd; the build
 proceeded on a 14 TB Toshiba N300 (mirror to be added later). masn was greenfield — no irreplaceable data
@@ -235,15 +258,19 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
 
 ## Pending / next
 
-- **masn OS SSD WORN OUT → NVMe ORDERED (2026-07-03).** Media copy DONE + VERIFIED
-  (`rsync --size-only`: 0 missing, 382G=382G, 3498 files) despite the failing SSD — retire the SSD
-  after rebuild. Execute Phase 0 (AHCI → install on NVMe → setup-masn.sh) once the NVMe arrives.
-- **At reimage**: add the personal-backup cifs mount on masn — share `personal_folder` (Samba `%H`
+- ~~masn OS SSD worn out → NVMe~~ **DONE** — NVMe arrived, masn reimaged 2026-07-06, Phase 0 executed.
+  Media copy was verified beforehand (`rsync --size-only`: 0 missing, 382G=382G, 3498 files). Kept only
+  as history; the live detail is in the Status section and the Phase 0 runbook.
+- **STILL PENDING (was "at reimage", and reimage has happened — `/mnt/nas/personal` is NOT mounted as of
+  2026-08-05)**: add the personal-backup cifs mount on masn — share `personal_folder` (Samba `%H`
   -> `/home/naseer`), auth as **naseer** (separate `/etc/samba/creds-naseer`, chmod 600), mount at
   `/mnt/nas/personal` with `file_mode=0600,dir_mode=0700`. GOTCHA: **UGOS blocks rsync-over-SSH**
   (`ug_start_server` rejects all paths) — so personal backup must use the **SMB mount**, or
   tar-over-ssh, or enable UGOS's rsync service. NAS SMB shares: `media`, `personal_folder`
   (per-user home), `TimeMachine`, `masjidmapper`. NAS users: naseer(1000), jellyfin, zaid, masjidmapper.
+- **Flash the AGX Orin (JetPack 6.2.2)** and give it a static IP + SSH as `orin` — this unblocks the
+  whole Frigate migration. First check afterwards: the jp6 image must report `TensorrtExecutionProvider`.
+  See `docs/orin-frigate-migration.md` §3.
 - Add 2nd 14 TB → mirror (a few months); resume regular NAS backups once real data exists.
 - Buy (see plan BoM): SLZB-06 + USB-C brick (ZBT-2 returned; no Thread BR now), 12× Sinopé DM2500ZB (Zigbee dimmers), UniFi (UCG-Fiber + 10G DAC + 16-PoE + 3× U7 Pro; 1 UCG-Fiber + 1 U7 Pro Wall already ordered) + floor-2 MoCA kit,
   cameras (single-lens Reolink/Amcrest + ≤1 Duo for coverage), ~4 Zigbee plug routers,
