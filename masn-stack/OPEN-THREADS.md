@@ -74,7 +74,45 @@ an alert. Options if it becomes annoying: restrict driveway alert labels to `per
 `detection` severity, no red), a `car` min_area gate, or a mask over the parked-car region.
 
 **This is the prime Frigate+ training case (thread 5)** — these events are exactly the images to
-submit.
+submit. User began submitting 2026-08-05.
+
+### ROOT CAUSE IDENTIFIED 2026-08-05 — box MERGING, not box "flicker"
+
+Frigate's Tracked Object Details view caught it directly: **one `car` detection at 69% whose box
+spans TWO vehicles** — the sedan behind and the foreground SUV, enclosed in a single box. The
+oscillation is the detector alternating between emitting ONE merged box and TWO separate boxes. Each
+flip moves the centroid by half a car length, which is the fabricated displacement the directness
+metric sees. So this is an **instance-separation failure on adjacent same-class objects**, not a
+localisation jitter.
+
+**The merged population is measurable and bimodal by AREA** (58 driveway car events, 3h):
+
+| | area, fraction of frame |
+|---|---|
+| min | 0.0018 |
+| **median (single car)** | **0.0873** |
+| **top cluster (MERGED)** | **0.149 - 0.191**, w/h 0.41-0.53 |
+
+A merged box is ~2x a single car. Scores across that merged cluster run 0.51-0.88, so — exactly as
+with the person false positives — **`threshold` cannot separate them; only AREA can.** A `max_area`
+car filter around 0.13 would reject merges, BUT a real car pulling up close to the camera also gets
+large, so it risks blinding genuine driveway events. Not applied; recorded as an option.
+
+Why higher resolution is NOT the fix: these cars are huge in frame and already well resolved at 320.
+The model is not short of pixels, it is choosing to call two objects one. The architectural fix is a
+**NMS-free DETR-family model (RF-DETR)**, whose 320-only limit in Frigate costs nothing here precisely
+because the objects are large. The practical fix is **Frigate+ fine-tuning with both cars labelled as
+SEPARATE instances** in the submitted frames.
+
+### FAILED EXPERIMENT — `max_disappeared: 45` did not reduce churn (2026-08-05)
+
+Theory was that parked cars were being dropped after 5 s undetected and re-acquired as new objects.
+Raised `max_disappeared` 15 -> 45 frames on `driveway` (commit `d3af0dc`). Result: driveway car
+events went **~21/h -> 46/h**, i.e. no improvement and possibly worse. Confounded by rising afternoon
+activity, so it is not proof of harm — but there is no evidence of benefit, and it carries a real
+tradeoff (all objects on that camera, including people, held 15 s instead of 5 s before their event
+closes). **Recommend reverting**; the churn is a symptom of the merge/split oscillation above, not of
+premature object dropping.
 
 Kept in the repo, disabled, ready to re-enable now that the detector is upgraded:
 
