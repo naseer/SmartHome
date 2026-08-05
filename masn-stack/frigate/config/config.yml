@@ -192,6 +192,14 @@ cameras:
     # stationary objects are never "in" it and would never alert.
     review:
       alerts:
+        # PERSON ONLY on this camera (2026-08-05). The global default is [person, car]; our two
+        # PARKED cars sit inside the `front` zone, so with `car` an alert label every re-detection
+        # of a stationary car raised a severity:alert review item -- which is what paints the RED
+        # BORDER on the tile in Frigate's Live view, permanently.
+        # Cars are still tracked and still generate events; they just land at `detection` severity
+        # instead of `alert`. No data is lost -- the flicker measurement and the Frigate+ training
+        # images both still work. Only THIS camera is overridden; the others keep [person, car].
+        labels: [person]
         required_zones: front
   front_door:
     ffmpeg:
