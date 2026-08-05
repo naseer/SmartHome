@@ -223,6 +223,12 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
   the AS-DEPLOYED files -- `docker-compose.yml` is the older combined illustration). LESSON: a headless
   TS container MUST use TS_AUTHKEY (interactive login races the restart loop -> regenerates the URL).
   TODO: disable key expiry for `nas` in the admin console.
+- **NAS reference — shares, users, and the rsync gotcha**: SMB shares are `media`, `personal_folder`
+  (per-user home, Samba `%H` -> `/home/<user>`), `TimeMachine`, `masjidmapper`. NAS users:
+  `naseer`(1000), `jellyfin`, `zaid`, `masjidmapper`. GOTCHA: **UGOS blocks rsync-over-SSH**
+  (`ug_start_server` rejects all paths), so anything pulling from the NAS must use the **SMB mount**,
+  tar-over-ssh, or UGOS's own rsync service. (Kept from the now-closed personal-backup-mount task —
+  the mount is NOT wanted, but these facts still bite anyone scripting against the NAS.)
 - **FAMILY on the NAS (two wants)**: (1) Jellyfin streaming, (2) storage for their personal accounts.
   Plan: create a UGOS USER ACCOUNT per member (+ private/home folder + shared folders) -- UGOS enforces
   per-user perms; install Tailscale on the NAS + NODE-SHARE it to each member (keeps them OFF the subnet
@@ -261,13 +267,9 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
 - ~~masn OS SSD worn out → NVMe~~ **DONE** — NVMe arrived, masn reimaged 2026-07-06, Phase 0 executed.
   Media copy was verified beforehand (`rsync --size-only`: 0 missing, 382G=382G, 3498 files). Kept only
   as history; the live detail is in the Status section and the Phase 0 runbook.
-- **STILL PENDING (was "at reimage", and reimage has happened — `/mnt/nas/personal` is NOT mounted as of
-  2026-08-05)**: add the personal-backup cifs mount on masn — share `personal_folder` (Samba `%H`
-  -> `/home/naseer`), auth as **naseer** (separate `/etc/samba/creds-naseer`, chmod 600), mount at
-  `/mnt/nas/personal` with `file_mode=0600,dir_mode=0700`. GOTCHA: **UGOS blocks rsync-over-SSH**
-  (`ug_start_server` rejects all paths) — so personal backup must use the **SMB mount**, or
-  tar-over-ssh, or enable UGOS's rsync service. NAS SMB shares: `media`, `personal_folder`
-  (per-user home), `TimeMachine`, `masjidmapper`. NAS users: naseer(1000), jellyfin, zaid, masjidmapper.
+- ~~Personal-backup cifs mount on masn (`/mnt/nas/personal`)~~ — **CLOSED 2026-08-05, not needed.**
+  Was carried as an "at reimage" task; user confirmed the personal content does not need to come back
+  to masn. Do not re-add it. (Reference facts it carried are preserved under `## nas-stack`.)
 - **Flash the AGX Orin (JetPack 6.2.2)** and give it a static IP + SSH as `orin` — this unblocks the
   whole Frigate migration. First check afterwards: the jp6 image must report `TensorrtExecutionProvider`.
   See `docs/orin-frigate-migration.md` §3.
