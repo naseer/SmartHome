@@ -166,19 +166,14 @@ cameras:
       width: 896
       height: 512
       fps: 3
-      # EXPERIMENT 2026-08-05, driveway only: cut the parked-car event churn.
-      # Frigate drops a tracked object after `max_disappeared` frames with no detection, and the
-      # NEXT detection then becomes a NEW object -> a NEW event. Default is 5x fps = 15 frames,
-      # which at fps 3 is only 5 SECONDS. Our two adjacent parked cars get conflated by the
-      # detector and intermittently missed (observed scores swing 0.56-0.96), so they were being
-      # dropped and re-acquired ~14 times an hour, each time as a fresh event.
-      # 45 frames = 15 s of tolerance before giving up on an object.
-      # TRADEOFF: applies to ALL objects on this camera, so a person who leaves frame is also held
-      # 15 s instead of 5 s before their event closes. That delays event END; it cannot create a
-      # false alert (person alerts still require the `front` zone).
-      # MEASURE with tools/frigate-vehicle-flicker.sh -- baseline to beat is ~21 car events/hour.
-      # Revert by deleting this line (default is derived from fps).
-      max_disappeared: 45
+      # NOTE: `max_disappeared` was raised 15 -> 45 here on 2026-08-05 and REVERTED the same day.
+      # The theory was that parked cars were being dropped after 5 s undetected and re-acquired as
+      # new objects. It did not hold: driveway car events went ~21/h -> 46/h, no benefit, against a
+      # real cost (every object on this camera, people included, held 15 s before its event closes).
+      # The churn is a SYMPTOM of the detector merging the two parked cars into one box and then
+      # splitting them again -- not of premature object dropping. Do not retry this without new
+      # evidence; fix the merge instead (Frigate+ retrain / an NMS-free model). See OPEN-THREADS
+      # thread 1, "ROOT CAUSE IDENTIFIED".
 
     motion: {}
     zones:

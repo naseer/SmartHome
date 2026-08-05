@@ -233,6 +233,36 @@ be re-tuned after switching. That directly touches the hard-won `min_area: 0.005
 finding (false hits 0.09-0.40% of frame vs real people 1.3-21%). Do not carry the old thresholds over
 blind.
 
+### Submission + annotation workflow (researched 2026-08-05)
+
+**The yes/no in Frigate's UI is NOT annotation** — it only marks the detection true/false positive and
+uploads the image. **Boxes are drawn on plus.frigate.video**, a separate site. This confused us once;
+it is the single most important thing to know here.
+
+1. **In Frigate**: yes/no on a snapshot -> uploads it.
+2. **On plus.frigate.video**: annotate. `w` adds a box, arrow keys move, `Shift`+arrows resize, `del`
+   removes, `d` marks an object genuinely difficult.
+3. **Request a model** on the Models page, then set `path: plus://<model_id>` (all other model fields
+   removed — they are configured automatically).
+
+**For OUR merged-car frames** (thread 1 root cause): answer **no** (false positive) in Frigate, then on
+the site **delete the merged box and draw TWO tight boxes, one per car**. Upstream guidance covers this
+case explicitly — submit a misidentified object as a false positive *and* add the correct label;
+overlapping boxes are acceptable there. **Answering "yes" to a merged box actively reinforces the bug.**
+Annotation overrides the yes/no hint, so earlier mislabelled submissions can still be corrected.
+
+Rules that matter for our case:
+- **Label EVERY object in the frame**, not just the cars — unlabelled regions teach the model they are
+  background.
+- **Tight boxes.** Box tightness at training time determines box accuracy at runtime, which is exactly
+  the failure we are trying to fix.
+- Aim ~**80% true positives / 20% false positives**. An all-false-positive set skews the model.
+
+**Do NOT request a training early.** Minimum is 10 verified images, but good results typically need
+**~100 verified per camera**, and each request burns one of the 12 annual slots. Training takes up to
+36 h. Build across lighting conditions first — our parked cars are black, so dawn/dusk/night look very
+different to the model.
+
 ### Specific people -> Face Recognition (built in, free, 0.16+)
 
 Detects `person` FIRST, then finds/recognises the face. Match attaches as a **`sub_label`**, so it flows
