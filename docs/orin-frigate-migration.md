@@ -243,6 +243,43 @@ this costs nothing but bandwidth and buys a real comparison.
    Baselines to beat, from masn today: 28–31 ms inference, 16.5 det/s offered at 3 fps, 23% per-process
    utilisation across two detector processes.
 
+### FIRST RESULT 2026-08-07 — the Orin is barely faster than the HD 630
+
+Shadow instance up, TensorRT engine built for `sm87` (11 minutes, 53 MB), settled:
+
+| | masn (HD 630, OpenVINO) | Orin (TensorRT) |
+|---|---|---|
+| inference | 29–30 ms | **27.22 ms** |
+| det_fps offered | 10.5 | 10.7 |
+| skipped_fps | 0.0 | 0.0 |
+
+**~10% better, on hardware that should be several times faster.** Three causes found, most confident
+first:
+
+1. **It runs FP32 and there is no way to ask for FP16 from config.** In `get_ort_providers()`,
+   `"trt_fp16_enable": requires_fp16 and os.environ.get("USE_FP_16", ...)`. But the ONNX detector
+   calls `get_optimized_runner(path, device, model_type=...)` with no `requires_fp16`, so it defaults
+   `False` and the `USE_FP_16` env var is dead code on this path. FP16 is roughly 2x on Orin.
+2. **The graph is PARTITIONED.** Two engine files were produced (`_0_0_sm87`, `_1_1_sm87`), so ops
+   TensorRT would not take fall back off the accelerator mid-inference.
+3. **MODE_30W** leaves 8 of 12 CPU cores online and clocks them at 729 MHz much of the time, with
+   GR3D bouncing 0–85% rather than pinned. The GPU is not obviously the ceiling.
+
+**The deeper problem is the architecture.** Section 6.3 already noted Frigate gives YOLO-NAS only
+"limited" support on Nvidia. It is worse than that: `CudaGraphRunner.is_model_supported()` explicitly
+EXCLUDES `yolonas`, and TensorRT partitions it. So the Frigate+ model trained on 2026-08-07 is a
+`yolonas` custom model — i.e. **we trained into the one architecture that is slowest on this
+hardware.** Frigate+ base models include `yolo-generic` yolov9t at 320 and 640 supporting the `onnx`
+detector; a future training should use that base if the Orin is the target.
+
+**Next, in order.** (a) Raise `nvpmodel` to MODE_50W (3) or MAXN (0) and re-measure — this is the
+measured deficit the power decision in section 3 said to wait for, it is one command, and it is
+instantly reversible. (b) If power is not the answer, the architecture is, and the fix is a Frigate+
+retrain on a yolov9 base rather than any amount of tuning here.
+
+Not urgent: masn is still serving detection, and the shadow publishes to `frigate_orin` so nothing
+live depends on it.
+
 ## 6. Phase 3 — cutover, and Phase 4 — spend the headroom
 
 Cutover: stop Frigate on masn → move `frigate.db` → repoint the shadow instance at the real recordings
