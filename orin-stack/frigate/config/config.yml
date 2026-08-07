@@ -1,0 +1,433 @@
+# ORIN SHADOW INSTANCE -- 6 cameras, TensorRT on the AGX Orin. Runs ALONGSIDE masn's Frigate.
+#
+# This is Phase 2 of docs/orin-frigate-migration.md: both instances live at once, watching the same
+# cameras, so the Orin can be compared against the HD 630 on real traffic before anything cuts over.
+# The cameras serve multiple RTSP clients, so this costs bandwidth and nothing else.
+#
+# DIFFS FROM masn-stack/frigate/config/config.yml -- and deliberately NOTHING ELSE. Cameras, zones,
+# masks, min_area and detect fps are all left identical so the comparison is honest (plan section 5
+# step 3). Every difference below is listed here so the two files can be diffed with intent:
+#   1. mqtt.topic_prefix + client_id  -- MUST differ, see below
+#   2. detectors: openvino/GPU x2     -> onnx x1 (TensorRT execution provider)
+#   3. record.continuous.days 15      -> 2 (shadow writes to a scratch NAS dir; do not hoard)
+# The model is UNCHANGED (`plus://...320`) on purpose -- swapping hardware and model at once would
+# make the measurement uninterpretable. The 640 variant is a Phase 4 change, one at a time.
+
+mqtt:
+  # masn's LAN IP -- the broker is on masn and stays there. mosquitto binds 127.0.0.1 + ${MASN_LAN_IP}
+  # explicitly (NOT 0.0.0.0, which would also expose it on the tailnet), and that LAN binding exists
+  # precisely for this. Injected from .env so no IP is hardcoded in git.
+  host: '{FRIGATE_MQTT_HOST}'
+  port: 1883
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
+  # LOAD-BEARING while both instances run. Two Frigates on one broker BOTH default to the `frigate`
+  # topic prefix and would publish contradictory state to the same topics -- masn saying a car is
+  # present, the Orin saying it is not, at 2x the rate. Home Assistant's Frigate integration
+  # subscribes to that prefix, so the shadow would silently corrupt live automations, which is the
+  # opposite of "shadow". A distinct prefix keeps the Orin invisible to HA until cutover; at cutover
+  # this becomes `frigate` and masn's instance stops.
+  topic_prefix: frigate_orin
+  client_id: frigate_orin
+
+# UI on :8971 served over plain HTTP (trusted LAN admin tool). Removes the self-signed-cert
+# "Not Secure"/strikethrough warning. Put behind a reverse proxy for real TLS if ever exposed.
+tls:
+  enabled: false
+
+# ONE detector process on the Orin's GPU via TensorRT, replacing masn's two OpenVINO processes.
+#
+# masn needed two because a detector process runs inferences SERIALLY: at ~29 ms a single HD 630
+# process caps near 34 det/sec, and we offer ~19.6. The Orin should be far enough under that ceiling
+# for one process to suffice. START AT ONE and measure -- adding a second is one line, and starting
+# with two would hide how much headroom there actually is.
+#
+# `type: onnx` is correct here, NOT `tensorrt`. On Jetson the jp6 image runs ONNX models through the
+# TensorRT execution provider automatically; the legacy `tensorrt` detector is the YOLOv3/v4/v7 path
+# and is what would be needed for DLA -- mutually exclusive with modern models (plan section 8).
+#
+# FIRST START WILL BE SLOW. TensorRT compiles an engine for this exact GPU/model/precision and caches
+# it under /config/model_cache. Several minutes with no detections is EXPECTED, not a hang. It
+# recompiles after any model, TensorRT or hardware change.
+detectors:
+  onnx_0:
+    type: onnx
+
+# YOLO-NAS-S @ 320x320, COCO pretrained (swapped in from ssdlite_mobilenet_v2 2026-08-04).
+# WHY: ssdlite was too weak -- it conflated our two adjacent parked cars and flickered their
+# boxes between fixed positions, fabricating phantom motion. That is what forced vehicle
+# detection off (see OPEN-THREADS.md). YOLO-NAS is a stronger architecture at a cost the
+# HD 630 can absorb (baseline was 10.2 ms / ~26 inf-sec = ~27% utilised).
+#
+# The .onnx is NOT bundled in the Frigate image and is NOT auto-downloaded -- regenerate it
+# with tools/export-yolonas.sh (a local port of upstream's Colab notebook) and drop the
+# result in /opt/stack/frigate/config/. Must be FLAT_FORMAT (single 7-wide output) or the
+# OpenVINO detector rejects it at startup.
+#
+# NOTE the labelmap change: ssdlite used the 91-class COCO map, YOLO-NAS uses the 80-class
+# one. Class indices differ, but Frigate matches objects by NAME, so zones/filters/masks
+# that say "person" keep working untouched.
+# SWAPPED to the Frigate+ trained model 2026-08-07 (trained 07:17Z, base 2026.2, type yolonas).
+#
+# `path: plus://<id>` is the WHOLE config -- model_type, width, height, input_tensor,
+# input_pixel_format and labelmap_path are all carried in the model's own metadata and MUST NOT
+# be repeated here, or they fight it. Frigate downloads the model at startup using PLUS_API_KEY
+# from /opt/stack/.env; without that key this config will not start. The previous local file is
+# still at /config/yolo_nas_s.onnx, so reverting is just restoring the block below.
+#
+# TRAINED ON ONLY 22 VERIFIED IMAGES (driveway 15, backyard 3, front_door 2, west_gate 2) out of
+# 96 submitted -- the rest were never annotated, and only annotated images train. Do NOT read a
+# fix into any change you see: 15 driveway frames is not enough to move box merging, and normal
+# daily variation is larger. This is a MEASUREMENT against the pre-swap baseline below.
+#
+# PRE-SWAP BASELINE (13.4 h, yolo_nas_s local @320, motorcycle untracked):
+#   driveway  car 536 (39.9/h)  person 42 (3.1/h)  TOTAL 43.0/h
+#   directness: 494 scored, 325 flicker-like (d<0.30) = 66%
+#   inference 30.4 / 29.5 ms   detection_fps 10.5   frigate cpu 21.9%
+#
+# The 640x640 variant of this same training run (82a9153e5f1c21208e8c00d7bbb5d96a) is the one
+# that might actually fix the merging -- more resolution on distant parked cars. It is NOT for
+# masn: est. 110-130 ms on the HD 630 (UNVERIFIED, extrapolated from 32 ms at 320), which is
+# 60-70% detector utilisation with no burst headroom, on the same iGPU whose saturation caused
+# the ffmpeg crash-loop. Save it for the Orin.
+#
+# To revert: delete this `model:` block and restore
+#   model_type: yolonas / width: 320 / height: 320 / input_tensor: nchw
+#   input_pixel_format: bgr / path: /config/yolo_nas_s.onnx / labelmap_path: /labelmap/coco-80.txt
+model:
+  path: plus://7cc1274d78a77a4a4951b6425822de55   # yolonas 320x320, custom
+
+# SOFTWARE DECODE, deliberately, for now -- carried over from masn UNCHANGED.
+#
+# On masn this is a workaround: VAAPI decode shared the HD 630 with the OpenVINO detectors, the i915
+# preemption watchdog reset the render engine mid-decode, and every detect stream crash-looped
+# (2320 crashes in 28 h). Software decode was the fix. See masn-stack/OPEN-THREADS.md thread 6.
+#
+# NONE of that applies here: the Orin has NVDEC as a SEPARATE engine from the GPU, so decode and
+# inference cannot compete the way they did on the iGPU. Hardware decode via `preset-jetson-h264`
+# (all six detect streams are h264 sub-streams; record is stream-copy and decodes nothing) is
+# expected to be strictly better here and is the obvious Phase 4 change.
+#
+# It is NOT enabled yet ON PURPOSE. Plan section 5 step 3 says change only the detector block, so the
+# shadow comparison isolates ONE variable. Turning on NVDEC at the same time would leave us unable to
+# say whether a good result came from the GPU or from the decoder. Enable it as its own measured step
+# once the baseline comparison is in hand.
+#
+# GOTCHA if you do change it: `hwaccel_args` defaults to the string "auto", so DELETING the key does
+# not mean software decode -- Frigate auto-detects and re-enables hardware decode. Only an explicit
+# value suppresses that.
+ffmpeg:
+  hwaccel_args: []            # software decode; Phase 4 -> preset-jetson-h264
+
+# SHADOW RETENTION -- 2 days, not masn's 15.
+#
+# This instance writes to a SEPARATE scratch directory on the NAS (see docker-compose.yml) so it
+# cannot touch masn's recordings while both run. It exists to be measured, not to be a second archive,
+# and at ~130 GB/day six cameras would put 2 TB of throwaway footage on the NAS in a fortnight.
+# Two days is enough to confirm recording works end-to-end and to scrub a real event.
+# AT CUTOVER: restore `days: 15` and repoint the volume at the real share.
+record:
+  enabled: true
+  preview:
+    quality: high             # crisper timeline-scrub thumbnails (Ring-like smooth scrub)
+  continuous:
+    days: 2                   # SHADOW ONLY -- masn runs 15
+  alerts:
+    retain: {days: 30}
+  detections:
+    retain: {days: 30}
+
+snapshots:
+  enabled: true
+  retain: {default: 14}
+  # LOAD-BEARING for Frigate+ (subscribed 2026-08-05): submissions train on the CLEAN, unannotated
+  # image, not the one with bounding boxes burned in. This is Frigate's default, but it is stated
+  # explicitly here so a future default change cannot silently break model training.
+  clean_copy: true
+
+objects:
+  # VEHICLES RE-ENABLED 2026-08-05 as a TEST, after being disabled 2026-08-02.
+  #
+  # History: the weak ssdlite model spawned a flurry of false parked-car events -- two adjacent
+  # PARKED cars whose boxes oscillated between fixed positions, fabricating a steady 5-11 km/h
+  # estimated speed. The detector has since been upgraded to yolo_nas_s (2026-08-04), and the
+  # question that upgrade was meant to answer has never actually been tested.
+  #
+  # THIS IS DETECTION ONLY -- no notifications. `automation.frigate_moving_vehicle` is `off` with
+  # `initial_state: false` (verified off 2026-08-05, last_triggered 2026-08-02), so events are
+  # generated for inspection and nothing pushes to a phone. Do NOT turn that automation on until
+  # the flicker question below is answered.
+  #
+  # WHAT TO LOOK FOR: do the two parked cars still oscillate? Inspect `data.path_data` on any
+  # car event and compute directness = net displacement / total path length. Real cars ~0.99-1.0;
+  # flicker <=0.13. See OPEN-THREADS.md thread 1.
+  #
+  # EXPECT MORE REVIEW ITEMS in the UI while this runs -- that is the data, not a fault. Deliberately
+  # NO car min_area/threshold filter yet: the point is to observe the RAW behaviour before tuning it.
+  # Second purpose: these events are the training images to submit to Frigate+ (thread 5).
+  #
+  # NO `bus` -- Frigate's built-in /labelmap/coco-80.txt REMAPS bus (COCO idx 5) and truck (idx 7)
+  # onto `car`, so buses and trucks are already covered by tracking `car`. Listing `bus` makes
+  # Frigate log "not supported by the current model" on every camera and silently drop it.
+  # (OPEN-THREADS thread 1 said to re-add "car,bus,motorcycle" -- that instruction was wrong.)
+  #
+  # NO `motorcycle` either -- DROPPED 2026-08-06. It was added 2026-08-05 with `car` and produced
+  # 786 events in 3 days, ALL of them on `driveway` and ZERO on any other camera, at ~24/h -- which
+  # matches the parked-car churn rate. There are no motorcycles here: YOLO-NAS is misclassifying the
+  # parked cars (or the merge/split fragments of them, see OPEN-THREADS thread 1). Worse, 47 of the
+  # first 96 Frigate+ submissions carried this label, so half the training set was mislabelled.
+  #
+  # Baseline before removal, `driveway` events by label:
+  #   last  6h   car 225 (37.5/h)   motorcycle 106 (17.7/h)   person 31   TOTAL 60.3/h
+  #   last 24h   car 728 (30.3/h)   motorcycle 578 (24.1/h)   person 66   TOTAL 57.2/h
+  # Compare after. UNVERIFIED going in: whether these objects vanish or simply come back as `car`.
+  # Untracking a label does not stop the detector emitting it -- it stops Frigate tracking it -- so
+  # total event volume may not fall by the full motorcycle share. Measure, do not assume.
+  #
+  # To revert: set this back to `track: [person]`. The driveway_lane speed zone stays either way.
+  track: [person, car]
+
+  # Size gate against YOLO-NAS's false "person" hits on fixed objects ACROSS THE STREET
+  # (a porch column on the neighbour's house, a post by their driveway). Measured over the
+  # first 2h of YOLO-NAS, the two populations separate cleanly by SIZE and not by score:
+  #
+  #   false positives  box height 0.046-0.119   area 0.09-0.40% of frame   score 0.70-0.88
+  #   real people      box height 0.332, 0.729  area 1.3%, 21%             score 0.74-0.96
+  #
+  # Scores OVERLAP, so raising `threshold` cannot separate them -- area can, with a ~3x gap.
+  # 0.005 sits in that gap: 1.4x above the largest false hit, 2.7x below the smallest real
+  # person seen. Expressed as a fraction (0-0.99) so it is resolution-independent and means
+  # the same thing on every camera regardless of detect width/height.
+  #
+  # TRADEOFF: this also suppresses a genuinely DISTANT person (someone out at the street on
+  # the driveway cam is near this size). The approach paths -- walkway, porch, driveway -- are
+  # all well above it. Loosen toward 0.003 if anyone real is ever missed.
+  filters:
+    person:
+      min_area: 0.005
+
+# go2rtc restream -- one connection per camera, re-shared to detect/record/live.
+go2rtc:
+  streams:
+    driveway:                 # TrackMix WIDE lens, main (HEVC 4K) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.86:554/h264Preview_01_main
+    driveway_sub:             # sub (h264 896x512) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.86:554/h264Preview_01_sub
+    front_door:               # doorbell main (h264 2560x1920) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.151:554/h264Preview_01_main
+    front_door_sub:           # doorbell sub (h264 640x480) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.151:554/h264Preview_01_sub
+    west_gate:                # CX810 main (HEVC 4K) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.22:554/h264Preview_01_main
+    west_gate_sub:            # sub (h264 640x360) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.22:554/h264Preview_01_sub
+    east_gate:                # CX810 main (HEVC 4K) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.130:554/h264Preview_01_main
+    east_gate_sub:            # sub (h264 640x360) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.130:554/h264Preview_01_sub
+    backyard:                 # Duo 2 stitched main (HEVC 4608x1728) -> record + live
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.217:554/h264Preview_01_main
+    backyard_sub:             # sub (h264 1536x576) -> detect
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.217:554/h264Preview_01_sub
+    driveway_tele:            # TrackMix TELE lens ch02 (auto-tracked close-up, h264 1080p) -> record
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.86:554/h264Preview_02_main
+    driveway_tele_sub:        # tele sub (h264 896x512) -> motion gate for event recording
+      - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.86:554/h264Preview_02_sub
+
+cameras:
+  driveway:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/driveway
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/driveway_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true             # 0.17 defaults this OFF
+      width: 896
+      height: 512
+      fps: 3
+      # NOTE: `max_disappeared` was raised 15 -> 45 here on 2026-08-05 and REVERTED the same day.
+      # The theory was that parked cars were being dropped after 5 s undetected and re-acquired as
+      # new objects. It did not hold: driveway car events went ~21/h -> 46/h, no benefit, against a
+      # real cost (every object on this camera, people included, held 15 s before its event closes).
+      # The churn is a SYMPTOM of the detector merging the two parked cars into one box and then
+      # splitting them again -- not of premature object dropping. Do not retry this without new
+      # evidence; fix the merge instead (Frigate+ retrain / an NMS-free model). See OPEN-THREADS
+      # thread 1, "ROOT CAUSE IDENTIFIED".
+
+    motion: {}
+    zones:
+      # Zones below were redrawn by the user in the Frigate UI (2026-08-04) and are
+      # authoritative -- this file was synced FROM the live config, not the other way.
+      # Speed-gated lane for MOVING-vehicle alerts. distances = real-world metres of each
+      # side, in coordinate order: P1->P2 left/depth 9.5, P2->P3 street/width 6.5,
+      # P3->P4 right/depth 9.5, P4->P1 garage/width 6.5 (driveway measured 6.5 x 9.5 m).
+      # speed_threshold: an object only counts as "in" this zone while moving >= 5 km/h, so
+      # parked cars (speed 0) are never in it -> the vehicle automation gates on entering here.
+      driveway_lane:
+        coordinates: 0.04,0.956,0.342,0.23,0.86,0.34,0.992,0.934
+        distances: 9.5,6.5,9.5,6.5
+        speed_threshold: 5
+        loitering_time: 0
+        inertia: 3
+      front:
+        coordinates: 0.001,0.278,0.05,0.266,0.95,0.317,1,1,0,1
+        loitering_time: 0
+        friendly_name: Front
+    # Zone-gate driveway alerts, as before. The UI edit had dropped this (leaving alerts
+    # ungated); restored 2026-08-04 pointing at the redrawn zone -- `front` is the successor
+    # to the old `front_area`. NOT driveway_lane: that zone has a speed_threshold, so
+    # stationary objects are never "in" it and would never alert.
+    review:
+      alerts:
+        # PERSON ONLY on this camera (2026-08-05). The global default is [person, car]; our two
+        # PARKED cars sit inside the `front` zone, so with `car` an alert label every re-detection
+        # of a stationary car raised a severity:alert review item -- which is what paints the RED
+        # BORDER on the tile in Frigate's Live view, permanently.
+        # Cars are still tracked and still generate events; they just land at `detection` severity
+        # instead of `alert`. No data is lost -- the flicker measurement and the Frigate+ training
+        # images both still work. Only THIS camera is overridden; the others keep [person, car].
+        labels: [person]
+        required_zones: front
+  front_door:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_door
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/front_door_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true             # 0.17 defaults this OFF
+      width: 640
+      height: 480
+      fps: 3
+    motion: {}
+    objects:
+      filters:
+        person:
+          # Ignore "person" on the fixed object across the street (right side) that the MORNING
+          # SUN lights up ~8am -> ~20 false hits at 0.7-0.85. Off the walkway/porch, so visitors are safe.
+          mask: 0.70,0.24,0.97,0.24,0.97,0.58,0.70,0.58
+          # Repeated here because a camera-level `person` filter may replace the global one
+          # wholesale rather than merging into it. See the global block for the measurements.
+          min_area: 0.005
+
+  # west_gate / east_gate / backyard: promoted to 24/7 CONTINUOUS 2026-07-29 (inherit global
+  # record.continuous.days: 15). Monitoring NAS storage growth for a few days before finalizing.
+    zones:
+      front_zone:
+        coordinates: 
+          0.003,0.684,0.161,0.622,0.413,0.622,0.58,0.614,0.753,0.593,0.814,0.584,0.98,0.608,0.995,0.656,0.995,0.997,0.001,0.999
+        loitering_time: 0
+        friendly_name: Front Zone
+    review:
+      alerts:
+        required_zones: front_zone
+  west_gate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/west_gate
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/west_gate_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 640
+      height: 360
+      fps: 3
+    motion: {}
+    objects:
+      filters:
+        person:
+          # Ignore "person" on the neighbour's GAS METER (fixed decoy, top-centre) -- it was
+          # misclassified 0.7-0.85 at night. Covers the meter + surrounding neighbour strip.
+          mask: 0.42,0.02,0.68,0.02,0.68,0.30,0.42,0.30
+          # Repeated here because a camera-level `person` filter may replace the global one
+          # wholesale rather than merging into it. See the global block for the measurements.
+          # west_gate is the one camera whose false hit landed INSIDE its alert zone
+          # (area 0.23%), so the size gate is doing real work here, not just tidying the UI.
+          min_area: 0.005
+    zones:
+      west_side_:
+        coordinates: 
+          0.794,0.179,0.719,0.187,0.676,0.195,0.658,0.208,0.637,0.217,0.501,0.258,0.084,0.377,0.004,0.445,0.001,0.992,0.918,0.998
+        loitering_time: 0
+        friendly_name: 'West Side '
+    review:
+      alerts:
+        required_zones: west_side_
+  east_gate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/east_gate
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/east_gate_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 640
+      height: 360
+      fps: 3
+    motion: {}
+    zones:
+      east_side:
+        coordinates: 
+          0.143,0.38,0.216,0.209,0.355,0.088,0.455,0.067,0.604,0.071,0.654,0.087,0.712,0.12,0.997,0.383,0.997,0.986,0.002,0.997,0.05,0.4
+        loitering_time: 0
+        friendly_name: East Side
+    review:
+      alerts:
+        required_zones: east_side
+  backyard:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/backyard
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/backyard_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 1536
+      height: 576
+      fps: 3
+    motion: {}
+    zones:
+      backyard_zone:
+        coordinates: 
+          0.225,0.237,0.372,0.107,0.729,0.035,0.869,0.161,0.997,0.541,0.998,0.991,0.003,0.986,0.005,0.627
+        loitering_time: 0
+        friendly_name: backyard zone
+    review:
+      alerts:
+        required_zones: backyard_zone
+  driveway_tele:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/driveway_tele
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/driveway_tele_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      enabled: false
+      width: 896
+      height: 512
+    record:
+      enabled: true
+      continuous:
+        days: 0
+      motion:
+        days: 14
+version: 0.17-0

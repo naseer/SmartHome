@@ -145,10 +145,10 @@ Steps:
    - **Do NOT run `jetson_clocks`.** That pins clocks to the maximum of whatever mode is active and
      defeats DVFS. Leaving it off is the single biggest power saving and costs only a little latency
      variance. It is also not persistent across reboot unless deliberately made so.
-   - **Check what the fresh flash actually defaults to** — `nvpmodel -q` for the current mode and
-     `nvpmodel -p --verbose` to list them. UNVERIFIED: the AGX Orin devkit is widely said to default
-     to mode 0 = MAXN, but that was not confirmed from NVIDIA docs. If it does default to MAXN, that
-     is NOT the conservative start intended here — set an explicit capped mode instead.
+   - **ANSWERED 2026-08-07, post-flash: the default is `MODE_30W` (mode 2), NOT MAXN.** So the fresh
+     flash already lands where this section wants it and no capping command is needed. The widely
+     repeated "AGX Orin defaults to MAXN" claim did not hold for this board on JetPack 6.2.2.
+     (`nvpmodel -q` reads the mode without sudo; `nvpmodel -p --verbose` lists them.)
    - **Then measure before changing anything**: `tools/frigate-detector-stats.sh`. The HD 630 baseline
      to beat is 28-31 ms with detect fps 3. If the Orin clears that comfortably at a capped mode,
      there is no argument for more power.
@@ -213,7 +213,20 @@ would let the Orin's credential be revoked independently of the house.
 Run both instances simultaneously before cutting over. The cameras can serve multiple RTSP clients;
 this costs nothing but bandwidth and buys a real comparison.
 
-1. Docker + nvidia-container-runtime come with JetPack; verify `docker info | grep -i runtime`.
+1. ~~Docker + nvidia-container-runtime come with JetPack; verify `docker info | grep -i runtime`.~~
+   **WRONG, corrected 2026-08-07.** JetPack installs the *packages* (`nvidia-container-toolkit`
+   1.16.2 was present) but does **not register the runtime with Docker**: there was no
+   `/etc/docker/daemon.json` at all and `docker info` listed no nvidia runtime. Without this the
+   container gets no GPU and the TensorRT detector cannot start. Fix, needs sudo:
+   ```
+   sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
+   ```
+   Also note **sudo on the Orin requires a password**, exactly like masn — so the privileged steps
+   are the user's to run, not something a session can do unattended. And the login user is *not* in
+   the `docker` group on a fresh flash (`sudo usermod -aG docker nvidia`, then re-login).
+
+   `orin-stack/setup-orin.sh` does all of this, gates on `TensorrtExecutionProvider`, and refuses to
+   proceed if the board is not L4T R36 or the `.env` is incomplete.
 2. Recreate the NAS mount. The `frigate_media` cifs **volume** definition (`docker-compose.yml:131-136`)
    ports across unchanged — same `NAS_IP`, `NAS_FRIGATE_SHARE`, and least-privilege `frigate` creds.
    Keep the hardening property: if the NAS is unreachable Docker refuses to start Frigate rather than

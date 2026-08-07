@@ -1,0 +1,72 @@
+# Orin Frigate stack -- /opt/stack/docker-compose.yml on orin.internal (192.168.50.200)
+#
+# PHASE 2 SHADOW (docs/orin-frigate-migration.md section 5): this runs ALONGSIDE masn's Frigate,
+# watching the same six cameras, so the Orin can be measured on real traffic before anything cuts
+# over. Frigate ONLY -- mosquitto, Home Assistant, postgres, matter-server and zigbee2mqtt all stay
+# on masn permanently (that was decided 2026-08-05, plan section 7: two boxes mean one can die and
+# the house still works).
+#
+# Deliberately NOT a copy of masn's compose file. The differences that matter:
+#   - `runtime: nvidia`      -- the whole point; masn passes /dev/dri instead
+#   - no `devices:` block    -- the nvidia runtime injects the GPU nodes itself
+#   - MQTT points at masn    -- the broker does not move
+#   - separate NAS subdir    -- so a shadow run cannot write over masn's recordings
+#   - :5000 stays on loopback, same as masn: it is the UNAUTHENTICATED API
+
+services:
+  frigate:
+    container_name: frigate
+    # PINNED, not `stable-tensorrt-jp6`. This box becomes must-never-be-down at cutover, and an
+    # unattended image change is exactly the failure this pin exists to prevent.
+    image: ghcr.io/blakeblackshear/frigate:0.17.2-tensorrt-jp6
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: "512mb"
+
+    # Provided by nvidia-container-toolkit. It must be REGISTERED with the daemon --
+    # `sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker`.
+    # JetPack installs the packages but does NOT wire them into Docker; verified missing on this
+    # board 2026-08-07 (no /etc/docker/daemon.json at all).
+    runtime: nvidia
+
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./frigate/config:/config
+      - frigate_media_shadow:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs: { size: "1g" }
+
+    ports:
+      - "8971:8971"                 # authenticated UI
+      - "127.0.0.1:5000:5000"       # UNAUTHENTICATED internal API -- loopback ONLY, same as masn
+      - "8554:8554"                 # RTSP restream
+      - "8555:8555/tcp"
+      - "8555:8555/udp"             # WebRTC
+
+    environment:
+      FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"
+      # The broker stays on masn. Its mosquitto binds 127.0.0.1 + ${MASN_LAN_IP} explicitly (never
+      # 0.0.0.0, which would also expose it on the tailnet) -- that LAN binding exists for this.
+      FRIGATE_MQTT_HOST: "${MASN_LAN_IP}"
+      FRIGATE_MQTT_USER: "${MQTT_USER}"
+      FRIGATE_MQTT_PASSWORD: "${MQTT_PASSWORD}"
+      PLUS_API_KEY: "${PLUS_API_KEY:-}"
+      # No LIBVA_DRIVER_NAME: that is the Intel iHD VAAPI driver and means nothing on Jetson.
+
+volumes:
+  # SHADOW recordings -- a SEPARATE directory from masn's, so both instances can run without one
+  # overwriting the other's footage. `NAS_FRIGATE_SHADOW_DIR` must already exist on the NAS; SMB
+  # will not create it, and the mount fails rather than falling back.
+  #
+  # Same hardening as masn: Docker mounts the share itself, so if the NAS is unreachable Docker
+  # refuses to start Frigate instead of quietly filling the local NVMe.
+  # Docker's cifs driver calls mount(2) directly (no mount.cifs helper), so credentials must be
+  # INLINE username=/password= -- a credentials=<file> is silently ignored and yields permission
+  # denied. Values come from .env at `docker compose up` time, never written into this file.
+  frigate_media_shadow:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${NAS_FRIGATE_SMB_USER},password=${NAS_FRIGATE_SMB_PASSWORD},uid=0,gid=0,file_mode=0664,dir_mode=0775,vers=3.1.1"
+      device: "//${NAS_IP}/${NAS_FRIGATE_SHARE}/${NAS_FRIGATE_SHADOW_DIR}"
