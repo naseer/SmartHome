@@ -113,8 +113,33 @@ detectors:
 # To revert: delete this `model:` block and restore
 #   model_type: yolonas / width: 320 / height: 320 / input_tensor: nchw
 #   input_pixel_format: bgr / path: /config/yolo_nas_s.onnx / labelmap_path: /labelmap/coco-80.txt
+# ORIN SHADOW: yolov9s @ 640, Frigate+ BASE model. Switched 2026-08-07.
+#
+# This is a FREE experiment -- base models cost no training slot. It is deliberately not the custom
+# model masn runs, and it changes TWO things at once (architecture AND resolution) because both point
+# the same way and the shadow is where a wrong answer costs nothing.
+#
+# WHY yolov9s rather than the custom yolonas:
+#   - `yolo-generic` gets Frigate's CUDA Graphs fast path. `yolonas` is EXPLICITLY EXCLUDED from it
+#     (CudaGraphRunner.is_model_supported), and TensorRT also partitions yolonas into multiple
+#     engines so ops fall off the accelerator. Both were measured here on 2026-08-07.
+#   - `s` over `t`: t is tiny. masn would have wanted t; the Orin has capacity for s.
+#   - 640 over 320: 4x the pixels on distant objects. Plan section 6.3 -- "the highest-value change
+#     is probably RESOLUTION, not architecture". The parked cars that merge are small in frame.
+#
+# WHAT THIS TESTS: whether architecture+resolution fixes box merging on their own, BEFORE spending a
+# training slot on a yolov9s custom model. If it does, the retrain compounds it. If it does not, we
+# learned that for free.
+#
+# EXPECT SATURATION TO BE POSSIBLE. Headroom at 320 was unresolved (10.7 det/s settled before a
+# restart vs 22.7 shortly after one), so 640 may not fit on ONE detector process. If skipped_fps goes
+# nonzero, that is the finding -- add a second `onnx_1` detector rather than reverting.
+#
+# Engine build at 640 will take LONGER than the 11 minutes 320 took. det_fps 0.0 meanwhile is normal.
 model:
-  path: plus://7cc1274d78a77a4a4951b6425822de55   # yolonas 320x320, custom
+  path: plus://de319e7a905a497560a9569685a76505   # yolov9s 640x640, Frigate+ BASE
+  # masn stays on plus://7cc1274d78a77a4a4951b6425822de55 (yolonas 320 custom) -- do not sync this
+  # file over masn's. To revert the Orin, put that id back here.
 
 # SOFTWARE DECODE, deliberately, for now -- carried over from masn UNCHANGED.
 #
