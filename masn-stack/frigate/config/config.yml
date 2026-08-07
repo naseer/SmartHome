@@ -128,8 +128,21 @@ objects:
   # Frigate log "not supported by the current model" on every camera and silently drop it.
   # (OPEN-THREADS thread 1 said to re-add "car,bus,motorcycle" -- that instruction was wrong.)
   #
+  # NO `motorcycle` either -- DROPPED 2026-08-06. It was added 2026-08-05 with `car` and produced
+  # 786 events in 3 days, ALL of them on `driveway` and ZERO on any other camera, at ~24/h -- which
+  # matches the parked-car churn rate. There are no motorcycles here: YOLO-NAS is misclassifying the
+  # parked cars (or the merge/split fragments of them, see OPEN-THREADS thread 1). Worse, 47 of the
+  # first 96 Frigate+ submissions carried this label, so half the training set was mislabelled.
+  #
+  # Baseline before removal, `driveway` events by label:
+  #   last  6h   car 225 (37.5/h)   motorcycle 106 (17.7/h)   person 31   TOTAL 60.3/h
+  #   last 24h   car 728 (30.3/h)   motorcycle 578 (24.1/h)   person 66   TOTAL 57.2/h
+  # Compare after. UNVERIFIED going in: whether these objects vanish or simply come back as `car`.
+  # Untracking a label does not stop the detector emitting it -- it stops Frigate tracking it -- so
+  # total event volume may not fall by the full motorcycle share. Measure, do not assume.
+  #
   # To revert: set this back to `track: [person]`. The driveway_lane speed zone stays either way.
-  track: [person, car, motorcycle]
+  track: [person, car]
 
   # Size gate against YOLO-NAS's false "person" hits on fixed objects ACROSS THE STREET
   # (a porch column on the neighbour's house, a post by their driveway). Measured over the
