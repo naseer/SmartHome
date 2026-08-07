@@ -25,6 +25,8 @@ if ! sudo docker info 2>/dev/null | grep -q nvidia; then
   sleep 3
 fi
 sudo docker info 2>/dev/null | grep -qi nvidia || { echo "!! nvidia runtime still not registered"; exit 1; }
+# From here on use plain `docker` -- step 3 puts the user in the docker group, and running the
+# pull and the gate as root would cache the image layers and model under root's context instead.
 echo "   nvidia runtime registered"
 
 echo ">> [3/6] Add $USER to the docker group"
@@ -53,9 +55,12 @@ echo "   .env present, 600, all required keys set"
 
 echo ">> [6/6] THE GATE -- onnxruntime must expose TensorrtExecutionProvider"
 # docs/orin-frigate-migration.md section 3: "If it does not, stop -- nothing downstream will work."
-sudo docker pull "$IMAGE"
-PROVIDERS=$(sudo docker run --rm --runtime nvidia "$IMAGE" \
-  python3 -c "import onnxruntime; print(onnxruntime.get_available_providers())" 2>&1 | tail -1)
+docker pull "$IMAGE"
+# --entrypoint python3 bypasses the image's s6 init. Without it, s6's own start/stop chatter is
+# interleaved with the answer and a naive `tail` captures "service s6rc-oneshot-runner stopped"
+# instead of the provider list -- which reads as a silent failure.
+PROVIDERS=$(docker run --rm --runtime nvidia --entrypoint python3 "$IMAGE" \
+  -c "import onnxruntime; print(onnxruntime.get_available_providers())" 2>&1 | grep -o "\[.*\]" | tail -1)
 echo "   $PROVIDERS"
 case "$PROVIDERS" in
   *TensorrtExecutionProvider*) echo "   GATE PASSED" ;;
