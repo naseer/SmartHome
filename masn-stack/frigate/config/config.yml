@@ -50,8 +50,35 @@ model:
   path: /config/yolo_nas_s.onnx
   labelmap_path: /labelmap/coco-80.txt
 
+# VAAPI hwaccel REMOVED 2026-08-06 -- it was crash-looping every detect stream.
+#
+# Both OpenVINO detectors run `device: GPU` on the HD 630, and VAAPI decode for all six detect
+# streams ran on that SAME chip. Inference stalled long enough to trip the i915 preemption
+# watchdog, which reset the render engine and invalidated every in-flight decode surface:
+#
+#   i915: Resetting rcs0 for preemption time out
+#   i915: frigate.detecto[981400] context reset due to GPU hang
+#   ffmpeg: Failed to sync surface 0xf: 1 (operation failed) -> hwdownload: -5 -> I/O error
+#
+# ffmpeg cannot recover from a surface reset, so it exited and the watchdog restarted it:
+# 2320 crashes in 28 h, ~13 per camera per hour, each costing seconds of detection blindness.
+# RECORDING was never affected (separate ffmpeg process, 23.9 h/day coverage throughout) --
+# only detection and the live view.
+#
+# Software decode takes the load off the iGPU entirely, so a detector stall can no longer kill
+# capture. It is cheap here: only DETECT streams are decoded (record is stream-copy), and that
+# is five streams at 3 fps plus one at 5 fps, none above 1536x576, on an 8-thread i7-7700 that
+# was sitting at ~22%. To revert, restore `hwaccel_args: preset-vaapi` below.
+#
+# The Orin makes this moot -- NVDEC and the GPU are separate engines there, so decode and
+# inference stop competing. This is a stopgap for as long as Frigate lives on masn.
+#
+# It MUST be an explicit empty list. `hwaccel_args` defaults to the string "auto", so simply
+# DELETING this key does not disable hardware decode -- Frigate re-detects VAAPI and puts it
+# straight back ("Automatically detected vaapi hwaccel for video decoding" at startup).
+# Only a value that is not "auto" suppresses the auto-detection.
 ffmpeg:
-  hwaccel_args: preset-vaapi  # HD 630 VAAPI decode (LIBVA_DRIVER_NAME=iHD set in compose)
+  hwaccel_args: []            # software decode; was `preset-vaapi`
 
 # NAS-backed retention: 15 days of gapless 24/7 footage (scrub any moment, Ring-style),
 # 30 days of review items. ~130 GB/day for these 2 cameras -> ~2 TB for 15 days (8 TB free).

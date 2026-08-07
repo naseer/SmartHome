@@ -304,6 +304,57 @@ enrichments page says *"Jetson devices will automatically be detected and used f
 GPU. **The docs never say so explicitly.** Add a face-rec + LPR smoke test to the post-flash checks
 alongside the `TensorrtExecutionProvider` gate.
 
+## 6. iGPU contention crash-loop — FIXED 2026-08-06 by dropping VAAPI decode
+
+User reported "a few frame drops". All six cameras' **detect** ffmpeg processes were crash-looping:
+**2320 crashes in 28 h (~82/h, ~13 per camera per hour)**, each costing seconds of detection
+blindness. Every crash had one signature, decode-side only, with no RTSP error and a clean go2rtc log:
+
+```
+[AVHWFramesContext] Failed to sync surface 0xf: 1 (operation failed).
+[hwdownload] Failed to download frame: -5.   ->   Error while filtering: Input/output error
+```
+
+The kernel named the culprit:
+
+```
+i915: Resetting rcs0 for preemption time out
+i915: frigate.detecto[981400] context reset due to GPU hang
+i915: GPU HANG: ecode 9:1:8ed9fff2, in frigate.detecto [981400]
+```
+
+Both OpenVINO detectors run `device: GPU` on the HD 630; VAAPI decode for all six detect streams ran
+on that same chip. Inference stalled past the i915 preemption watchdog, i915 reset the render engine,
+and every in-flight decode surface died with it. ffmpeg cannot recover from that, so it exited.
+
+**Fix:** `ffmpeg.hwaccel_args: []` — software decode. Result after an 8-minute soak: **0 crashes,
+0 surface errors**, all cameras at target fps, `skipped_fps` 0.0. It was close to free, and relieving
+the contention gave inference back:
+
+| | before | after |
+|---|---|---|
+| ffmpeg crashes | ~82/h | 0 |
+| Frigate CPU | 21.6% | 21.9% |
+| inference | 29.0 / 29.9 ms | 27.5 / 27.6 ms |
+
+**GOTCHA:** `hwaccel_args` defaults to the string `"auto"`, so *deleting* the key does NOT disable
+hardware decode — Frigate re-detects VAAPI ("Automatically detected vaapi hwaccel for video decoding").
+It must be an explicit empty list. Verify with `ps -eo args | grep ffmpeg | grep -c hwaccel` -> 0.
+
+**Two things NOT established.** (1) The onset date — the container was created 21:06:54Z and first
+crashed at 21:10:52Z, under 4 minutes later, so docker logs cannot see before it; this may long
+predate 08-05. (2) Only ONE GPU hang is in the kernel journal against 2320 crashes. i915 suppresses
+repeat error-state captures until the existing one is read, which would explain it, but that was not
+verified.
+
+**RECORDING was never affected** — hwaccel is applied only when `"detect" in ffmpeg_input.roles`
+(`frigate/config/camera/camera.py`), and record is a separate stream-copy process. Coverage held at
+23.8-23.9 h/day per camera throughout, which is why nothing looked wrong from the timeline.
+
+This is evidence for the Orin migration, not just a bugfix: the HD 630 is at the point where compute
+and decode cannot coexist. On the Orin, NVDEC and the GPU are separate engines. Revisit `hwaccel_args`
+there — it should go back to hardware decode.
+
 ## Deferred housekeeping
 
 - ~~MQTT broker password rotation~~ — **DONE 2026-08-04.** The leaked password (from an earlier
