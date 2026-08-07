@@ -280,6 +280,41 @@ retrain on a yolov9 base rather than any amount of tuning here.
 Not urgent: masn is still serving detection, and the shadow publishes to `frigate_orin` so nothing
 live depends on it.
 
+### SECOND RESULT 2026-08-07 — yolov9s @ 640 is nearly free, and fine-tuning beats resolution
+
+Switched the shadow to the Frigate+ **base** `yolov9s` 640 (`plus://de319e7a...`, no training slot).
+Engine built in 5 min — *faster* than the 11 min yolonas 320 took, despite 4x the pixels.
+
+| | masn: yolonas 320 openvino | Orin: yolonas 320 TRT | Orin: yolov9s 640 TRT |
+|---|---|---|---|
+| inference | 25.6 / 26.1 ms | 30.5 ms | **33.9 ms** |
+| offered | 21.5 det/s | 22.7 | 24.1 |
+| skipped_fps | 0.0 | 0.0 | **0.0** |
+
+**4x the pixels and a better architecture for ~11% more latency than the Orin's own 320 run.** This
+is the answer to "what did the Orin buy": not lower latency — masn is still faster per inference —
+but the capability to run a far bigger model without dropping a frame. Size the box on that, not ms.
+
+**One detector is no longer enough.** Utilisation went 75% -> 82% across successive samples with
+`det_fps` still CLIMBING (22.3 -> 24.1), not settling. No frames dropped yet. Add `onnx_1` before
+this is load-bearing; the plan's own advice is that a detector process runs inferences serially.
+
+**The merging result is the interesting one:**
+
+| model | driveway flicker-like (d<0.30) |
+|---|---|
+| yolonas 320, BASE (masn, pre-Frigate+) | 66% |
+| yolov9s 640, BASE (Orin) | **35%** |
+| yolonas 320, CUSTOM 22 images (masn) | **1%** |
+
+Architecture + resolution roughly HALVED the flicker. Fine-tuning on 22 of your own images took it
+from 66% to 1%. **Both help; fine-tuning helps far more** — so the pending custom `yolov9s` training
+should combine them and is the right thing to spend a slot on. It also means the Orin migration was
+never the fix for box merging; Frigate+ was, and the Orin is what lets a bigger model run.
+
+CAVEAT: 54 scored tracks over ~20 minutes at one time of day, against a 4 h window for the 1%
+figure. Directionally clear, not a settled number. Re-measure over a full day.
+
 ## 6. Phase 3 — cutover, and Phase 4 — spend the headroom
 
 Cutover: stop Frigate on masn → move `frigate.db` → repoint the shadow instance at the real recordings
