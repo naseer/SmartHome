@@ -174,8 +174,29 @@ model:
 # GOTCHA if you do change it: `hwaccel_args` defaults to the string "auto", so DELETING the key does
 # not mean software decode -- Frigate auto-detects and re-enables hardware decode. Only an explicit
 # value suppresses that.
+# NVDEC ENABLED 2026-08-07, as its own measured change after the detector-count change landed.
+#
+# ONE LINE IS ENOUGH -- no `path:` needed. The jp6 image sets DEFAULT_FFMPEG_VERSION=jetson, so
+# Frigate already runs /usr/lib/ffmpeg/jetson/bin/ffmpeg (verified from the live process list). That
+# build carries h264_nvmpi and hevc_nvmpi; the 7.0 build does NOT, which is what makes this look
+# broken if you go checking the wrong binary. /dev/v4l2-nvdec is present inside the container.
+#
+# All six detect streams are h264 SUB-streams (see the go2rtc block), so -h264 is correct even though
+# driveway and the 4K cameras record HEVC on their main streams. Record is stream-copy and decodes
+# nothing, so this only affects detect.
+#
+# BONUS: the preset is `-c:v h264_nvmpi -resize {1}x{2}` -- it scales INSIDE the decoder. Frigate's
+# input args collapse to `-r {0}`, so the `-vf fps=3,scale=896:512` filter chain disappears entirely.
+# That removes CPU work on top of the decode offload.
+#
+# PRE-NVDEC BASELINE (software decode, 2 detectors, MODE_50W):
+#   frigate cpu 23.9%   ffmpeg total 53.4% CPU across 20 procs   load 4.80   det_fps 23.0
+#
+# This is safe here in a way it was NOT on masn: the i915 crash-loop happened because VAAPI decode
+# and OpenVINO inference shared ONE engine. On the Orin, NVDEC is separate silicon from the GPU, so a
+# detector stall cannot invalidate decode surfaces. See masn-stack/OPEN-THREADS.md thread 6.
 ffmpeg:
-  hwaccel_args: []            # software decode; Phase 4 -> preset-jetson-h264
+  hwaccel_args: preset-jetson-h264
 
 # SHADOW RETENTION -- 2 days, not masn's 15.
 #
