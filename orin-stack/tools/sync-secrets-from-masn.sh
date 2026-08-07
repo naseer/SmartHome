@@ -13,6 +13,11 @@ MASN="${MASN:-masn}"
 ORIN="${ORIN:-nvidia@orin.internal}"
 SHADOW_DIR="${NAS_FRIGATE_SHADOW_DIR:-orin-shadow}"
 
+# Writes into the STAGING copy of orin-stack in the Orin user's home, NOT /opt/stack.
+# /opt is root-owned and the Orin prompts for a sudo password, so nothing here can create it
+# unattended. setup-orin.sh copies this whole directory (dotfiles included) into /opt/stack.
+STAGE_DIR="${STAGE_DIR:-orin-stack}"
+
 KEYS=(
   FRIGATE_RTSP_PASSWORD
   MASN_LAN_IP
@@ -40,14 +45,14 @@ if [ "$FOUND" -ne "${#KEYS[@]}" ]; then
   exit 1
 fi
 
-echo ">> Writing ${ORIN}:/opt/stack/.env (mode 600)"
+echo ">> Writing ${ORIN}:~/${STAGE_DIR}/.env (mode 600)"
 {
   ssh "$MASN" "grep -E '${PATTERN}' /opt/stack/.env"
   printf 'NAS_FRIGATE_SHADOW_DIR=%s\n' "$SHADOW_DIR"
-} | ssh "$ORIN" "umask 077; mkdir -p /opt/stack 2>/dev/null || sudo mkdir -p /opt/stack && sudo chown \$USER /opt/stack; cat > /opt/stack/.env; chmod 600 /opt/stack/.env"
+} | ssh "$ORIN" "umask 077; mkdir -p '${STAGE_DIR}'; cat > '${STAGE_DIR}/.env'; chmod 600 '${STAGE_DIR}/.env'"
 
 echo ">> Verifying (key names and value LENGTHS only, never values):"
-ssh "$ORIN" 'while IFS="=" read -r k v; do [ -n "$k" ] && printf "     %-28s %d chars\n" "$k" "${#v}"; done < /opt/stack/.env'
+ssh "$ORIN" "while IFS='=' read -r k v; do [ -n \"\$k\" ] && printf '     %-28s %d chars\n' \"\$k\" \"\${#v}\"; done < '${STAGE_DIR}/.env'"
 
 cat <<EOF
 
