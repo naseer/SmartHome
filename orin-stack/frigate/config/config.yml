@@ -67,8 +67,22 @@ tls:
 # exact GPU, model and precision, cached under /config/model_cache/tensorrt/ort/trt-engines.
 # Minutes with no detections is EXPECTED. It recompiles after any model/TensorRT/hardware change.
 # (The earlier sub-second "load" was the giveaway that no engine was being built at all.)
+# SECOND PROCESS ADDED 2026-08-07 after measuring. One was not enough: utilisation ran 55-82% on a
+# single process with det_fps swinging 15-24, and a detector process runs inferences SERIALLY, so the
+# peak is what drops frames rather than the average. Two takes it to roughly 28-40%.
+#
+# Do NOT expect a third to help much. GR3D (GPU UTILISATION, not frequency, despite the name) already
+# reaches 99% during bursts, and extra processes cannot create GPU throughput -- they only overlap one
+# process's host-side work with another's GPU work, filling the 0% gaps between bursts. Once the GPU
+# is the wall, the answer is a cheaper model, not more processes.
+#
+# Memory is a non-issue: 7.4 GB of 62.8 GB in use, engines are 34 MB (yolov9s 640) and 53 MB (yolonas
+# 640). CPU is not the constraint either -- all 12 cores online, each 12-33% busy.
 detectors:
   onnx_0:
+    type: onnx
+    device: Tensorrt
+  onnx_1:
     type: onnx
     device: Tensorrt
 
