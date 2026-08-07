@@ -42,16 +42,35 @@ tls:
 # for one process to suffice. START AT ONE and measure -- adding a second is one line, and starting
 # with two would hide how much headroom there actually is.
 #
-# `type: onnx` is correct here, NOT `tensorrt`. On Jetson the jp6 image runs ONNX models through the
-# TensorRT execution provider automatically; the legacy `tensorrt` detector is the YOLOv3/v4/v7 path
-# and is what would be needed for DLA -- mutually exclusive with modern models (plan section 8).
+# `type: onnx` is correct here, NOT `tensorrt` -- the legacy `tensorrt` detector is the YOLOv3/v4/v7
+# path and is what would be needed for DLA, mutually exclusive with modern models (plan section 8).
 #
-# FIRST START WILL BE SLOW. TensorRT compiles an engine for this exact GPU/model/precision and caches
-# it under /config/model_cache. Several minutes with no detections is EXPECTED, not a hang. It
-# recompiles after any model, TensorRT or hardware change.
+# `device: Tensorrt` is MANDATORY and is the whole point. The migration plan (section 5 step 5)
+# assumed the jp6 image "auto-detects Jetson and runs ONNX via the TensorRT execution provider".
+# IT DOES NOT. From frigate/util/model.py get_ort_providers():
+#
+#     elif provider == "TensorrtExecutionProvider":
+#         # TensorrtExecutionProvider uses too much memory without options to control it
+#         # so it is not enabled by default
+#         if device == "Tensorrt":  ...
+#         else:                     continue      <-- silently skipped
+#
+# `device` defaults to "AUTO", so leaving it unset drops straight through to CUDAExecutionProvider.
+# Measured on this board with the default: 25.69 ms and frames being SKIPPED -- barely better than
+# the HD 630's 29-30 ms, on hardware that should be several times faster. Nothing warns you; it just
+# quietly runs on the slow path.
+#
+# It compounds: CudaGraphRunner.is_model_supported() EXCLUDES `yolonas` (alongside dfine), so on the
+# CUDA fallback this model gets no CUDA Graphs either. Two penalties at once, both silent.
+#
+# FIRST START AFTER THIS CHANGE WILL BE SLOW. TensorRT now genuinely compiles an engine for this
+# exact GPU, model and precision, cached under /config/model_cache/tensorrt/ort/trt-engines.
+# Minutes with no detections is EXPECTED. It recompiles after any model/TensorRT/hardware change.
+# (The earlier sub-second "load" was the giveaway that no engine was being built at all.)
 detectors:
   onnx_0:
     type: onnx
+    device: Tensorrt
 
 # YOLO-NAS-S @ 320x320, COCO pretrained (swapped in from ssdlite_mobilenet_v2 2026-08-04).
 # WHY: ssdlite was too weak -- it conflated our two adjacent parked cars and flickered their
