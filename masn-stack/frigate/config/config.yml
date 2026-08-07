@@ -41,14 +41,35 @@ detectors:
 # NOTE the labelmap change: ssdlite used the 91-class COCO map, YOLO-NAS uses the 80-class
 # one. Class indices differ, but Frigate matches objects by NAME, so zones/filters/masks
 # that say "person" keep working untouched.
+# SWAPPED to the Frigate+ trained model 2026-08-07 (trained 07:17Z, base 2026.2, type yolonas).
+#
+# `path: plus://<id>` is the WHOLE config -- model_type, width, height, input_tensor,
+# input_pixel_format and labelmap_path are all carried in the model's own metadata and MUST NOT
+# be repeated here, or they fight it. Frigate downloads the model at startup using PLUS_API_KEY
+# from /opt/stack/.env; without that key this config will not start. The previous local file is
+# still at /config/yolo_nas_s.onnx, so reverting is just restoring the block below.
+#
+# TRAINED ON ONLY 22 VERIFIED IMAGES (driveway 15, backyard 3, front_door 2, west_gate 2) out of
+# 96 submitted -- the rest were never annotated, and only annotated images train. Do NOT read a
+# fix into any change you see: 15 driveway frames is not enough to move box merging, and normal
+# daily variation is larger. This is a MEASUREMENT against the pre-swap baseline below.
+#
+# PRE-SWAP BASELINE (13.4 h, yolo_nas_s local @320, motorcycle untracked):
+#   driveway  car 536 (39.9/h)  person 42 (3.1/h)  TOTAL 43.0/h
+#   directness: 494 scored, 325 flicker-like (d<0.30) = 66%
+#   inference 30.4 / 29.5 ms   detection_fps 10.5   frigate cpu 21.9%
+#
+# The 640x640 variant of this same training run (82a9153e5f1c21208e8c00d7bbb5d96a) is the one
+# that might actually fix the merging -- more resolution on distant parked cars. It is NOT for
+# masn: est. 110-130 ms on the HD 630 (UNVERIFIED, extrapolated from 32 ms at 320), which is
+# 60-70% detector utilisation with no burst headroom, on the same iGPU whose saturation caused
+# the ffmpeg crash-loop. Save it for the Orin.
+#
+# To revert: delete this `model:` block and restore
+#   model_type: yolonas / width: 320 / height: 320 / input_tensor: nchw
+#   input_pixel_format: bgr / path: /config/yolo_nas_s.onnx / labelmap_path: /labelmap/coco-80.txt
 model:
-  model_type: yolonas
-  width: 320
-  height: 320
-  input_tensor: nchw
-  input_pixel_format: bgr
-  path: /config/yolo_nas_s.onnx
-  labelmap_path: /labelmap/coco-80.txt
+  path: plus://7cc1274d78a77a4a4951b6425822de55   # yolonas 320x320, custom
 
 # VAAPI hwaccel REMOVED 2026-08-06 -- it was crash-looping every detect stream.
 #
