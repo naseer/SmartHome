@@ -114,6 +114,54 @@ tradeoff (all objects on that camera, including people, held 15 s instead of 5 s
 closes). **Recommend reverting**; the churn is a symptom of the merge/split oscillation above, not of
 premature object dropping.
 
+### FRIGATE+ MODEL — merging looks FIXED (2026-08-07, 4 h, PRELIMINARY)
+
+Deployed `plus://7cc1274d78a77a4a4951b6425822de55` (yolonas 320, trained 07:17Z off base 2026.2),
+commit `de2051b`. Trained on only **22 verified images** (driveway 15) of 96 submitted. I predicted
+no measurable movement from 15 frames. That was wrong:
+
+| driveway | pre-swap (13.4 h) | post-swap (4.0 h) |
+|---|---|---|
+| car events | 39.9/h | 23.5/h |
+| total events | 43.0/h | 28.9/h |
+| flicker-like (d<0.30) | 66% | **1%** (1 of 75) |
+
+The mechanism is the churn stopping, and the cars are **still detected** — this was checked, because
+"model went blind" produces the same headline numbers:
+
+- Anchored in the parked cluster (x 0.69-0.84, y 0.60-0.80): **pre 224 of 537 events (42%)**,
+  spread over 224 separate short events; **post 1 of 95 (1%)**.
+- A live in-progress car object sits at that exact spot, box area **0.095** — matching the
+  single-car signature (~0.087), NOT the merged band (0.149-0.191).
+- Mean car event duration rose 202.9 s -> 491.8 s.
+
+So the parked cars are now held as ONE persistent object instead of 224 churn events. That is the
+outcome we wanted, arrived at from a training set I judged too small to matter.
+
+**NOT yet confirmed.** 4 h afternoon window against a 13.4 h overnight baseline; the strongest single
+piece of evidence (the stable in-progress object) is one moment in time. Re-measure across a full
+overnight before treating this as settled. Beware reading the post-swap box stats naively: median
+anchor moved to x 0.42/y 0.20 and median area fell 0.049 -> 0.008 purely because the churn events
+that dominated the old population are gone, leaving distant street traffic — not because boxes shrank.
+
+**Detector load nearly doubled**, and it is NOT from driveway:
+
+| det_fps | pre | post |
+|---|---|---|
+| driveway | 6.0 | 5.5 |
+| front_door | 2.4 | 4.9 |
+| west_gate | 0.3 | 2.7 |
+| east_gate | 0.6 | 3.1 |
+| backyard | 1.8 | 3.4 |
+| **total** | **10.5** | **19.6** |
+
+The new model simply finds more on the other cameras. Inference 27.4/28.4 ms, CPU 24.5%, ~28%
+detector utilisation — fine, but it halves the headroom, which matters on the iGPU that crash-looped.
+
+Next: verify the remaining ~74 submissions and retrain (11 of 12 slots left). Then consider tracking
+`package` — available in this model's labelmap but deliberately NOT enabled yet, so it cannot
+confound this measurement.
+
 Kept in the repo, disabled, ready to re-enable now that the detector is upgraded:
 
 - `frigate/config/config.yml`: `objects.track: [person]` (vehicles removed). The `driveway_lane` speed
@@ -327,15 +375,18 @@ Both OpenVINO detectors run `device: GPU` on the HD 630; VAAPI decode for all si
 on that same chip. Inference stalled past the i915 preemption watchdog, i915 reset the render engine,
 and every in-flight decode surface died with it. ffmpeg cannot recover from that, so it exited.
 
-**Fix:** `ffmpeg.hwaccel_args: []` — software decode. Result after an 8-minute soak: **0 crashes,
-0 surface errors**, all cameras at target fps, `skipped_fps` 0.0. It was close to free, and relieving
-the contention gave inference back:
+**Fix:** `ffmpeg.hwaccel_args: []` — software decode. Confirmed over a **67-minute** soak: **0 crashes,
+0 surface errors** (~92 expected at the old rate), all cameras at target fps, `skipped_fps` 0.0.
 
-| | before | after |
+| | before | after (67 min) |
 |---|---|---|
 | ffmpeg crashes | ~82/h | 0 |
-| Frigate CPU | 21.6% | 21.9% |
-| inference | 29.0 / 29.9 ms | 27.5 / 27.6 ms |
+| Frigate CPU | 21.6% | 25.6% |
+| inference | 29.0 / 29.9 ms | 32.0 / 32.5 ms |
+
+An 8-minute sample early in the soak showed 27.5 ms and I briefly read that as an inference *gain*.
+It did not hold. Software decode costs ~8% inference speed and ~4 points of CPU — it does not pay
+for itself, it buys the crashes away. Still a good trade at ~17% detector utilisation.
 
 **GOTCHA:** `hwaccel_args` defaults to the string `"auto"`, so *deleting* the key does NOT disable
 hardware decode — Frigate re-detects VAAPI ("Automatically detected vaapi hwaccel for video decoding").
