@@ -406,6 +406,52 @@ This is evidence for the Orin migration, not just a bugfix: the HD 630 is at the
 and decode cannot coexist. On the Orin, NVDEC and the GPU are separate engines. Revisit `hwaccel_args`
 there — it should go back to hardware decode.
 
+## 7. Recurring MULTI-CAMERA dropouts — cause not yet found (opened 2026-08-08)
+
+Started as "why did the driveway camera crash at 05:38 on 2026-08-08". That specific event WAS
+TrackMix-local — `driveway` and `driveway_tele` are the two lenses of one camera and both gapped,
+nothing else did. Both Frigate instances saw it (masn 16 ffmpeg restarts, Orin 17) and both
+recovered on their own, so it was the camera, not either host.
+
+**But the recording-gap history shows a bigger, pre-existing problem.** Query
+`recordings` for gaps > 45 s per camera over 14 days. Every camera has 15-32 of them, and many are
+SIMULTANEOUS across cameras that share nothing but the network:
+
+```
+08-04 12:06:36-12:07:51   driveway, driveway_tele, west_gate, east_gate, backyard   (5)
+08-02 17:51:26            driveway, front_door, west_gate, east_gate                (4, same second)
+08-04 16:03:33-38         driveway, front_door, west_gate, east_gate                (4)
+08-06 15:55:33-36         driveway, front_door, east_gate, backyard                 (4)
+08-08 04:54:12-18         driveway_tele, east_gate, backyard                        (3)
+```
+
+Different models (TrackMix, doorbell, CX810 x2, Duo 2) at different IPs going down in the same
+second is not five cameras failing. It is something shared. Roughly one such event every 1.5 days.
+
+**Ruled out, with evidence:**
+- **NAS / CIFS write stalls** — no CIFS errors in the kernel log at any gap time; the only CIFS
+  lines are mount operations at container restarts.
+- **masn's NIC** — no link up/down events; the only entries are veth churn from container restarts.
+- **Frigate restarts** — restart times were extracted from the CIFS remount log. Only ONE of nine
+  multi-camera gaps (07-30 16:57) matches a restart. There were NO restarts at all on 08-06 or
+  08-08, yet both days have multi-camera gaps.
+- **Cameras being unreachable now** — all five answer ping and have 80/443/554 open.
+
+**Where to look next: the UniFi controller's event log** at those exact timestamps. Looking for
+switch reboots, PoE port power-cycles, uplink flaps, or STP topology changes. That is the shared
+component and it is the one place not yet examined. (A Reolink HTTP-API uptime check would settle
+camera-reboot-vs-network per device, but the `cmd=Login` POST failed on all three tried -- likely
+HTTPS-only or a different auth flow on this firmware. Worth another attempt.)
+
+**Read the durations carefully.** Gaps cluster at 105-120 s, suspiciously uniform across different
+cameras. That is almost certainly RECOVERY time -- ffmpeg's 10 s `-timeout`, plus watchdog
+detection, plus reconnect -- not the length of the underlying outage. The actual network event may
+be only seconds long.
+
+**Not caused by any of the Orin work**: gaps go back to 07-30, before the Orin was flashed. This is
+a pre-existing reliability issue on the security system and worth fixing on its own merits --
+especially before the Orin becomes must-never-be-down and inherits it.
+
 ## Deferred housekeeping
 
 - ~~MQTT broker password rotation~~ — **DONE 2026-08-04.** The leaked password (from an earlier
