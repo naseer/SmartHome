@@ -474,6 +474,39 @@ must-never-be-down at cutover, and it already threw a CIFS "network is unreachab
 a pre-existing reliability issue on the security system and worth fixing on its own merits --
 especially before the Orin becomes must-never-be-down and inherits it.
 
+## 8. Audio recording — WORKING, it is a playback mute (answered 2026-08-08)
+
+Reported as "Frigate does not seem to record audio". It does. Verified on two recording files on
+different cameras and days:
+
+```
+recordings/2026-08-08/17/driveway/17.15.mp4        index0 hevc video   index1 aac audio 16 kHz mono
+recordings/2026-08-08/15/driveway_tele/15.03.mp4   index0 h264 video   index1 aac audio mono
+```
+
+Every camera stream carries AAC mono (driveway, front_door, backyard all checked via ffprobe on the
+go2rtc restream), and `ffmpeg.output_args.record` is already `preset-record-generic-audio-aac`, which
+re-encodes audio rather than dropping it. `preset-record-generic` (no `-audio-`) is the one that
+would strip it — do not "simplify" to that.
+
+**The player starts muted because browsers block autoplay with sound.** Click the speaker icon. Not
+a Frigate setting, and it is per-browser.
+
+GOTCHA for anyone probing this: `ffprobe` is NOT on `$PATH` in the container. Use the full path,
+`/usr/lib/ffmpeg/7.0/bin/ffprobe` on masn (`/usr/lib/ffmpeg/jetson/bin/ffprobe` on the Orin, where
+DEFAULT_FFMPEG_VERSION=jetson). Also do not `find` over `/media/frigate` — it is a CIFS mount and
+takes minutes; get the path from the `recordings` table instead.
+
+**SEPARATE and still off: `audio.enabled: false`** — that is audio DETECTION (events from speech,
+barking, alarms; it also populates `audio_rms`/`audio_dBFS`, which is why both read 0 in stats all
+session). Nothing to do with recording. Enabling it is another workload that would land on the Orin,
+and deserves its own measured change.
+
+NOTE, non-technical: audio recording is treated differently from video in a number of jurisdictions,
+including US states with two-party consent rules, and these cameras cover a driveway and front door.
+It is already on and no change is proposed — recorded here so the decision is explicit rather than
+accidental.
+
 ## Deferred housekeeping
 
 - ~~MQTT broker password rotation~~ — **DONE 2026-08-04.** The leaked password (from an earlier
