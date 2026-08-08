@@ -437,16 +437,38 @@ second is not five cameras failing. It is something shared. Roughly one such eve
   08-08, yet both days have multi-camera gaps.
 - **Cameras being unreachable now** — all five answer ping and have 80/443/554 open.
 
-**Where to look next: the UniFi controller's event log** at those exact timestamps. Looking for
-switch reboots, PoE port power-cycles, uplink flaps, or STP topology changes. That is the shared
-component and it is the one place not yet examined. (A Reolink HTTP-API uptime check would settle
-camera-reboot-vs-network per device, but the `cmd=Login` POST failed on all three tried -- likely
-HTTPS-only or a different auth flow on this firmware. Worth another attempt.)
+**UniFi investigated 2026-08-08 with a local admin account. Switch EXONERATED; cause still unknown.**
 
-**Read the durations carefully.** Gaps cluster at 105-120 s, suspiciously uniform across different
-cameras. That is almost certainly RECOVERY time -- ffmpeg's 10 s `-timeout`, plus watchdog
-detection, plus reconnect -- not the length of the underlying outage. The actual network event may
-be only seconds long.
+```
+USW Pro Max 16 PoE   uptime 10.8 d   PoE 39.7/180 W (22%)   temp 33 C   1 rx error total
+UCG Fiber            uptime 11.5 d   switch uplink = gw port 3, 0 errors
+```
+Nothing rebooted during any outage. PoE nowhere near budget, so no shedding. Port error counters are
+essentially zero. And camera client uptime (119-155 h) never reset across the 08-06/07/08 outages,
+so the LINKS never went down -- ports stayed up while traffic stopped.
+
+**Correct topology (an earlier reading of this was WRONG):**
+```
+USW Pro Max  p1 front_door   p2 east_gate   p3 driveway   p4 backyard   p5 west_gate
+             p11 masn        p13 NAS        uplink -> UCG Fiber p3
+UCG Fiber    p2 naahmed-linux + SLZB-06U (only shared port)   p4 ** orin ** (459 rx errors)
+```
+Every camera is on its OWN managed switch port, and masn is on the same switch -- camera<->masn
+traffic never touches the gateway. An earlier note here claimed unmanaged switches sat behind
+"ports 1, 2, 4"; that came from conflating gateway port numbers with switch port numbers. There are
+none near the cameras, which **kills the STP hypothesis** that rested on them.
+
+**The event log is NOT reachable via API on this firmware** (UniFi OS 5.1.19). All documented paths
+404 or 403 with an `admin` role, not just readonly -- `stat/event`, `stat/alarm`,
+`v2/.../system-log`, `v2/.../events|alerts|notifications`. Elevating the account does not help; the
+endpoints are gone, not forbidden. **Read the system log in the UI.** Do not re-hunt these paths.
+`tools/unifi-events.sh` now reports what the API *does* expose (device uptimes, PoE vs budget,
+per-port errors, client-to-port mapping).
+
+**SEPARATE FINDING -- the Orin sits on UCG Fiber port 4, which has 459 rx errors** (every other port
+is 0 or 8). Not on the camera path, so not this thread's cause, but it is the box that becomes
+must-never-be-down at cutover, and it already threw a CIFS "network is unreachable" mount failure on
+2026-08-07. Swap that cable before cutover.
 
 **Not caused by any of the Orin work**: gaps go back to 07-30, before the Orin was flashed. This is
 a pre-existing reliability issue on the security system and worth fixing on its own merits --
