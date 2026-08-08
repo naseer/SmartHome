@@ -9,13 +9,13 @@ set -euo pipefail
 STACK_DIR="/opt/stack"
 IMAGE="ghcr.io/blakeblackshear/frigate:0.17.2-tensorrt-jp6"
 
-echo ">> [1/6] Verify this is a flashed JetPack 6 board"
+echo ">> [1/7] Verify this is a flashed JetPack 6 board"
 [ -f /etc/nv_tegra_release ] || { echo "!! no /etc/nv_tegra_release -- this is not a flashed L4T board"; exit 1; }
 grep -q "R36" /etc/nv_tegra_release || { echo "!! expected L4T R36 (JetPack 6). Found:"; cat /etc/nv_tegra_release; exit 1; }
 [ -d /usr/local/cuda ] || { echo "!! no CUDA -- the flash did not include the runtime components"; exit 1; }
 sed -n '1p' /etc/nv_tegra_release
 
-echo ">> [2/6] Register the nvidia container runtime with Docker"
+echo ">> [2/7] Register the nvidia container runtime with Docker"
 # JetPack installs nvidia-container-toolkit but does NOT wire it into Docker. Verified missing on
 # this board 2026-08-07: no /etc/docker/daemon.json existed at all. Without this the container
 # gets no GPU and the TensorRT detector cannot start.
@@ -29,7 +29,7 @@ sudo docker info 2>/dev/null | grep -qi nvidia || { echo "!! nvidia runtime stil
 # pull and the gate as root would cache the image layers and model under root's context instead.
 echo "   nvidia runtime registered"
 
-echo ">> [3/6] Add $USER to the docker group"
+echo ">> [3/7] Add $USER to the docker group"
 # Matches masn, where the login user runs docker without sudo. NOTE this is effectively root-
 # equivalent -- it is a deliberate convenience on a single-admin appliance, not a security boundary.
 if ! id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then
@@ -37,14 +37,14 @@ if ! id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then
   echo "   added -- LOG OUT AND BACK IN for it to take effect"
 fi
 
-echo ">> [4/6] Create ${STACK_DIR}"
+echo ">> [4/7] Create ${STACK_DIR}"
 sudo mkdir -p "$STACK_DIR"
 sudo cp -r ./. "$STACK_DIR"/
 sudo chown -R "$USER:$(id -gn)" "$STACK_DIR"   # own it as the invoking user so `source .env` (600) works
 cd "$STACK_DIR"
 mkdir -p frigate/config
 
-echo ">> [5/6] Require + secure .env"
+echo ">> [5/7] Require + secure .env"
 [ -f .env ] || { echo "!! .env missing -- copy .env.example to .env and fill it, or run tools/sync-secrets-from-masn.sh"; exit 1; }
 chmod 600 .env
 for k in FRIGATE_RTSP_PASSWORD MASN_LAN_IP MQTT_USER MQTT_PASSWORD NAS_IP \
@@ -53,7 +53,7 @@ for k in FRIGATE_RTSP_PASSWORD MASN_LAN_IP MQTT_USER MQTT_PASSWORD NAS_IP \
 done
 echo "   .env present, 600, all required keys set"
 
-echo ">> [6/6] THE GATE -- onnxruntime must expose TensorrtExecutionProvider"
+echo ">> [6/7] THE GATE -- onnxruntime must expose TensorrtExecutionProvider"
 # docs/orin-frigate-migration.md section 3: "If it does not, stop -- nothing downstream will work."
 docker pull "$IMAGE"
 # --entrypoint python3 bypasses the image's s6 init. Without it, s6's own start/stop chatter is
@@ -66,6 +66,19 @@ case "$PROVIDERS" in
   *TensorrtExecutionProvider*) echo "   GATE PASSED" ;;
   *) echo "!! GATE FAILED -- TensorrtExecutionProvider absent. STOP HERE; do not start Frigate."; exit 1 ;;
 esac
+
+echo ">> [7/7] Install the boot-ordering unit"
+# Without this Frigate does NOT survive a reboot: Docker mounts the cifs volume before the network
+# is up, the mount fails "network is unreachable", and Docker does not retry (Restarts=0) because
+# the failure is at volume-mount time rather than a container crash. Measured on 2026-08-08.
+if [ ! -f /etc/systemd/system/frigate-stack.service ]; then
+  sudo cp "$STACK_DIR/frigate-stack.service" /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable frigate-stack.service
+  echo "   installed and enabled -- VERIFY BY REBOOTING, nothing else proves it"
+else
+  echo "   already present"
+fi
 
 cat <<'EOF'
 

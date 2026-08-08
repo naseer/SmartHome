@@ -396,6 +396,39 @@ avoid is changing four things and not knowing which one cost what:
 4. Reconsider `min_area: 0.005` and the detect-fps-driven tuning; some of it was compensation for a
    starved GPU and may no longer be needed.
 
+### BLOCKER FOR CUTOVER 2026-08-08 — Frigate does not survive a reboot
+
+Rebooted the Orin deliberately to test it. **Frigate did not come back.**
+
+```
+ExitCode=143
+Error=failed to mount //<NAS>/frigate/orin-shadow ... network is unreachable
+Restarts=0
+```
+
+Docker starts the container before the network is up, the cifs volume mount fails, and **Docker does
+not retry** -- `restart: unless-stopped` does not cover this because the failure is at VOLUME-MOUNT
+time, before the container starts. So it simply stays down until someone notices. The NAS was fine
+throughout (ping and 445 both good immediately after).
+
+This had already happened once on 2026-08-07 and was misread then as a transient network blip. It is
+not transient, it is deterministic, and it is **disqualifying for a box that becomes
+must-never-be-down** — the whole premise of section 7 is that the Orin can be relied on.
+
+**Fix: `orin-stack/frigate-stack.service`**, a systemd oneshot ordered `After=network-online.target`
+that runs `docker compose up -d` with a 30 x 10 s retry loop. The retry matters as much as the
+ordering: `network-online.target` only means the interface has an address, not that the NAS is
+answering SMB — a NAS still booting will refuse. `setup-orin.sh` step 7 installs it.
+
+Deliberately NOT fixed by bind-mounting the share via fstab: the docker cifs volume is what makes
+Docker refuse to start Frigate when the NAS is unreachable rather than silently recording to the
+local NVMe. That hardening is worth keeping; this fixes the ordering without weakening it.
+
+**Verify by actually rebooting. Nothing else proves it.** Do not cut over until a reboot brings
+Frigate back unattended.
+
+Good news from the same reboot: the `free(): invalid pointer` shutdown abort did NOT recur.
+
 ## 7. Rollback
 
 Keep masn able to take Frigate back for at least a week: leave its compose service defined (stopped),

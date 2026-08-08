@@ -1,0 +1,46 @@
+# /etc/systemd/system/frigate-stack.service
+#
+# WHY THIS EXISTS: without it, Frigate does NOT come back after a reboot. Verified by rebooting the
+# Orin 2026-08-08:
+#
+#   ExitCode=143
+#   Error=failed to mount //<NAS>/frigate/orin-shadow ... network is unreachable
+#   Restarts=0
+#
+# Docker starts the container before the network is up, the cifs volume mount fails, and Docker does
+# NOT retry -- `restart: unless-stopped` does not cover this, because the failure happens at
+# VOLUME-MOUNT time, before the container ever starts. So it just stays down. The NAS is fine; it is
+# purely a boot ordering race. It had already bitten once on 2026-08-07 and was misread then as a
+# transient network blip.
+#
+# This is disqualifying for a box that becomes must-never-be-down at cutover, so fix it BEFORE.
+#
+# The retry loop matters as much as the ordering: network-online.target only means the interface has
+# an address, NOT that the NAS is answering SMB. A NAS that is itself booting will still refuse.
+# 30 attempts x 10 s = 5 minutes of patience.
+#
+# Deliberately NOT solved by bind-mounting the share via fstab: the docker cifs volume is what makes
+# Docker refuse to start Frigate when the NAS is unreachable, instead of silently recording to the
+# local NVMe. That hardening is worth keeping -- this unit fixes the ordering without weakening it.
+#
+# Install (needs sudo, on the Orin):
+#   sudo cp /opt/stack/frigate-stack.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now frigate-stack.service
+# Verify by actually rebooting -- that is the only test that counts.
+
+[Unit]
+Description=Frigate stack (docker compose) with NAS-aware startup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/stack
+ExecStart=/bin/bash -c 'for i in $(seq 1 30); do /usr/bin/docker compose up -d && exit 0; echo "attempt $i failed (NAS not ready?), retrying in 10s"; sleep 10; done; echo "giving up after 5 minutes"; exit 1'
+ExecStop=/usr/bin/docker compose stop
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
