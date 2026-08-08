@@ -91,3 +91,105 @@ automation:
                 message: "clear_notification"
                 data:
                   tag: "front-door-unlocked"
+
+  # JAMMED -- the bolt tried to move and failed. Treated as MORE urgent than a plain unlocked door,
+  # because the failure mode is silent: the app and the dashboard both showed an attempt to lock, so
+  # you believe the house is secure when it is not. Maximum priority, ttl 0 (deliver even if the phone
+  # is dozing), and no auto-retry -- re-driving a motor into whatever is binding is how a lock strips
+  # its gears or drains its cells.
+  #
+  # Re-armed hourly rather than every 15 min: a jam needs hands on the door, not a faster nag.
+  - id: front_door_jammed
+    alias: "Front door: lock JAMMED"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "jammed"
+      - platform: time_pattern
+        hours: "/1"
+    condition:
+      - condition: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        state: "jammed"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door lock JAMMED"
+                message: "The bolt did not throw -- the door is NOT secured. Check it by hand."
+                data:
+                  tag: "front-door-jammed"
+                  channel: "Door lock"
+                  importance: high
+                  priority: high
+                  ttl: 0
+                  image: "/api/camera_proxy/camera.front_door"
+                  clickAction: "/lovelace/0"
+
+  # A jam that clears (locked OR unlocked -- either means the motor moved) retires the alert.
+  - id: front_door_jam_cleared
+    alias: "Front door: jam cleared"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        from: "jammed"
+        to:
+          - "locked"
+          - "unlocked"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-jammed"
+
+  # Low battery. A dead lock is a worse failure than a dead contact sensor -- it can strand you at the
+  # door -- so this warns EARLY (20%) and again at a genuinely urgent 10%, rather than once at the cliff.
+  # Numeric-state triggers fire only on a CROSSING, so each level announces itself exactly once; the
+  # separate tags let the 10% alert sit alongside the 20% one instead of quietly replacing it.
+  - id: front_door_lock_battery_low
+    alias: "Front door: lock battery low"
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.aqara_smart_lock_u200_us_battery
+        below: 20
+        id: "warn"
+      - platform: numeric_state
+        entity_id: sensor.aqara_smart_lock_u200_us_battery
+        below: 10
+        id: "urgent"
+    variables:
+      urgent: "{{ trigger.id == 'urgent' }}"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: >
+                  {{ 'Front door lock battery CRITICAL' if urgent else 'Front door lock battery low' }}
+                message: >
+                  {{ states('sensor.aqara_smart_lock_u200_us_battery') }}% remaining --
+                  {{ 'replace the batteries now.' if urgent else 'replace the batteries soon.' }}
+                data:
+                  tag: "{{ 'front-door-battery-urgent' if urgent else 'front-door-battery' }}"
+                  channel: "Door lock"
+                  importance: "{{ 'high' if urgent else 'default' }}"
+                  clickAction: "/lovelace/0"
