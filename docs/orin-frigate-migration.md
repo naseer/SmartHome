@@ -315,6 +315,39 @@ never the fix for box merging; Frigate+ was, and the Orin is what lets a bigger 
 CAVEAT: 54 scored tracks over ~20 minutes at one time of day, against a 4 h window for the 1%
 figure. Directionally clear, not a settled number. Re-measure over a full day.
 
+### THIRD RESULT 2026-08-08 — the custom yolov9s runs well; the flicker comparison is UNRESOLVED
+
+Deployed `plus://54f2f55d...` (yolo-generic 640, **96 verified images**, driveway 81 vs 15 in the
+first run). Performance is settled and comfortable: **35.9-44.3 ms** across two processes, **16-29%**
+utilisation, **0.0 skipped**, CPU 16-19%. Engine built in ~1 min reusing the timing cache. The 640
+custom model has more headroom on the Orin than the 320 model has on masn.
+
+**The flicker comparison did NOT work, and the reason is a methodology error worth not repeating.**
+Measured over 4.25 h overnight and set against the base model's 4.4 h evening window:
+
+| window | events | scored | flicker |
+|---|---|---|---|
+| Orin, yolov9s 640 BASE (evening) | 151 (34.3/h) | 122 | 20% |
+| Orin, yolov9s 640 CUSTOM 96img (overnight) | 10 (2.4/h) | 8 | 12% |
+| **masn CONTROL, same overnight window** | **6 (1.4/h)** | **6** | **33%** |
+
+Running masn over the IDENTICAL wall-clock window is what exposed it. The apparent collapse from
+34.3/h to 2.4/h is **time of day, not the model** — masn fell to 1.4/h in the same hours. And on 6-8
+scored tracks a "percentage" is 1-2 events; masn's own flagship 1% figure reads 33% here on 6 tracks.
+
+**Do not compare flicker across windows with different traffic.** Any future model comparison needs
+a DAYTIME window with hundreds of scored tracks, and a same-window control on the other box. Both
+boxes persist their events in SQLite, so this can be done retrospectively — no live capture needed.
+
+**The 17 "crashes" were the CAMERA, not the Orin.** Clustered in a 2-minute burst at 05:38-05:39,
+all four TrackMix streams (driveway + driveway_tele, main + sub) failing RTSP DESCRIBE with 404.
+masn logged **16 crashes in the same window** with "Connection timed out". The TrackMix dropped off
+the network for ~2 min and both instances recovered. Not NVDEC, not the shadow doubling RTSP client
+load, not the Orin. Worth watching as its own issue.
+
+Still open before cutover: the unexplained `free(): invalid pointer` shutdown abort from 2026-08-07,
+which has NOT recurred in the 4 h since.
+
 ## 6. Phase 3 — cutover, and Phase 4 — spend the headroom
 
 Cutover: stop Frigate on masn → move `frigate.db` → repoint the shadow instance at the real recordings
