@@ -151,9 +151,22 @@ detectors:
 #
 # Engine build at 640 will take LONGER than the 11 minutes 320 took. det_fps 0.0 meanwhile is normal.
 model:
-  path: plus://de319e7a905a497560a9569685a76505   # yolov9s 640x640, Frigate+ BASE
-  # masn stays on plus://7cc1274d78a77a4a4951b6425822de55 (yolonas 320 custom) -- do not sync this
-  # file over masn's. To revert the Orin, put that id back here.
+  # CUSTOM yolov9s @ 640, trained 2026-08-08T02:17Z on 96 VERIFIED images
+  # (driveway 81, front_door 10, backyard 3, west_gate 2). This is the combination the whole
+  # exercise was aiming at: the yolo-generic architecture that gets Frigate's fast path on Nvidia,
+  # at 4x the pixels, fine-tuned on our own footage.
+  #
+  # Flicker-like share on `driveway` car tracks, measured on this box unless noted:
+  #   yolonas 320 BASE   (masn, pre-Frigate+)        66%
+  #   yolov9s 640 BASE   (4.4 h, 122 scored)         20%   <- immediately previous config
+  #   yolonas 320 CUSTOM (masn, 22 images, 4 h)       1%
+  #   yolov9s 640 CUSTOM (96 images)                  ?    <- being measured
+  # Architecture+resolution took 66 -> 20. Fine-tuning on 22 images took 66 -> 1. Fine-tuning is the
+  # bigger lever by far; this model is meant to have both.
+  path: plus://54f2f55dae2238e3fb431a04d1a6b0a5
+  # Previous: plus://de319e7a905a497560a9569685a76505 (yolov9s 640 BASE) -- revert target.
+  # masn stays on plus://7cc1274d78a77a4a4951b6425822de55 (yolonas 320 custom). Do NOT sync this
+  # file over masn's.
 
 # SOFTWARE DECODE, deliberately, for now -- carried over from masn UNCHANGED.
 #
