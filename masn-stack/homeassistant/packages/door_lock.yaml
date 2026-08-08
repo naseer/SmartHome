@@ -1,0 +1,93 @@
+# Front door lock -- Aqara U200, a native MATTER device (commissioned 2026-08-08, area "Entrance"),
+# so it arrives via the matter-server container, NOT Z2M. `lock.aqara_smart_lock_u200_us` is the entity;
+# battery is `sensor.aqara_smart_lock_u200_us_battery`.
+# Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
+# is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+automation:
+  # Warn when the door has sat unlocked for 15 minutes.
+  #
+  # Two triggers, same pattern as the garage: the state trigger fires promptly at the 15-minute mark, and
+  # the quarter-hourly time_pattern RE-ARMS it -- a `for:` state trigger fires only once per unlock, so
+  # without the pattern a warning you swiped away would never come back. The template condition is what
+  # actually enforces "unlocked for >= 15 min" for both, and it makes the re-arm nag every 15 minutes
+  # until the door is locked.
+  #
+  # Deliberately a WARNING only -- it does not auto-lock. Auto-locking a deadbolt can trap someone out,
+  # or drive the bolt into a door that is standing open; that is a decision for a human, so the
+  # notification carries a "Lock it" button instead.
+  - id: front_door_unlocked_warning
+    alias: "Front door: unlocked for 15 min"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "unlocked"
+        for: "00:15:00"
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        state: "unlocked"
+      - condition: template
+        value_template: >
+          {{ now() - states.lock.aqara_smart_lock_u200_us.last_changed >= timedelta(minutes=15) }}
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door unlocked"
+                message: >
+                  Unlocked for {{ ((now() - states.lock.aqara_smart_lock_u200_us.last_changed)
+                                    .total_seconds() // 60) | int }} minutes.
+                data:
+                  tag: "front-door-unlocked"
+                  channel: "Door lock"
+                  importance: high
+                  image: "/api/camera_proxy/camera.front_door"
+                  clickAction: "/lovelace/0"
+                  actions:
+                    - action: "lock_front_door"
+                      title: "Lock it"
+
+  # The "Lock it" button. Kept separate from the notification_action_light handler so the two never race
+  # over the same event; that one self-selects on a `light_` prefix, this one on an exact action id.
+  - id: notification_action_lock
+    alias: "Notification action: lock the front door"
+    mode: single
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: "lock_front_door"
+    action:
+      - action: lock.lock
+        target:
+          entity_id: lock.aqara_smart_lock_u200_us
+
+  # Locking retires the warning rather than sending an "all clear" -- the useful signal is "is it unlocked
+  # right now". Same reasoning as the garage open/close pair.
+  - id: front_door_locked_clear_notification
+    alias: "Front door: locked -- clear the warning"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "locked"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-unlocked"
