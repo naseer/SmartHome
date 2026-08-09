@@ -424,8 +424,22 @@ Deliberately NOT fixed by bind-mounting the share via fstab: the docker cifs vol
 Docker refuse to start Frigate when the NAS is unreachable rather than silently recording to the
 local NVMe. That hardening is worth keeping; this fixes the ordering without weakening it.
 
-**Verify by actually rebooting. Nothing else proves it.** Do not cut over until a reboot brings
-Frigate back unattended.
+**VERIFIED FIXED 2026-08-09 by a second deliberate reboot:**
+
+```
+20:43:48  Starting Frigate stack with NAS-aware startup...
+20:43:49  Error ... network is unreachable
+20:43:49  attempt 1 failed (NAS not ready?), retrying in 10s
+20:43:59  Container frigate Starting
+20:44:02  Container frigate Started -- unit Finished
+```
+
+The first attempt still fails — the race is real and unavoidable at that point in boot — but ONE
+retry was enough. **Unattended recovery in ~14 s**, cifs mounted, healthy at +2 min, engine reloaded
+from the TensorRT cache (no rebuild), 39.8/40.8 ms across two detectors, det_fps 22.0, zero skipped
+frames, running the custom yolov9s 640.
+
+This closes the cutover blocker. Note the fix does NOT prevent the first failure; it survives it.
 
 Good news from the same reboot: the `free(): invalid pointer` shutdown abort did NOT recur.
 
