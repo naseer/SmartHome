@@ -13,6 +13,12 @@
 # instead of closing it).
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo
 # copy is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+#
+# NOTIFICATION CHANNELS -- two, deliberately (see door_lock.yaml's header for the full story):
+#   "Garage"        routine open/close events + the "Garage closed" confirmation. Quiet by design.
+#   "Garage alerts" the auto-close warning, "WON'T close", and sensor battery. Always `importance: high`.
+# Android fixes a channel's importance the FIRST time it is used and the app can never raise it after,
+# so a routine `low` event sharing a channel with an alert permanently silences the alert.
 script:
   garage_door_pulse:
     alias: "Garage door: pulse"
@@ -111,7 +117,8 @@ automation:
                                 .total_seconds() // 60) | int }} minutes -- closing in 2 minutes.
                 data:
                   tag: "garage-auto-close"
-                  channel: "Garage"
+                  channel: "Garage alerts"
+                  importance: high
                   image: "/api/camera_proxy/camera.garage_fluent_lens_0"
                   clickAction: "/lovelace/0"
                   actions:
@@ -179,7 +186,7 @@ automation:
                     message: "Tried 3 times and it is still open -- check for an obstruction."
                     data:
                       tag: "garage-auto-close"
-                      channel: "Garage"
+                      channel: "Garage alerts"
                       importance: high
                       priority: high
                       ttl: 0
@@ -251,4 +258,7 @@ automation:
           message: "Replace the battery -- garage status and auto-close depend on it."
           data:
             tag: "garage-sensor-battery"
-            channel: "Garage"
+            channel: "Garage alerts"
+            # `high` like everything else on this channel -- whichever alert fires FIRST fixes the
+            # channel's importance for good, so no notification here may be quieter than the loudest.
+            importance: high

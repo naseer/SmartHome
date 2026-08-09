@@ -3,6 +3,18 @@
 # battery is `sensor.aqara_smart_lock_u200_us_battery`.
 # Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
 # is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+#
+# NOTIFICATION CHANNELS -- two, and the split is load-bearing (learned the hard way 2026-08-09):
+#   "Door lock"        routine locked/unlocked events. Quiet by design.
+#   "Door lock alerts" 15-min warning, JAMMED, unreachable, battery. Always `importance: high`.
+# Android fixes a channel's importance the FIRST time that channel is used and the app can NEVER raise
+# it afterwards -- per-notification `importance` is only a creation-time default. Everything used to
+# share one "Door lock" channel, a routine `importance: low` lock event created it, and every later
+# alert inherited silent: automations fired, services returned success, no error anywhere, and nothing
+# reached the phone. Hence: never put a routine event and an alert on the same channel, and never let a
+# non-high notification be the first thing on an alerts channel.
+# Renaming a channel is also the only way to un-poison one remotely -- a new name creates a new channel
+# at the importance we ask for, without the user digging through Android settings on every phone.
 automation:
   # Warn when the door has sat unlocked for 15 minutes.
   #
@@ -47,7 +59,7 @@ automation:
                                     .total_seconds() // 60) | int }} minutes.
                 data:
                   tag: "front-door-unlocked"
-                  channel: "Door lock"
+                  channel: "Door lock alerts"
                   importance: high
                   image: "/api/camera_proxy/camera.front_door"
                   clickAction: "/lovelace/0"
@@ -125,7 +137,7 @@ automation:
                 message: "The bolt did not throw -- the door is NOT secured. Check it by hand."
                 data:
                   tag: "front-door-jammed"
-                  channel: "Door lock"
+                  channel: "Door lock alerts"
                   importance: high
                   priority: high
                   ttl: 0
@@ -190,8 +202,13 @@ automation:
                   {{ 'replace the batteries now.' if urgent else 'replace the batteries soon.' }}
                 data:
                   tag: "{{ 'front-door-battery-urgent' if urgent else 'front-door-battery' }}"
-                  channel: "Door lock"
-                  importance: "{{ 'high' if urgent else 'default' }}"
+                  channel: "Door lock alerts"
+                  # Always `high`, even at the 20% warning. Android fixes a channel's importance when
+                  # the channel is FIRST created and the app can never raise it afterwards -- so if a
+                  # `default` battery warning happened to be the first alert ever sent, it would pin the
+                  # whole alerts channel at default and quietly demote the jam and unreachable alerts
+                  # with it. Urgency is carried by the title and tag instead, which we do control.
+                  importance: high
                   clickAction: "/lovelace/0"
 
   # UNREACHABLE -- the lock has stopped answering. This is the failure the rest of this file cannot
@@ -246,7 +263,7 @@ automation:
                   Check the Aqara W200 thermostat -- it is the only Thread border router.
                 data:
                   tag: "front-door-unreachable"
-                  channel: "Door lock"
+                  channel: "Door lock alerts"
                   importance: high
                   clickAction: "/lovelace/0"
 
