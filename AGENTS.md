@@ -64,6 +64,14 @@ smart home is operational. What's running:
       HA-owned Thread network.
     - The U200 **cannot** fall back to Zigbee: its Matter NetworkCommissioning FeatureMap is `2`
       (Thread only), and Z2M's converter DB has no U200. The SLZB-06 cannot rescue it. Do not re-check.
+    - **"Who unlocked the door" is NOT possible** (measured 2026-08-09, do not re-investigate). Raw
+      LockOperation events off the matter-server WS come back `{"lockOperationType": 1,
+      "operationSource": 0, "userIndex": null, ...}` — every field but the operation type is null, so
+      the lock reports neither WHO nor even HOW, and `changed_by` is permanently "Unspecified".
+      Compounding it: HA's matter lock platform discards `userIndex` regardless; the lock's Matter user
+      table is empty (`GetUser` 1-3 → `userName: null`) because Aqara keeps its assigned people in its
+      own cloud; and the DoorLock FeatureMap (3475) lacks the fingerprint bit. Only Aqara's CLOUD
+      integration could do it — rejected by the local-first rule.
     - Thread channel is **unknown** — Aqara exposes no OTBR API and it is not in the meshcop TXT.
       Zigbee is on channel 25; both are 2.4 GHz 802.15.4, so verify separation in the Aqara app.
     - Owned but unused: a **ZBT-2** and a **Thread plug**. The plug (mains = a Thread ROUTER) would give
