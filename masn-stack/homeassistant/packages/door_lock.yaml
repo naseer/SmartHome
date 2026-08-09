@@ -193,3 +193,86 @@ automation:
                   channel: "Door lock"
                   importance: "{{ 'high' if urgent else 'default' }}"
                   clickAction: "/lovelace/0"
+
+  # UNREACHABLE -- the lock has stopped answering. This is the failure the rest of this file cannot
+  # see on its own: every other automation here gates on a concrete state (`unlocked`, `jammed`), and
+  # `unavailable` matches NONE of them, so a dead radio path silently switches the warnings off while
+  # everything still looks healthy on the dashboard.
+  #
+  # The likely cause is upstream of the lock: it is Matter-over-THREAD, and the Aqara W200 thermostat
+  # is currently the ONLY Thread border router in the house (verified by mDNS _meshcop._udp). If the
+  # W200 reboots or drops off, the lock goes dark with it -- so the message points there first.
+  # The bolt itself is unaffected; key and keypad still work.
+  #
+  # 30 minutes of grace: Thread children re-parent and matter-server re-subscribes after a hiccup, and
+  # a briefly-flapping node is not worth waking the house for. Re-armed every 2 hours, not every 15
+  # minutes -- there is no user action that fixes this quickly, so a fast nag is pure noise.
+  - id: front_door_lock_unreachable
+    alias: "Front door: lock unreachable"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to:
+          - "unavailable"
+          - "unknown"
+        for: "00:30:00"
+      - platform: time_pattern
+        hours: "/2"
+    condition:
+      # `states.lock....` is None if the entity is removed outright (integration torn down), which
+      # would raise inside the timestamp comparison -- so prove the object exists before touching it.
+      - condition: template
+        value_template: >
+          {% set s = states.lock.aqara_smart_lock_u200_us %}
+          {{ s is not none
+             and s.state in ['unavailable', 'unknown']
+             and now() - s.last_changed >= timedelta(minutes=30) }}
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door lock unreachable"
+                message: >
+                  No response for
+                  {{ ((now() - states.lock.aqara_smart_lock_u200_us.last_changed).total_seconds()
+                       // 60) | int }} minutes.
+                  Lock status and the unlocked/jam warnings are OFF until it returns.
+                  Check the Aqara W200 thermostat -- it is the only Thread border router.
+                data:
+                  tag: "front-door-unreachable"
+                  channel: "Door lock"
+                  importance: high
+                  clickAction: "/lovelace/0"
+
+  # Back on the air -- retire the alert. Any real state (locked/unlocked/jammed) proves the path works.
+  - id: front_door_lock_reachable_again
+    alias: "Front door: lock reachable again"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        from:
+          - "unavailable"
+          - "unknown"
+        to:
+          - "locked"
+          - "unlocked"
+          - "jammed"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-unreachable"

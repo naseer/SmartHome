@@ -48,11 +48,38 @@ smart home is operational. What's running:
   state from the contact, movement from a relay pulse) — use that entity, not the raw script. An
   **auto-close after 30 min open** automation rides on it (2-min "Keep open" warning, then close +
   verify, 3 attempts). Both garage devices are `retain: true` in Z2M so state survives an HA restart.
+- **Matter / Thread**: 10 Matter nodes via the **matter-server** container. Nine are Wi-Fi (W200
+  thermostat + 8 Kasa dimmers). The tenth is the **Aqara U200 front-door lock (node 25), the only
+  Matter-over-THREAD device** — `lock.aqara_smart_lock_u200_us`, commissioned 2026-08-08, area Entrance.
+  **KNOWN RISK — one border router.** An mDNS `_meshcop._udp` sweep finds exactly ONE BR: the Aqara W200
+  thermostat (`192.168.50.159`, Thread 1.3.0, network `AqaraHome-9de5`, xpan `64ec20cc16093cc8`). The
+  lock is also the only Thread device, so there are no routers and it is a sleepy end device with a
+  single parent. If the W200 reboots or dies, the lock goes dark in HA (the bolt still works by key and
+  keypad). `automation.front_door_lock_unreachable` exists precisely so that failure is not silent.
+  Related facts a future session will want:
+    - matter-server reports `thread_credentials_set: False` and there is no `thread.dataset_store` —
+      **HA does not hold the Thread dataset.** It cannot commission Thread devices on its own (the lock
+      was paired via the phone), and a dead W200 cannot be replaced on the same network. Aqara does not
+      export the dataset, so any second BR realistically means re-commissioning the lock onto an
+      HA-owned Thread network.
+    - The U200 **cannot** fall back to Zigbee: its Matter NetworkCommissioning FeatureMap is `2`
+      (Thread only), and Z2M's converter DB has no U200. The SLZB-06 cannot rescue it. Do not re-check.
+    - Thread channel is **unknown** — Aqara exposes no OTBR API and it is not in the meshcop TXT.
+      Zigbee is on channel 25; both are 2.4 GHz 802.15.4, so verify separation in the Aqara app.
+    - Owned but unused: a **ZBT-2** and a **Thread plug**. The plug (mains = a Thread ROUTER) would give
+      the lock a relay and is the cheapest real fix. The ZBT-2 is NOT a good BR now that masn is in the
+      basement — a network-attached radio placed centrally on floor 1 is the shape that works here.
 - **Dashboards**: a SINGLE default **Overview** (Home / Cameras / Review), deployed from
   `masn-stack/homeassistant/dashboards/overview.json` via `tools/apply-dashboard.sh`. (The old duplicate
   `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)
 - **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
   detector upgrade — the weak ssdlite model false-fired on parked-car box flicker.
+  Garage + front-door-lock alerts live in `packages/garage_door.yaml` and `packages/door_lock.yaml`.
+  House style for these, worth copying: a two-trigger pattern (a `for:` state trigger to fire promptly
+  plus a `time_pattern` to RE-ARM, because a `for:` trigger fires only once per state entry), an action
+  button on the notification instead of an automatic actuation, a shared `tag` so repeats replace rather
+  than stack, and the recovery event CLEARING the alert rather than sending an all-clear.
+  The lock deliberately does **not** auto-lock, and the jam alert deliberately does **not** auto-retry.
 
 **NEXT BIG THING — Frigate moves to the Jetson AGX Orin.** DECIDED 2026-08-04, plan in
 **`docs/orin-frigate-migration.md`**. The HD 630 hit the relief-valve trigger the plan itself defined
@@ -89,9 +116,15 @@ except the 382 GB media library, which was copied to the NAS before the wipe. St
   and returned) → add 2nd 14 TB later for a mirror (btrfs add-drive→RAID1, in place). Frigate
   cache stays LOCAL on masn's SSD;
   bulk (recordings/media/backups/family photos) on the NAS.
-- **Network CURRENT REALITY (2026-07)**: core is in the **2nd-floor OFFICE** (internet enters there) --
-  UCG-Fiber + U7 Pro Wall + masn + NAS all in the office now, works fine, no PoE switch yet. Basement
-  rack is FUTURE/optional. Floor-2 AP wired off the office gateway; coverage gap = floor 1 + basement.
+- **Network CURRENT REALITY (2026-08-09)**: **masn now lives in the BASEMENT RACK** (moved from the
+  2nd-floor office). Everything else in this bullet is as-recorded 2026-07 and NOT re-verified since
+  the move -- confirm before relying on it: UCG-Fiber + U7 Pro Wall + NAS were all in the office,
+  internet enters there, no PoE switch yet. Floor-2 AP wired off the office gateway; coverage gap =
+  floor 1 + basement.
+  **Radio consequence of the move (matters for any future 802.15.4 decision):** anything plugged into
+  masn is now a BASEMENT radio. That kills the USB-dongle option for Thread the same way it killed it
+  for Zigbee -- a front-door lock cannot be held from the basement. Network-attached radios placed
+  centrally (the SLZB-06 pattern) are the only shape that works in this house. See the Thread bullet.
   **LEADING backhaul (investigating): repurpose the legacy Cat5** -- if the office has a Cat5 drop to the
   structured panel, put a PoE switch at the panel and patch the other drops = fully wired floor-1/basement
   APs + cameras, no MoCA/mesh (office<->panel = 1G over Cat5e). Verify (4-pair UTP not alarm wire, all 4
