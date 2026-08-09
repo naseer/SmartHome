@@ -27,8 +27,13 @@ mqtt:
   # subscribes to that prefix, so the shadow would silently corrupt live automations, which is the
   # opposite of "shadow". A distinct prefix keeps the Orin invisible to HA until cutover; at cutover
   # this becomes `frigate` and masn's instance stops.
-  topic_prefix: frigate_orin
-  client_id: frigate_orin
+  # CUTOVER 2026-08-09: back to the default `frigate` prefix. While both instances ran, this was
+  # `frigate_orin` so the shadow stayed invisible to Home Assistant -- two Frigates on one broker
+  # both default to `frigate` and would have published contradictory state to the topics HA
+  # subscribes to. masn's Frigate MUST be stopped before this goes live, or that collision is
+  # exactly what happens.
+  topic_prefix: frigate
+  client_id: frigate
 
 # UI on :8971 served over plain HTTP (trusted LAN admin tool). Removes the self-signed-cert
 # "Not Secure"/strikethrough warning. Put behind a reverse proxy for real TLS if ever exposed.
@@ -211,19 +216,16 @@ model:
 ffmpeg:
   hwaccel_args: preset-jetson-h264
 
-# SHADOW RETENTION -- 2 days, not masn's 15.
-#
-# This instance writes to a SEPARATE scratch directory on the NAS (see docker-compose.yml) so it
-# cannot touch masn's recordings while both run. It exists to be measured, not to be a second archive,
-# and at ~130 GB/day six cameras would put 2 TB of throwaway footage on the NAS in a fortnight.
-# Two days is enough to confirm recording works end-to-end and to scrub a real event.
-# AT CUTOVER: restore `days: 15` and repoint the volume at the real share.
+# PRODUCTION RETENTION, restored at cutover 2026-08-09 (was 2 days while shadowing).
+# 15 days of gapless 24/7 footage, 30 days of review items. Measured actual: masn accumulated
+# 3.2 TB over ~12 days for these six cameras (~215-265 GB/day), so 15 days lands near 4 TB of the
+# NAS's 8 TB. The shadow's own 568 GB in `orin-shadow` is reclaimable once masn has been cold a week.
 record:
   enabled: true
   preview:
     quality: high             # crisper timeline-scrub thumbnails (Ring-like smooth scrub)
   continuous:
-    days: 2                   # SHADOW ONLY -- masn runs 15
+    days: 15
   alerts:
     retain: {days: 30}
   detections:

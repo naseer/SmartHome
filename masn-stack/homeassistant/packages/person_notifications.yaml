@@ -11,7 +11,13 @@
 # moving-vehicle automation to judge trajectory directness. HA is host-network so 127.0.0.1:5000 works.
 rest_command:
   frigate_get_event:
-    url: "http://127.0.0.1:5000/api/events/{{ event_id }}"
+    # CUTOVER 2026-08-09: Frigate moved to the Orin, so this is no longer localhost. 192.168.50.200
+    # is the Orin's DHCP-reserved address. :5000 is the UNAUTHENTICATED API -- on the Orin it is
+    # bound to that interface only (not 0.0.0.0, so it stays off the tailnet) AND firewalled to
+    # masn's IP in DOCKER-USER (orin-stack/tools/lock-down-api-port.sh). Do not widen either.
+    # NOT hot-reloadable: `homeassistant.reload_all` will not pick up a changed rest_command --
+    # it needs `docker restart homeassistant`.
+    url: "http://192.168.50.200:5000/api/events/{{ event_id }}"
     method: GET
 
 automation:
