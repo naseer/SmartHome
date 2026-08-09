@@ -443,6 +443,62 @@ This closes the cutover blocker. Note the fix does NOT prevent the first failure
 
 Good news from the same reboot: the `free(): invalid pointer` shutdown abort did NOT recur.
 
+## 6b. CUTOVER DONE 2026-08-09 21:47 UTC
+
+Frigate now runs on the Orin. masn's instance is stopped but defined.
+
+```
+model        plus://54f2f55d...  custom yolov9s 640, 96 verified images
+detectors    2 x onnx/Tensorrt    inference ~39 ms, det_fps 15-22, skipped 0.0
+decode       NVDEC (preset-jetson-h264)
+recordings   real NAS share, 15-day retention
+database     masn's, migrated -- integrity ok, 11,649 events, 721,870 recordings, 96 plus submissions
+mqtt         topic_prefix back to `frigate`
+detection gap ~13 s
+```
+
+Verified after: 300 recording segments in the first 8 minutes, 50 on each of the six cameras;
+events flowing; HA integration error-free after reconfiguring its URL; `camera.driveway` and
+`camera.front_door` reporting `recording`.
+
+**Why it was safe to go:** a matched 8 h DAYLIGHT window on both boxes (the overnight comparison was
+worthless -- 6-10 events) showed them indistinguishable:
+
+| driveway, 8 h daylight | masn yolonas 320 | Orin yolov9s 640 |
+|---|---|---|
+| flicker-like (<0.30) | 6 = **7%** | 6 = **7%** |
+| real movement (>=0.5) | 79 = 89% | 73 = 89% |
+| all events, all cameras | 310 (38.8/h) | 223 (27.9/h) |
+
+Same quality, 28% fewer total events, at 4x the resolution with headroom to spare.
+
+### Gotchas hit during the cutover — read before doing anything like this again
+
+- **`cat > file` needs write permission on the FILE**, not just the directory. `frigate.db` is
+  root-owned 644 and the copy failed `Permission denied` while the loop reported success, because
+  only the last command's status was checked. The Orin briefly came up on the SHADOW database.
+  Delete the target first (the dir is user-owned, so unlink is allowed) and verify byte sizes match.
+- **`frigate.db-wal` will not exist** once Frigate is stopped -- SQLite checkpoints it into the main
+  DB. That is correct, not an error; do not treat its absence as a failure.
+- **Renaming the volume was REQUIRED.** Docker does not re-read `driver_opts` on an existing named
+  volume, so editing the device path in place is silently ignored and it keeps mounting the old
+  target. `frigate_media_shadow` -> `frigate_media` is what forced the real share.
+- **`ORIN_LAN_IP` must be in `.env`.** Empty makes `"${ORIN_LAN_IP}:5000:5000"` bind to ALL
+  interfaces -- the opposite of the intent.
+- **`:5000` on the Orin is not reachable from the Orin itself** any more; it binds to the LAN IP.
+  Test from masn, and test the block from a THIRD machine (neither masn nor the Orin) -- from either
+  of those it looks fine regardless.
+- **Firewall the published port in DOCKER-USER, not ufw/INPUT.** Docker's DNAT rules in
+  `nat/PREROUTING` are evaluated first, so an INPUT rule appears to work and blocks nothing.
+
+### Still to do
+
+- Prove the notification path with a real person event (needs someone to walk up).
+- After masn has been cold a week: delete the `orin-shadow` directory and the `frigate_media_shadow`
+  volume, reclaiming 568 GB.
+- Phase 4 remains unspent: detect fps 3 -> 5 (the 2026-08-04 emergency cut), face recognition, LPR,
+  `package` tracking. One change at a time, measuring between each.
+
 ## 7. Rollback
 
 Keep masn able to take Frigate back for at least a week: leave its compose service defined (stopped),

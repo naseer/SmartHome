@@ -44,9 +44,11 @@ $SUDO iptables -L DOCKER-USER -n --line-numbers | head -8
 
 cat <<EOF
 
-NOT PERSISTENT ACROSS REBOOT. iptables rules vanish on boot. Make them stick with either:
-    sudo apt-get install -y iptables-persistent && sudo netfilter-persistent save
-or by adding this script to frigate-stack.service as an ExecStartPost.
+PERSISTENCE: iptables rules vanish on reboot, so frigate-stack.service re-runs this script on every
+boot as an ExecStartPost. That is already wired up -- confirm with:
+    systemctl cat frigate-stack.service | grep ExecStartPost
+If that line is missing, these rules are ONE REBOOT away from disappearing and putting an
+unauthenticated camera API back on the whole LAN.
 
 VERIFY FROM A THIRD MACHINE (not masn, not the Orin) -- that is the only real test:
     curl -m 5 http://${ORIN_LAN_IP:-<orin-ip>}:${PORT}/api/stats     # must hang or refuse
