@@ -40,6 +40,10 @@ RemainAfterExit=yes
 WorkingDirectory=/opt/stack
 ExecStart=/bin/bash -c 'for i in $(seq 1 30); do /usr/bin/docker compose up -d && exit 0; echo "attempt $i failed (NAS not ready?), retrying in 10s"; sleep 10; done; echo "giving up after 5 minutes"; exit 1'
 ExecStop=/usr/bin/docker compose stop
+# Re-apply the :5000 source restriction on every boot. iptables rules do NOT survive a reboot, and
+# :5000 is the UNAUTHENTICATED Frigate API -- without this it comes back reachable by the whole LAN
+# after any power cut. Runs as root here, which the script detects and skips sudo.
+ExecStartPost=/opt/stack/tools/lock-down-api-port.sh
 TimeoutStartSec=0
 
 [Install]
