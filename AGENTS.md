@@ -32,16 +32,21 @@ smart home is operational. What's running:
   GOTCHA when changing MQTT creds: Frigate and Z2M read `${MQTT_PASSWORD}` from `/opt/stack/.env`, but
   **HA keeps its copy in a UI config entry in root-owned `.storage` and rewrites that file on
   shutdown** — edit it with HA STOPPED or the change is silently lost.
-- **Cameras**: **Frigate on OpenVINO (HD 630 iGPU)** with **6 cameras + the TrackMix tele lens**,
-  go2rtc restream, 24/7 continuous recording to the NAS. PERSON detection.
-  Detector model is **`yolo_nas_s` @ 320 (swapped off ssdlite 2026-08-04)** running on **two** detector
-  processes — YOLO-NAS costs ~31 ms vs ssdlite's 8 ms, so one process could not keep up. Regenerate the
-  model with `masn-stack/tools/export-yolonas.sh`; check load with `tools/frigate-detector-stats.sh`.
-  **Detect fps is 3, not 5** — cut as an emergency because detection and VAAPI decode share the one
-  HD 630, and YOLO-NAS pinned it at max clock so video playback crawled. Person `min_area: 0.005`
-  filters YOLO-NAS's false hits on fixed objects across the street (they are 0.09-0.40% of frame;
-  real people are 1.3-21%, and scores overlap so only SIZE separates them).
-  See `masn-stack/frigate/config/config.yml`.
+- **Cameras**: **Frigate runs on the AGX ORIN as of 2026-08-09** (`orin-stack/`, not `masn-stack/`).
+  6 cameras + the TrackMix tele lens, go2rtc restream, 24/7 continuous recording to the NAS,
+  15-day retention. PERSON + CAR detection (`track: [person, car]`).
+  Detector: **Frigate+ custom `yolov9s` @ 640** (`plus://54f2f55d...`, 96 verified images) on **two**
+  `onnx` processes with **`device: Tensorrt`** — that device line is MANDATORY, Frigate silently
+  falls back to CUDA without it. Decode is NVDEC (`preset-jetson-h264`). ~39 ms, 20-40% utilised,
+  zero skipped frames. Config: `orin-stack/frigate/config/config.yml`.
+  **masn's Frigate is STOPPED but still defined** (`masn-stack/`), with its config, `yolo_nas_s.onnx`
+  and a DB copy intact — that is the rollback, keep it until at least 2026-08-16.
+  **`:5000` on the Orin is bound to its LAN IP and firewalled to masn's IP only** (DOCKER-USER, not
+  ufw — Docker's DNAT runs before INPUT). HA needs it for `rest_command.frigate_get_event`.
+  **Detect fps is still 3, not 5** — an emergency cut from 2026-08-04 for the old HD 630 contention
+  that no longer applies. Undoing it is the first unspent Phase 4 item.
+  Person `min_area: 0.005` filters false hits on fixed objects across the street (0.09-0.40% of
+  frame vs 1.3-21% for real people; scores overlap so only SIZE separates them).
 - **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —
   opens/closes via `script.garage_door_pulse`) and the **garage
   door contact sensor** (ThirdReality). The two are combined into **`cover.garage_door`** (template cover:
@@ -89,13 +94,17 @@ smart home is operational. What's running:
   than stack, and the recovery event CLEARING the alert rather than sending an all-clear.
   The lock deliberately does **not** auto-lock, and the jam alert deliberately does **not** auto-retry.
 
-**NEXT BIG THING — Frigate moves to the Jetson AGX Orin.** DECIDED 2026-08-04, plan in
-**`docs/orin-frigate-migration.md`**. The HD 630 hit the relief-valve trigger the plan itself defined
-(">~25ms = saturating"; measured 28-31 ms), and detection + video decode now fight over the one iGPU.
-**Flash JetPack 6.2.2, NOT 7.2** — Frigate publishes no jp7 image. Phase 1a/1d (broker LAN bind +
-password rotation) are DONE; the rest waits on the Orin being flashed and given a static IP. Note it
-reverses the plan's "security detection stays on the always-on box" principle — the Orin becomes
-must-never-be-down, so masn keeps the ability to take Frigate back.
+**~~NEXT BIG THING — Frigate moves to the Jetson AGX Orin.~~ DONE 2026-08-09.** Cut over with a
+~13 s detection gap; full record in `docs/orin-frigate-migration.md` §6b, including the gotchas.
+**The Orin is now must-never-be-down**, which reverses the plan's own "security detection stays on
+the always-on box" principle — masn retains the ability to take Frigate back.
+
+Worth knowing what the migration did and did not achieve: **the parked-car box merging that
+motivated it was fixed by Frigate+ fine-tuning, NOT by the hardware** (66% → 7% flicker-like; masn's
+HD 630 reached the same 7% on its own custom model). What the Orin bought is headroom not yet spent
+— a 640-input model at 20-40% utilisation, decode on separate silicon, and room for fps 5, face
+recognition, LPR and `package`. The board was already owned and idle, so this was repurposing, not
+a purchase to justify.
 
 **Open camera/detector threads → `masn-stack/OPEN-THREADS.md`** (git-tracked, portable): the disabled
 vehicle detection + the directness-gate fix kept for later, auto-dismiss of expired-clip notifications,
