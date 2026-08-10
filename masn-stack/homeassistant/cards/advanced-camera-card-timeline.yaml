@@ -45,6 +45,28 @@ cameras:
     live_provider: go2rtc
     go2rtc: {modes: [webrtc, mse], stream: backyard_sub}
 
+# ---------------------------------------------------------------------------------------------
+# LAYOUT -- this is what was actually wrong on the phone (screenshot 2026-08-10 19:50).
+#
+# SYMPTOM: the camera image filled only ~a third of the card, with large black bands above and
+# below, and the timeline sat flush against the iOS home indicator (easy to hit by accident).
+#
+# CAUSE: the dashboard view is almost certainly in **Panel (1 card)** mode. Panel stretches a single
+# card to the FULL viewport height. The video keeps its own aspect ratio inside that tall box, so
+# the leftover space becomes black bands, and the timeline gets shoved to the very bottom edge.
+# It is not a card bug and no card setting fully compensates for it.
+#
+# FIX, in the dashboard rather than here: edit the view (pencil -> the view's cog) and set its type
+# to **Sections** or **Masonry** instead of Panel. The card then takes only the height it needs.
+#
+# The static aspect ratio below is the belt-and-braces half: it stops the card claiming more height
+# than the video needs even if the view type is left alone. driveway_sub is 896x512 (~16:9); the
+# other subs are 640x480, 640x360 and 1536x576, so 16:9 is the closest single value that suits the
+# set. Use `unconstrained` only in Sections/Masonry, never in Panel.
+dimensions:
+  aspect_ratio_mode: static
+  aspect_ratio: '16:9'
+
 view:
   # `live` opens on the camera; the timeline is then one tap on the menu bar. Switch this to
   # `timeline` if you would rather the card OPEN on the scrubber -- reasonable if reviewing is what
@@ -58,8 +80,10 @@ view:
 # The timeline is the point of this card. `events_media_type: all` puts both clips and recordings on
 # one bar so you can drag across time rather than hunting through an event list.
 timeline:
-  style: ribbon
-  window_seconds: 3600          # 1 h visible; drag to move
+  # `stack` gives taller, easier-to-hit targets than `ribbon`, which is a single thin strip -- the
+  # thing that made the bar awkward to use on a phone. Switch back to `ribbon` if you prefer compact.
+  style: stack
+  window_seconds: 7200          # 2 h visible; wider window = less dragging to find something
   clustering_threshold: 3
   events_media_type: all
   show_recordings: true
