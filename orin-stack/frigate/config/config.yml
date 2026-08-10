@@ -344,6 +344,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/driveway_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: driveway_sub
+        Main: driveway
     detect:
       enabled: true             # 0.17 defaults this OFF
       width: 896
@@ -401,6 +411,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/front_door_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: front_door_sub
+        Main: front_door
     detect:
       enabled: true             # 0.17 defaults this OFF
       width: 640
@@ -437,6 +457,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/west_gate_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: west_gate_sub
+        Main: west_gate
     detect:
       enabled: true
       width: 640
@@ -472,6 +502,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/east_gate_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: east_gate_sub
+        Main: east_gate
     detect:
       enabled: true
       width: 640
@@ -496,6 +536,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/backyard_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: backyard_sub
+        Main: backyard
     detect:
       enabled: true
       width: 1536
@@ -520,6 +570,16 @@ cameras:
         - path: rtsp://127.0.0.1:8554/driveway_tele_sub
           input_args: preset-rtsp-restream
           roles: [detect]
+    # LIVE VIEW -> SUB-STREAM FIRST (2026-08-10). Frigate defaults live view to the camera's FIRST
+    # stream, which here was the 4K HEVC MAIN feed -- pushed in full whenever anyone opened the
+    # card, at home or remote. Two problems at once: the bitrate, and HEVC, which browsers and the
+    # HA app handle far worse than H.264 (often forcing a transcode). Every `_sub` stream is H.264.
+    # The first entry is the default, so `Sub` loads first and `Main` stays one click away for when
+    # detail actually matters. This helps LOCAL viewing too -- it was never only a remote problem.
+    live:
+      streams:
+        Sub: driveway_tele_sub
+        Main: driveway_tele
     detect:
       enabled: false
       width: 896
