@@ -46,8 +46,14 @@ cameras:
     go2rtc: {modes: [webrtc, mse], stream: backyard_sub}
 
 view:
+  # `live` opens on the camera; the timeline is then one tap on the menu bar. Switch this to
+  # `timeline` if you would rather the card OPEN on the scrubber -- reasonable if reviewing is what
+  # you mostly do on a phone, at the cost of not seeing a live image first.
   default: live
   camera_select: current
+  # Keep the chosen view when you switch cameras, so scrubbing camera A then jumping to camera B
+  # lands you on B's timeline rather than dumping you back to live.
+  update_cycle_camera: false
 
 # The timeline is the point of this card. `events_media_type: all` puts both clips and recordings on
 # one bar so you can drag across time rather than hunting through an event list.
@@ -64,11 +70,23 @@ media_viewer:
   lazy_load: true
   transition_effect: none
 
+# DISCOVERABILITY IS THE POINT HERE. An earlier draft of this file used `style: hidden`, which
+# tucks the menu behind a hover/swipe -- wrong when the complaint is literally "I don't even see an
+# option to scrub". `outside` keeps the bar visible so the timeline button is always on screen.
 menu:
-  style: hidden                 # swipe/hover to reveal; keeps the frame clean on a phone
+  style: outside
+  position: bottom
   buttons:
-    timeline: {enabled: true, priority: 100}
+    timeline: {enabled: true, priority: 100, alignment: matching}
     media_player: {enabled: true}
+    cameras: {enabled: true}
+    live: {enabled: true}
+    clips: {enabled: true}
+    snapshots: {enabled: true}
+    # Off: they crowd the bar on a phone and none of them help you scrub.
+    fullscreen: {enabled: false}
+    download: {enabled: false}
+    camera_ui: {enabled: false}
 
 performance:
   features:
