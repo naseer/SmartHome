@@ -43,8 +43,12 @@ smart home is operational. What's running:
   and a DB copy intact — that is the rollback, keep it until at least 2026-08-16.
   **`:5000` on the Orin is bound to its LAN IP and firewalled to masn's IP only** (DOCKER-USER, not
   ufw — Docker's DNAT runs before INPUT). HA needs it for `rest_command.frigate_get_event`.
-  **Detect fps is still 3, not 5** — an emergency cut from 2026-08-04 for the old HD 630 contention
-  that no longer applies. Undoing it is the first unspent Phase 4 item.
+  **Detect fps restored to 5 on 2026-08-09**, undoing the 2026-08-04 emergency cut (which existed
+  only because detection and VAAPI decode shared the HD 630 — NVDEC is separate silicon here).
+  Night measurement: offered 8.7-14.7 → 18.0 det/s, utilisation 19-29% → 33%, skipped still 0.0.
+  DAYLIGHT IS THE REAL TEST and was not yet observed: fps 3 ran 22-24 det/s in daylight, so fps 5
+  should reach ~37-40 against ~55/s capacity (~70%). If `skipped_fps` goes nonzero, add `onnx_2`
+  rather than reverting.
   Person `min_area: 0.005` filters false hits on fixed objects across the street (0.09-0.40% of
   frame vs 1.3-21% for real people; scores overlap so only SIZE separates them).
 - **Zigbee**: **Z2M + SLZB-06** coordinator live; devices paired incl. the **garage relay** (Aqara T2 —

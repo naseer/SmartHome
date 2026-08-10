@@ -1,17 +1,23 @@
-# ORIN SHADOW INSTANCE -- 6 cameras, TensorRT on the AGX Orin. Runs ALONGSIDE masn's Frigate.
+# PRODUCTION Frigate -- 6 cameras + the TrackMix tele lens, on the AGX Orin. LIVE since 2026-08-09.
 #
-# This is Phase 2 of docs/orin-frigate-migration.md: both instances live at once, watching the same
-# cameras, so the Orin can be compared against the HD 630 on real traffic before anything cuts over.
-# The cameras serve multiple RTSP clients, so this costs bandwidth and nothing else.
+# This was the shadow instance during Phase 2; it took over from masn at cutover (see
+# docs/orin-frigate-migration.md §6b). **masn's Frigate is stopped but still defined** in
+# masn-stack/ with its config, yolo_nas_s.onnx and a DB copy intact -- that is the rollback path,
+# and the Orin is now must-never-be-down. Do NOT sync this file over masn's; they have diverged
+# deliberately (detector, model, decode, mqtt host).
 #
-# DIFFS FROM masn-stack/frigate/config/config.yml -- and deliberately NOTHING ELSE. Cameras, zones,
-# masks, min_area and detect fps are all left identical so the comparison is honest (plan section 5
-# step 3). Every difference below is listed here so the two files can be diffed with intent:
-#   1. mqtt.topic_prefix + client_id  -- MUST differ, see below
-#   2. detectors: openvino/GPU x2     -> onnx x1 (TensorRT execution provider)
-#   3. record.continuous.days 15      -> 2 (shadow writes to a scratch NAS dir; do not hoard)
-# The model is UNCHANGED (`plus://...320`) on purpose -- swapping hardware and model at once would
-# make the measurement uninterpretable. The 640 variant is a Phase 4 change, one at a time.
+# Anything below still phrased as "shadow" is historical context left in place on purpose, because
+# it records WHY a setting is the way it is. Read dates: the newest note on a block wins.
+#
+# DETECT FPS RAISED 3 -> 5 on 2026-08-09. The cut to 3 was an emergency on 2026-08-04, when
+# detection and VAAPI decode shared the one HD 630 and YOLO-NAS pinned it at max clock so video
+# playback crawled. That contention does not exist here -- NVDEC is separate silicon from the GPU --
+# so this is undoing a constraint, not adding load for its own sake.
+# BASELINE at fps 3 (night, 3 samples): inference 39.3-47.7 ms, offered 8.7-14.7 det/s,
+# utilisation 19-29%, skipped 0.0, cpu 17.6-19.3%.
+# EXPECT roughly 67% more offered det/s. Daytime is the real test: at fps 3 daylight ran 22-24
+# det/s, so fps 5 should land near 37-40 against a capacity of ~45-50 -- i.e. 75-85%, which is
+# tight. If skipped_fps goes nonzero in daylight, add `onnx_2` rather than reverting.
 
 mqtt:
   # masn's LAN IP -- the broker is on masn and stays there. mosquitto binds 127.0.0.1 + ${MASN_LAN_IP}
@@ -342,7 +348,7 @@ cameras:
       enabled: true             # 0.17 defaults this OFF
       width: 896
       height: 512
-      fps: 3
+      fps: 5
       # NOTE: `max_disappeared` was raised 15 -> 45 here on 2026-08-05 and REVERTED the same day.
       # The theory was that parked cars were being dropped after 5 s undetected and re-acquired as
       # new objects. It did not hold: driveway car events went ~21/h -> 46/h, no benefit, against a
@@ -399,7 +405,7 @@ cameras:
       enabled: true             # 0.17 defaults this OFF
       width: 640
       height: 480
-      fps: 3
+      fps: 5
     motion: {}
     objects:
       filters:
@@ -435,7 +441,7 @@ cameras:
       enabled: true
       width: 640
       height: 360
-      fps: 3
+      fps: 5
     motion: {}
     objects:
       filters:
@@ -470,7 +476,7 @@ cameras:
       enabled: true
       width: 640
       height: 360
-      fps: 3
+      fps: 5
     motion: {}
     zones:
       east_side:
@@ -494,7 +500,7 @@ cameras:
       enabled: true
       width: 1536
       height: 576
-      fps: 3
+      fps: 5
     motion: {}
     zones:
       backyard_zone:
