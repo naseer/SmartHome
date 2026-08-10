@@ -1,0 +1,79 @@
+# Advanced Camera Card -- scrubbing-focused config, for the Cameras dashboard.
+#
+# WHY: the stock Frigate/HA camera card has a poor scrubbing experience and pulls FULL recordings.
+# Measured 2026-08-10: recordings run 4-6 Mbps and are 4K HEVC on driveway/west_gate/east_gate and
+# 4608x1728 on backyard. HEVC is badly supported in browsers, so something has to transcode it --
+# that is the "slow recordings" symptom, and bandwidth is only half of it.
+#
+# Frigate already solves this for its OWN UI: it generates low-res PREVIEW clips specifically for
+# timeline scrubbing. Measured on the Orin: 1757 preview clips totalling 6.5 GB, against 3.2 TB of
+# recordings -- roughly 500x smaller. Scrubbing should read previews and only fetch a real recording
+# when you stop and play. This card's `timeline` view is the way to get that behaviour inside HA.
+#
+# Remote access works because the Frigate integration (v5.15.4) ships hass-web-proxy-lib, so media is
+# proxied THROUGH Home Assistant. Nothing on the Orin needs exposing -- :8971 and :5000 stay put.
+#
+# PASTE THIS as a Manual card. `camera_entity` and the `camera` name must match your entities.
+# UNVERIFIED: the dashboard lives in HA's .storage, which is root-owned and not readable from this
+# repo, so this was not diffed against what you currently have. Treat it as a starting point.
+
+type: custom:advanced-camera-card
+cameras:
+  - camera_entity: camera.driveway
+    frigate:
+      camera_name: driveway
+    # Live from the SUB stream -- the same reason live view was repointed on 2026-08-09. The main
+    # feed is 4K HEVC and was being pushed in full whenever a card opened.
+    live_provider: go2rtc
+    go2rtc:
+      modes: [webrtc, mse]      # webrtc first (lowest latency), mse as the fallback
+      stream: driveway_sub
+  - camera_entity: camera.front_door
+    frigate: {camera_name: front_door}
+    live_provider: go2rtc
+    go2rtc: {modes: [webrtc, mse], stream: front_door_sub}
+  - camera_entity: camera.west_gate
+    frigate: {camera_name: west_gate}
+    live_provider: go2rtc
+    go2rtc: {modes: [webrtc, mse], stream: west_gate_sub}
+  - camera_entity: camera.east_gate
+    frigate: {camera_name: east_gate}
+    live_provider: go2rtc
+    go2rtc: {modes: [webrtc, mse], stream: east_gate_sub}
+  - camera_entity: camera.backyard
+    frigate: {camera_name: backyard}
+    live_provider: go2rtc
+    go2rtc: {modes: [webrtc, mse], stream: backyard_sub}
+
+view:
+  default: live
+  camera_select: current
+
+# The timeline is the point of this card. `events_media_type: all` puts both clips and recordings on
+# one bar so you can drag across time rather than hunting through an event list.
+timeline:
+  style: ribbon
+  window_seconds: 3600          # 1 h visible; drag to move
+  clustering_threshold: 3
+  events_media_type: all
+  show_recordings: true
+
+media_viewer:
+  auto_play: selected
+  auto_unmute: never            # browsers block autoplay WITH sound; muted start avoids a stall
+  lazy_load: true
+  transition_effect: none
+
+menu:
+  style: hidden                 # swipe/hover to reveal; keeps the frame clean on a phone
+  buttons:
+    timeline: {enabled: true, priority: 100}
+    media_player: {enabled: true}
+
+performance:
+  features:
+    animated_progress_indicator: false
+    media_chunk_size: 20        # smaller pages = faster first paint over a relay
+  style:
+    box_shadow: false
+    border_radius: false
