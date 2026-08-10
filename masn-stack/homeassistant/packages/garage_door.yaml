@@ -193,53 +193,49 @@ automation:
                       image: "/api/camera_proxy/camera.garage_fluent_lens_0"
                       clickAction: "/lovelace/cameras"
 
-  # Every opening -> a snapshot alert to the household. Deliberately LOW importance and no sound: this
-  # fires on ordinary comings and goings, so it should read as a log line you can glance at, not an alarm.
-  # The shared `garage-open` tag means a second opening REPLACES the first rather than stacking.
-  # `from: closed` (not just `to: open`) keeps unavailable->open -- a sensor waking up on a door that was
-  # already open -- from being announced as a fresh opening.
-  - id: garage_opened_notification
-    alias: "Garage: opened"
-    mode: single
+  # Every open AND close -> a snapshot card. Deliberately LOW importance and no sound: this fires on
+  # ordinary comings and goings, so it should read as a log line you can glance at, not an alarm.
+  #
+  # ONE tag for both directions, so each event REPLACES the previous card and the single card on the
+  # phone always shows the door's current state.
+  #
+  # This replaced an "opened" notification plus a separate automation that CLEARED it on close, which
+  # ate its own notifications -- the same defect measured on the door lock 2026-08-09. A quick out-and
+  # -back deleted the "Garage opened" card seconds after posting it, so the one case you most want to
+  # know about (the garage opened while you were away) was the case most likely to vanish unseen.
+  # Replacing costs nothing that clearing bought: still no stale card and still no stack.
+  #
+  # `from`/`to` are restricted to the real closed<->open pair so a sensor waking up (unavailable->open)
+  # is not announced as a fresh opening.
+  - id: garage_state_changed
+    alias: "Garage: opened or closed"
+    mode: queued
+    max: 5
     trigger:
       - platform: state
         entity_id: cover.garage_door
-        from: "closed"
-        to: "open"
+        from:
+          - "closed"
+          - "open"
+        to:
+          - "closed"
+          - "open"
+    variables:
+      opened_now: "{{ trigger.to_state.state == 'open' }}"
     action:
       - repeat:
           for_each: *phones
           sequence:
             - action: "{{ repeat.item }}"
               data:
-                title: "Garage opened"
+                title: "{{ 'Garage opened' if opened_now else 'Garage closed' }}"
                 message: "{{ now().strftime('%-I:%M %p') }}"
                 data:
-                  tag: "garage-open"
+                  tag: "garage-state"
                   channel: "Garage"
                   importance: low
                   image: "/api/camera_proxy/camera.garage_fluent_lens_0"
                   clickAction: "/lovelace/0"
-
-  # Closing retires the "opened" alert instead of sending a second one -- the useful signal is "is it open
-  # right now", and a close notification on top of the open one would just double the noise.
-  - id: garage_closed_clear_notification
-    alias: "Garage: closed -- clear the opened alert"
-    mode: single
-    trigger:
-      - platform: state
-        entity_id: cover.garage_door
-        from: "open"
-        to: "closed"
-    action:
-      - repeat:
-          for_each: *phones
-          sequence:
-            - action: "{{ repeat.item }}"
-              data:
-                message: "clear_notification"
-                data:
-                  tag: "garage-open"
 
   # Low battery on the door contact means the cover goes unavailable and auto-close stops working
   # silently -- so say so once, when it trips.

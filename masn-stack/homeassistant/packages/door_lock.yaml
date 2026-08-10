@@ -350,26 +350,22 @@ automation:
                 title: "{{ 'Front door locked' if locked_now else 'Front door unlocked' }}"
                 message: "{{ now().strftime('%-I:%M %p') }}{{ by_text }}"
                 data:
-                  # The UNLOCK shares the 15-minute warning's tag on purpose: if the door then sits open,
-                  # the warning REPLACES this card instead of stacking a second one about the same door.
-                  # The lock event gets its own tag so the two never overwrite each other.
-                  tag: "{{ 'front-door-locked' if locked_now else 'front-door-unlocked' }}"
+                  # ONE tag for both directions, so each event REPLACES the previous card in place and
+                  # the single card on the phone always shows the door's current state.
+                  #
+                  # This replaced a per-direction tag plus a step that cleared the opposite card, which
+                  # measurably ate its own notifications (2026-08-09): unlock->lock pairs 3 and 4 seconds
+                  # apart deleted the unlock card before anyone could see it, and even a normal "unlock,
+                  # walk in, lock behind you" wiped it within a minute. That read as "notifications
+                  # aren't firing" when in fact all 7 transitions had fired with zero errors -- the
+                  # notifications were being posted and then destroyed by the next event.
+                  #
+                  # Replacement is what tidiness costs nothing: no stale card, no stack, nothing deleted.
+                  # The 15-min warning keeps its own tag on the alerts channel; the two are meant to
+                  # coexist, since a quiet "unlocked 4:21 PM" and a loud "unlocked for 15 minutes" say
+                  # different things.
+                  tag: "front-door-state"
                   channel: "Door lock"
                   importance: "{{ 'low' if locked_now else 'default' }}"
                   image: "/api/camera_proxy/camera.front_door"
                   clickAction: "/lovelace/0"
-
-      # Retire the opposite card -- a "locked" notice sitting under a freshly unlocked door (or the
-      # reverse) is worse than no notice at all. The locked->clears-the-15-min-warning case is handled
-      # separately by front_door_locked_clear_notification, which also covers recovery from unavailable.
-      - repeat:
-          for_each:
-            - notify.mobile_app_mna
-            - notify.mobile_app_sara_phone
-            - notify.mobile_app_pixel_8_pro
-          sequence:
-            - action: "{{ repeat.item }}"
-              data:
-                message: "clear_notification"
-                data:
-                  tag: "{{ 'front-door-unlocked' if locked_now else 'front-door-locked' }}"
