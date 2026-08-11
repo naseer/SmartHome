@@ -88,6 +88,39 @@ Fallback if that fails: `browser_mod`, accepting the manual install.
 every view's cost running continuously, and not screen-sleep. Pick the default deliberately: a
 single camera or the status view costs far less than the grid.
 
+## 4b. MEASURED 2026-08-11 — one camera is free, six is not
+
+Built the dashboard at `/wall-display` and measured the Orin with it open.
+
+| | container CPU | det_fps | detector util | skipped_fps |
+|---|---|---|---|---|
+| idle | 26-28% | 25-28 | ~45% | none |
+| **1 camera streaming** | **24-26%** | 17-18 | 35% | **none** |
+| 6-camera grid | 82-87% | 10-13 | ~20% | **100+ on every camera** |
+
+**A single streaming camera is indistinguishable from idle.** The six-camera grid starves detection
+just as Frigate's own Live grid did.
+
+**So the always-on default MUST be a single camera**, not the grid. The grid can exist as a
+button-selectable view used briefly — the cost is only unacceptable when it runs 24/7.
+
+### What did NOT work, and why
+
+- **Assuming `advanced-camera-card` avoids the polling.** It does not. With MSE streaming it ALSO
+  issued 130 `latest.webp` + 41 `latest.jpg` requests in ~30 s. Using the card instead of Frigate's
+  grid changes nothing on its own.
+- **`image.refresh_seconds: 0`** to stop that polling. It removes the camera image entirely, so the
+  card falls back to its embedded placeholder — a flower photo — and looked broken. Do not use 0.
+- **Six simultaneous go2rtc streams through the proxy chain.** The browser reaches go2rtc via HA ->
+  Frigate -> go2rtc, and at six streams it reconnected every few seconds (a spinner on each tile).
+  **One camera over MSE is stable.** Whether the limit is 2, 3 or 4 was not tested.
+
+### Still to test before mounting
+
+- How many simultaneous streams stay stable — 2? 3? That sets the maximum useful grid.
+- Whether `webrtc` is more stable than `mse` here; the stable single-camera test used MSE only.
+- Whether HA's `conditional` cards unmount hidden children (section 3) — still the design's keystone.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
