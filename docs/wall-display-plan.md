@@ -147,8 +147,29 @@ never just WebP encoding; that was one visible piece of a broad polling surface.
 **The HA card avoids nearly all of it** because go2rtc simply forwards packets it is already
 receiving for detection. **~24x cheaper for the same single camera.**
 
-**CONCLUSION FOR THE WALL DISPLAY: use the HA card with `live_provider: go2rtc`, one camera, as the
-always-on default.** That is measured free. Do NOT point the kiosk at Frigate's own Live page.
+### CORRECTION — the six-camera grid IS free. The variable was WEBRTC, not camera count.
+
+Re-measured with the HA card at six cameras, **MSE only**:
+
+| | container cores | detection |
+|---|---|---|
+| true idle | 2.7 | — |
+| HA card, 1 camera (MSE) | 2.8 | healthy |
+| **HA card, 6-camera GRID (MSE only)** | **2.6** | **no skipping, det_fps 18-21, util 37-45%** |
+| HA card, 6-camera grid (`[webrtc, mse]`) | ~8+ | 100+ fps skipped, spinners on every tile |
+| Frigate's own UI, 6-camera grid | 8.7 | starved |
+
+**Six streams cost nothing.** The earlier "the grid starves detection" conclusion was WRONG for the
+HA card -- it was true only because that config listed `webrtc` first. WebRTC never established
+reliably, so it churned (connect -> fail -> retry, six times over), and THAT was the 82-87% CPU and
+the reconnecting spinners. Removing `webrtc` from `modes` fixed both at once.
+
+**`modes: ["mse"]` -- do NOT add `webrtc` back** without re-measuring. The host candidate added
+earlier (`192.168.50.200:8555`) did not make it reliable here.
+
+**CONCLUSION FOR THE WALL DISPLAY: HA card, `live_provider: go2rtc`, `modes: ["mse"]`, `_sub`
+streams. A six-camera grid at `grid_columns: 3` is free.** Do NOT point the kiosk at Frigate's own
+Live page -- that one polls regardless of camera count and costs +2.4 cores for a SINGLE camera.
 
 MEASUREMENT DISCIPLINE, learned the hard way here: the first "idle" baseline was taken with the HA
 card still open in a forgotten tab. It read 2.8 cores against a true idle of 2.7 -- harmless by luck,
