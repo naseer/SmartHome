@@ -115,6 +115,46 @@ button-selectable view used briefly — the cost is only unacceptable when it ru
   Frigate -> go2rtc, and at six streams it reconnected every few seconds (a spinner on each tile).
   **One camera over MSE is stable.** Whether the limit is 2, 3 or 4 was not tested.
 
+### ROOT CAUSE, profiled 2026-08-11 — Frigate's own UI polls; the HA card streams
+
+Measured per-process with `orin-stack/tools/cpu-profile.sh` (differences /proc utime+stime over a
+fixed window -- `ps pcpu` reports LIFETIME averages and is useless for this).
+
+| | container cores | vs idle |
+|---|---|---|
+| true idle (verified: no extra go2rtc consumers) | **2.7** | — |
+| **HA card, 1 camera, `live_provider: go2rtc` (MSE)** | **2.8** | **+0.1 — free** |
+| Frigate's own UI, 1 camera | 5.1 | +2.4 |
+| Frigate's own UI, 6-camera grid | 8.7 | +6.0 |
+
+**Frigate's Live UI polls `latest.webp` + `latest.jpg` several times a second PER VISIBLE CAMERA,
+on top of streaming.** Measured with ONE camera open: 72 webp + 41 jpg + 9 MSE websockets in a
+~200-line log window. Each poll reaches back into that camera's `capture` -> `process` pipeline to
+pull, resize and encode a frame. With one camera open that chain went from ~31% to **221%**:
+
+```
+frigate.process:driveway   22.4% -> 88.3%
+frigate.capture:driveway  (absent) -> 77.8%
+that camera's ffmpeg         8.9% -> 55.3%
+detectors                   20.0% -> 8.9%   (starved)
+```
+
+At the 6-camera grid the same cost lands everywhere at once -- the API process hit 105%, and
+`recording_manager` and `review_segment_manager` woke up too (37-45%), because the UI also polls
+`/api/events`, `/api/<cam>/recordings`, `/api/<cam>/ptz/info` and `/api/config` continuously. It was
+never just WebP encoding; that was one visible piece of a broad polling surface.
+
+**The HA card avoids nearly all of it** because go2rtc simply forwards packets it is already
+receiving for detection. **~24x cheaper for the same single camera.**
+
+**CONCLUSION FOR THE WALL DISPLAY: use the HA card with `live_provider: go2rtc`, one camera, as the
+always-on default.** That is measured free. Do NOT point the kiosk at Frigate's own Live page.
+
+MEASUREMENT DISCIPLINE, learned the hard way here: the first "idle" baseline was taken with the HA
+card still open in a forgotten tab. It read 2.8 cores against a true idle of 2.7 -- harmless by luck,
+because that path is free, but it could equally have hidden a large cost. **Verify idle by checking
+go2rtc consumers (`/api/streams`: 1 per stream = Frigate only) before trusting a baseline.**
+
 ### Still to test before mounting
 
 - How many simultaneous streams stay stable — 2? 3? That sets the maximum useful grid.
