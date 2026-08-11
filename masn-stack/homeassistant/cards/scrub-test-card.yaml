@@ -1,0 +1,46 @@
+# MINIMAL SCRUB TEST -- paste as a SECOND card, leave your existing one alone.
+#
+# Purpose: settle one question -- does dragging actually seek through recordings? Reported
+# 2026-08-10: "I can drag it but the video doesn't move, stays on the live feed."
+#
+# WHY THAT HAPPENS: the strip along the bottom of the LIVE view is a *mini timeline*. It shows when
+# events occurred and lets you jump to them, but the media pane stays LIVE, because live is the view
+# you are in. Scrubbing recordings is a DIFFERENT view (`timeline`). Dragging the mini timeline was
+# never going to move the video.
+#
+# So this card differs from a normal one in exactly two ways:
+#   1. view.default: timeline    -- opens IN the scrubber instead of live
+#   2. timeline.show_recordings  -- without it the bar carries only EVENTS, so there is nothing to
+#                                   scrub through between them (24/7 footage would be invisible)
+#
+# If scrubbing works here, the fix for your real card is those two settings, not a rebuild.
+# If it does NOT work here, the problem is below the card -- recording playback through the HA proxy
+# -- and card configuration is not the answer.
+#
+# UNVERIFIED: written from the card's documented behaviour, not tested against your install. Option
+# names can drift between card versions; if it errors, the version's own docs are authoritative.
+
+type: custom:advanced-camera-card
+cameras:
+  - camera_entity: camera.driveway
+    frigate:
+      camera_name: driveway
+
+view:
+  default: timeline           # <-- THE point of this card
+
+timeline:
+  style: stack                # taller targets than `ribbon`, easier on a phone
+  window_seconds: 7200        # 2 h visible
+  show_recordings: true       # <-- without this there is nothing but events to land on
+  events_media_type: all
+
+# Keep the menu visible; the earlier draft hid it, which is unhelpful when the complaint is
+# "I can't find the control".
+menu:
+  style: outside
+  position: top
+
+dimensions:
+  aspect_ratio_mode: static
+  aspect_ratio: '16:9'        # stops the card claiming more height than the video needs
