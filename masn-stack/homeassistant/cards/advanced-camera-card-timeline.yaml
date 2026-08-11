@@ -1,3 +1,24 @@
+# SUPERSEDED 2026-08-11 -- kept for the findings, NOT as a recommended config.
+#
+# OUTCOME: the HA card cannot reproduce Frigate's scrubbing, and the reason is structural rather
+# than configurable. Frigate's own UI scrubs low-res PREVIEW clips (1757 of them, 6.5 GB against
+# 3.2 TB of recordings, ~500x smaller). The card fetches REAL recordings -- clicking the timeline
+# loaded a 35-MINUTE 4K HEVC segment, which is the "slow" everyone was feeling.
+#
+# DECISION: use Frigate's own UI at http://orin.internal:8971 as a browser bookmark, logged in as
+# the existing `westacott` account (role: viewer, so view-only). Sessions last 24 h and refresh.
+# The HA iframe view was REMOVED -- it asked for a login on every load because an HTTP iframe inside
+# an HTTPS page cannot keep its cookie, and it never worked away from home because the browser has
+# to reach the Orin directly.
+#
+# Remote scrubbing remains unsolved and needs network-level access (VPN/tunnel), both declined.
+# Remote LIVE view is fine since the sub-stream change of 2026-08-09.
+#
+# ALSO RULED OUT: proxying Frigate's UI through HA. The Frigate integration proxies MEDIA only
+# (snapshots/recordings/vod/jsmpeg/mse/webrtc), not the UI. hass-web-proxy-integration serves the
+# HTML but the SPA requests assets by ABSOLUTE path (/assets/...), which resolve against HA's origin
+# and 404. Verified: proxied HTML 200/6833 bytes, its own main.js 404 from HA and 200 via the proxy.
+#
 # Advanced Camera Card -- scrubbing-focused config, for the Cameras dashboard.
 #
 # WHY: the stock Frigate/HA camera card has a poor scrubbing experience and pulls FULL recordings.
