@@ -312,6 +312,28 @@ objects:
 
 # go2rtc restream -- one connection per camera, re-shared to detect/record/live.
 go2rtc:
+  # WEBRTC HOST CANDIDATE -- added 2026-08-11 to stop the jsmpeg fallback.
+  #
+  # SYMPTOM: the Frigate UI was laggy on a Mac and the Orin was dropping 100+ fps of detection.
+  # CAUSE: the browser could not establish WebRTC, so Frigate fell back to **jsmpeg** -- which means
+  # decoding every camera and RE-ENCODING it to MPEG-1 in software, upscaling as it goes:
+  #   ffmpeg -f rawvideo -video_size 896x512 -i pipe: -f mpegts -s 1260x720 -codec:v mpeg1video
+  # Seven of those ran at once (6 cameras + birdseye). MPEG-1 cannot use NVENC, so it is all CPU:
+  # measured 87% container CPU, load average 8, GR3D 99%, and skipped_fps of 100+ on five cameras
+  # while camera_fps was only 5. The laggy browser and the dropped frames were the same event.
+  #
+  # WHY WEBRTC FAILED: the only candidate advertised was `stun:8555`. STUN is for discovering a
+  # public address through NAT -- it tells a LAN client nothing about how to reach this box. With no
+  # HOST candidate the connection never forms, and Frigate degrades to MSE and then jsmpeg.
+  #
+  # The literal IP is deliberate: candidates are handed to the browser, so a hostname the browser
+  # cannot resolve is useless. 192.168.50.200 is the Orin's DHCP-reserved address. Port 8555 is
+  # already published tcp+udp in docker-compose.yml.
+  # Keep `stun:8555` after it as the fallback for anything not on the LAN.
+  webrtc:
+    candidates:
+      - 192.168.50.200:8555
+      - stun:8555
   streams:
     driveway:                 # TrackMix WIDE lens, main (HEVC 4K) -> record + live
       - rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.86:554/h264Preview_01_main

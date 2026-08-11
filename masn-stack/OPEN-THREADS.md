@@ -507,6 +507,49 @@ including US states with two-party consent rules, and these cameras cover a driv
 It is already on and no change is proposed — recorded here so the decision is explicit rather than
 accidental.
 
+## 9. Viewing the Frigate UI STARVES detection (measured 2026-08-11)
+
+Reported as "the webpage has been laggy on my Mac". It is, and it costs more than lag.
+
+| | idle | Frigate UI live grid open |
+|---|---|---|
+| container CPU | 26-28% | **82-86%** |
+| det_fps | 25-40 | **10** |
+| detector utilisation | ~45% | **19%** |
+| skipped_fps | none | **100+ on all six cameras** |
+| load average | 5.7 | **12.4** |
+
+Frames are dropped BEFORE the detector -- utilisation falls while skipping soars, so the GPU is
+idle and the pipeline is starved. **Watching the cameras degrades their detection.**
+
+**CAUSE: still-image polling, not video.** nginx access log over ~30 s:
+
+```
+199  GET /api/<cam>/latest.webp     <-- dominates
+ 12  GET /live/mse/api/ws
+  8  GET /live/jsmpeg/<cam>  (x6)
+```
+
+The camera grid polls `latest.webp` about once per second PER CAMERA. Each request grabs the current
+frame, resizes and WebP-encodes it in the main process. Six of those a second is the load.
+
+**MITIGATION: click into a single camera instead of sitting on the grid.** Six WebP encodes per
+second become one. The grid is fine briefly; leaving it open is what hurts.
+
+**TWO WRONG THEORIES, recorded so they are not re-run:**
+1. *"Seven software MPEG-1 (jsmpeg) encoders are the cause."* They exist -- `ffmpeg -f rawvideo
+   -video_size 896x512 -i pipe: -f mpegts -s 1260x720 -codec:v mpeg1video` x7 -- and they do
+   transcode in software with no NVENC. But measured with the view OPEN they totalled **2.9% CPU**.
+   Not the problem. The process list at the bad moment already showed them at 0.9-1.3% each while
+   `frigate.process:*` ran at 22-31%; that should have been read the first time.
+2. *"WebRTC is failing, forcing the jsmpeg fallback."* A host candidate WAS missing and has been
+   added (`go2rtc.webrtc.candidates: 192.168.50.200:8555` before `stun:8555`) -- advertising only a
+   STUN candidate genuinely cannot help a LAN client. It is a correct change and worth keeping, but
+   it did NOT fix this, because video streaming was never the cost.
+
+Not yet investigated: whether the polling interval is configurable, or whether a single-camera view
+still polls the other five.
+
 ## Deferred housekeeping
 
 - ~~MQTT broker password rotation~~ — **DONE 2026-08-04.** The leaked password (from an earlier
