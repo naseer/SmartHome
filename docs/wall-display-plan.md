@@ -182,6 +182,66 @@ go2rtc consumers (`/api/streams`: 1 per stream = Frigate only) before trusting a
 - Whether `webrtc` is more stable than `mse` here; the stable single-camera test used MSE only.
 - Whether HA's `conditional` cards unmount hidden children (section 3) — still the design's keystone.
 
+## 4c. Pi build — OS, kiosk, and audio (decided 2026-08-12)
+
+**Order of work, per the user: AUDIO FIRST.** Announcements are independently useful and testable,
+and depend on none of the kiosk decisions. Wake word is explicitly DEFERRED.
+
+### OS: Raspberry Pi OS Lite (64-bit) + `cage`
+
+**Lite, not Desktop** — ships with no GUI at all, so there is no desktop to land on accidentally.
+
+**`cage`** is the kiosk layer: a Wayland compositor that runs EXACTLY ONE fullscreen application.
+No window manager, no taskbar, no alt-tab, nothing behind the browser. If Chromium exits, cage exits
+and systemd restarts it. That is a much stronger guarantee than "Desktop with the panel hidden",
+where a stray tap can still surface a menu — which is what the user explicitly asked to avoid.
+
+Alternatives considered: **DietPi** (lighter, has a kiosk preset, but another distro to learn) and
+**FullPageOS** (purpose-built, works on day one, less current base). Pi OS Lite + cage chosen for
+longevity on a box that will sit on a wall for years.
+
+**MUST VERIFY: that Chromium actually uses the Pi 4's hardware H.264 decoder.** It does not always
+by default. Check `chrome://media-internals` and watch CPU while a stream plays. This decides
+whether six streams are watchable — and remember the Pi 4 was chosen over a Pi 5 precisely because
+the Pi 5 has no H.264 decoder at all.
+
+### Audio: ALSA + `gmediarender`
+
+Lite has no PulseAudio/PipeWire, which is fine. **`gmediarender`** is a small DLNA renderer that
+plays to ALSA; HA auto-discovers it as a `media_player`, so `tts.speak` and `media_player.play_media`
+work with no custom integration and no HACS.
+
+First milestone, in order:
+1. Flash Pi OS Lite 64-bit
+2. Choose the audio output (USB speakerphone / HDMI / 3.5 mm) and set the ALSA default
+3. Install `gmediarender`
+4. Confirm it appears in HA as a `media_player`
+5. Send it a test TTS
+
+Nothing about kiosk or voice needs to exist for that to be useful.
+
+### Hardware to order
+
+- **4-button Zigbee remote** — NOT a single button. Four views means one press per view; multi-press
+  on one button is unusable by anyone but the person who configured it. Candidates: IKEA STYRBAR,
+  Philips Hue Dimmer v2 (both wall-mountable next to a screen), or an Aqara double rocker
+  (ecosystem-consistent with the U200 lock and garage relay). **Check Z2M's supported-devices list
+  before ordering** — model variants matter.
+- **USB speakerphone** — covers BOTH announcements now and the microphone later, one device, no HAT
+  or wiring. The alternative (powered speaker on the 3.5 mm jack + separate USB mic array) sounds
+  better but adds clutter on a wall.
+
+### Voice, when it comes (deferred)
+
+Maps onto the existing intent in `../AGENTS.md`: Orin = brains (Whisper/Piper/Ollama via Wyoming),
+Pi = satellite (mic in, speaker out) alongside the kiosk. The Orin has ~9.5 spare cores and ~50 GB
+unused RAM as of 2026-08-11.
+
+**The risk to measure, not assume:** the Pi 4 would run Chromium with six video streams AND
+continuous wake-word detection at once. That may be fine or it may be what makes the display
+stutter. If it is too much, HA Voice Preview Edition is a purpose-built satellite that takes voice
+off the Pi entirely.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
