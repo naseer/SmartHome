@@ -227,9 +227,16 @@ Nothing about kiosk or voice needs to exist for that to be useful.
   Philips Hue Dimmer v2 (both wall-mountable next to a screen), or an Aqara double rocker
   (ecosystem-consistent with the U200 lock and garage relay). **Check Z2M's supported-devices list
   before ordering** — model variants matter.
-- **USB speakerphone** — covers BOTH announcements now and the microphone later, one device, no HAT
-  or wiring. The alternative (powered speaker on the 3.5 mm jack + separate USB mic array) sounds
-  better but adds clutter on a wall.
+- **Small powered speaker** (decided 2026-08-12, in preference to a USB speakerphone). Cheaper and
+  tidier on a wall, and it avoids committing to a microphone form factor before it is known how
+  voice will actually be used. **Consequence: voice will need a SEPARATE microphone later** — the
+  one-device shortcut is given up deliberately.
+  - Prefer a speaker that is a **USB audio device** over one on the 3.5 mm jack. The Pi 4's analog
+    output is adequate for chimes and TTS but is noisy; many cheap "USB speakers" are USB audio
+    devices and sidestep it for the same money.
+  - **GOTCHA: with a monitor on HDMI the Pi defaults audio to HDMI.** If the 27" has no speakers or
+    poor ones the result is silence, which reads as "the setup failed". Set the ALSA default output
+    explicitly to the analog jack or the USB device.
 
 ### Voice, when it comes (deferred)
 
