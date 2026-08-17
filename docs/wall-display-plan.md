@@ -249,6 +249,61 @@ continuous wake-word detection at once. That may be fine or it may be what makes
 stutter. If it is too much, HA Voice Preview Edition is a purpose-built satellite that takes voice
 off the Pi entirely.
 
+## 4d. BUILT 2026-08-17 — kiosk running, and the buffering was the cameras
+
+**Working:** Pi 4 on WiFi (`humans`, 192.168.50.76), Pi OS Lite + `cage` + Chromium 151 in kiosk
+mode via `wallpi-stack/kiosk.service`. HA dashboard `/wall-display`, logged in as a **non-admin,
+local-only** `WallPi` user. `kiosk-mode` (a single JS file in `config/www/`, registered as a Lovelace
+resource -- no HACS) hides the sidebar and header on that dashboard only.
+
+**HARDWARE DECODE CONFIRMED** -- the reason the Pi 4 was chosen over a Pi 5:
+```
+/dev/video10 held by chromium      <- the Pi's H.264 decoder
+~38% of 4 cores, 61.8% idle, 61.8 C, throttled=0x0
+```
+
+**THE BUFFERING WAS THE CAMERAS, NOT THE PI OR WIFI.** Streams stalled and tile timestamps drifted
+up to 6 s apart. Cause: keyframe interval.
+
+```
+before:  driveway/backyard 1 keyframe per 60 frames;  gates/front_door 1 per 30
+after:   1 per 13 frames (~1/second)
+```
+
+MSE can only START and only RECOVER FROM LOSS on a keyframe, so a 4-second GOP means every hiccup
+freezes a tile for seconds. This very likely also explains why `[webrtc, mse]` churned on
+2026-08-11 -- WebRTC also needs a keyframe to begin, so setup kept timing out and retrying.
+
+**Fixed via the Reolink HTTP API, not the app.** The app and web UI do not expose I-frame interval.
+```
+subStream before: {"gop": 4, "frameRate": 15, "size": "896*512", "bitRate": 1024}
+subStream after:  {"gop": 1, ...}    # gop is in SECONDS
+```
+
+**THE API IS HTTPS-ONLY.** Every earlier attempt (2026-08-10) used http and failed with an
+unparseable response; http returns 302 to https. That one detail blocked camera automation for a
+week. Login: `POST https://<ip>/cgi-bin/api.cgi?cmd=Login` with
+`[{"cmd":"Login","action":0,"param":{"User":{"Version":"0","userName":"admin","password":"..."}}}]`,
+then `GetEnc` / `SetEnc` with the token. Read the current subStream and change ONLY `gop` -- do not
+invent values.
+
+### Card settings that mattered
+
+- `live.show_image_during_load: false` -- this fetches a still per camera while a stream starts, and
+  is what produced the "bunch of videos buffering" look. It is ALSO the source of the latest.jpg /
+  latest.webp polling chased on 2026-08-11.
+- `dimensions.aspect_ratio_mode: dynamic` -- a forced 16:9 left white gaps, because the sub-streams
+  are 1.75, 1.33, 1.78 and 2.67 wide.
+- `driveway_tele` dropped: it is the TrackMix's second lens, duplicating `driveway`.
+- `go2rtc.modes: ["mse"]` only -- see the webrtc note above.
+
+### Still open
+
+- Audio: `gmediarender` runs and HA has `media_player.wall_display`, but NO audio has been proven to
+  reach ALSA. Waiting on the powered speaker; the monitor may have no speakers at all.
+- The Zigbee button and the input_select view switching.
+- Whether conditional cards unmount hidden children (still the keystone of the button design).
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
