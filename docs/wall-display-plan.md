@@ -304,6 +304,49 @@ invent values.
 - The Zigbee button and the input_select view switching.
 - Whether conditional cards unmount hidden children (still the keystone of the button design).
 
+## 4e. Filling the empty cell -- what does NOT work
+
+The wall has one empty cell (column 3, row 2). advanced-camera-card lays its 5 cameras out as a
+3-column MASONRY with driveway spanning two columns; column 3 (front_door + west_gate) is shorter
+than columns 1-2, and the leftover is the gap. A card cannot place anything in its own empty cell,
+so filling it means placing the tiles by hand instead of letting the card self-arrange.
+
+Two approaches were tried on 2026-08-17 and BOTH FAILED. Do not retry them:
+
+**1. HA `sections` view with `grid_options`.** Sections look ideal -- a 12-column grid with per-card
+column and row spans, which maps exactly onto the layout. But SECTIONS CAP THEIR OWN WIDTH. With
+`max_columns: 1` the whole wall collapsed into a ~500px column in the middle of a 4K screen.
+Sections are built for readable dashboards, not full-bleed walls. A `panel` view (exactly one card,
+stretched full-bleed) is the only view type that fills the screen -- which is what the wall uses.
+
+**2. `--force-device-scale-factor=2`** to get a 1920x1080 CSS viewport for legible text. Under
+Wayland/cage the page rendered 1:1 in the TOP-LEFT QUARTER of the screen instead of scaling up; the
+flag does not negotiate with the compositor's surface scale. If UI text ever needs to be bigger,
+use Chromium page zoom or cage's output scale instead.
+
+### What would actually work
+
+The card must be a real layout engine. Native HA has none that does non-equal columns full-bleed:
+`horizontal-stack` splits evenly, the classic `grid` card has no column spans, and
+`picture-elements` has no element type for arbitrary cards.
+
+`custom:layout-card` (grid-layout) does exactly this via `grid-template-areas`, and can be
+side-loaded the same way `kiosk-mode.js` was -- drop the .js in `config/www/` and register a
+Lovelace resource, no HACS. That is the path if the weather/notification panel is wanted.
+
+Useful card options confirmed while investigating, for whenever this is built:
+- `live.layout.fit: contain | cover | fill` (per card) and `cameras[].dimensions.layout.fit`
+  (per camera) -- `cover` fills a tile by cropping, which is how you get seamless tile edges.
+- `dimensions.aspect_ratio_mode: unconstrained` + `dimensions.height: "100%"` makes a card fill the
+  cell it is given rather than imposing the stream's aspect ratio.
+- backyard is 1536x576 (2.67:1). `cover` on that one crops away a third of the patio, so it wants
+  `contain` even if every other tile uses `cover`.
+
+### Iterating on the wall without a human
+
+`wallpi-stack/tools/screenshot.sh` grabs cage's framebuffer with `grim` over SSH. A layout change
+can be verified in seconds instead of asking someone to photograph the monitor.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
