@@ -99,8 +99,20 @@ ssh_pwauth: false
 # default, and cloud-init's ssh_pwauth / ssh_authorized_keys CONFIGURE ssh without STARTING it.
 # Measured 2026-08-17: cloud-init ran correctly (hostname applied, avahi installed, wallpi.local
 # resolving) yet port 22 was closed, which reads as "provisioning failed" when it did not.
+#
+# THREE ways, because a single one has already failed once here:
+#  1. raspi-config nonint do_ssh 0 -- the Pi OS-sanctioned path; it knows the distro's details.
+#  2. ssh.socket -- Debian 13 (Trixie) moved OpenSSH to SOCKET ACTIVATION, so `systemctl enable ssh`
+#     can succeed while nothing ever listens on 22. This is the suspected cause of the 2026-08-17
+#     failure: runcmd ran without error and the port stayed closed.
+#  3. ssh.service -- the pre-Trixie path, for older images.
+# `|| true` on each so one failing cannot abort the rest of runcmd.
 runcmd:
-  - [ systemctl, enable, --now, ssh ]
+  - [ sh, -c, "raspi-config nonint do_ssh 0 || true" ]
+  - [ sh, -c, "systemctl enable --now ssh.socket 2>/dev/null || true" ]
+  - [ sh, -c, "systemctl enable --now ssh.service 2>/dev/null || systemctl enable --now ssh || true" ]
+  - [ sh, -c, "systemctl is-active ssh.socket ssh.service > /boot/firmware/ssh-status.txt 2>&1 || true" ]
+  - [ sh, -c, "ss -tlnp >> /boot/firmware/ssh-status.txt 2>&1 || true" ]
 
 keyboard:
   layout: us
@@ -143,6 +155,9 @@ fi
 
 sudo sync
 echo
+echo ">> after boot, if SSH still fails, put the card back in the reader and read"
+echo "   /boot/firmware/ssh-status.txt -- runcmd writes the ssh unit state and listening"
+echo "   sockets there, so a headless failure leaves evidence you can actually read."
 echo ">> eject, boot the Pi. It should come up as '${HOSTNAME_}' with SSH key auth."
 echo "   ssh ${USERNAME}@${HOSTNAME_}.local     (or find the IP in UniFi)"
 echo "   NOTE: cloud-init runs on the FIRST boot after this; give it a couple of minutes."
