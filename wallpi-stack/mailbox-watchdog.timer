@@ -1,0 +1,14 @@
+# /etc/systemd/system/mailbox-watchdog.timer
+[Unit]
+Description=Probe the VideoCore mailbox on the wall display Pi
+
+[Timer]
+# Start well after boot. The mailbox is legitimately busy while the kiosk and its GPU context come
+# up, and probing into that would produce false failures on every single boot.
+OnBootSec=5min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=mailbox-watchdog.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+# /etc/systemd/system/tile-watchdog.timer
+[Unit]
+Description=Probe wall display tiles for stalled video
+
+[Timer]
+# Late enough that the streams have actually started; a tile that has not begun yet is not stalled.
+OnBootSec=8min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=tile-watchdog.service
+
+[Install]
+WantedBy=timers.target

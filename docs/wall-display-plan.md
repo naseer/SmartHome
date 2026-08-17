@@ -477,6 +477,63 @@ reboot. Not yet built.
 - Re-measure WiFi after mounting. Currently 5 GHz (5560 MHz) at signal 67; 5 GHz degrades sharply
   through walls, and the streams will show it first.
 
+## 4h. WATCHDOGS BUILT 2026-08-17 -- two faults, two recoveries
+
+A wall display fails in a way no other machine does: IT KEEPS LOOKING FINE. A frozen wall and a
+working wall are identical from across a room, so a fault can persist for hours. Two distinct
+failures were observed and each got a watchdog. They are NOT redundant -- neither can see the
+other's fault.
+
+### mailbox-watchdog -- the whole wall freezes
+
+The VideoCore firmware mailbox wedges (see 4g). Probes `timeout 5 vcgencmd measure_temp`, plus a
+scan for processes stuck in D on `rpi_firmware*` / `rpm_resume`. Escalates: 3 consecutive failures
+-> restart the kiosk; 6 -> reboot, with a 1 hour cooldown so a bad boot cannot become a reboot loop,
+and a sysrq force-reboot if the clean reboot itself blocks on the same dead firmware.
+
+Runs as root (it must be able to reboot). Every 2 minutes, starting 5 minutes after boot -- the
+mailbox is legitimately busy while the GPU context comes up and probing into that gives a false
+failure on EVERY boot.
+
+### tile-watchdog -- ONE tile freezes
+
+Observed after a reboot: backyard froze on a single frame while the other four played. go2rtc was
+still receiving AND sending that stream (`recv 576.3 -> 578.0 MB` over 12s), so neither camera nor
+server was at fault -- **the browser's MSE decoder stalled and never recovered**. Restarting the
+kiosk cleared it. The mailbox probe cannot detect this: the firmware is perfectly healthy.
+
+**Liveness is measured from the OSD CLOCK Reolink burns into every stream.** Two `grim` grabs of
+just the clock region, 6 seconds apart, are byte-identical if and only if that stream is not
+advancing. This defeats the obvious false positive: a genuinely still scene at 3am still has a
+running clock, whereas a naive whole-tile pixel diff would call it frozen and restart the kiosk
+every night. Grabbing a ~500x45 region rather than whole 4K frames also keeps it cheap on a Pi
+already decoding five streams.
+
+**It acts only when at least one tile is live AND at least one is frozen.** If EVERY tile is frozen
+the fault is the display, the compositor or the network, and restarting the kiosk is the wrong
+response -- possibly a looping one. Only a mixed picture proves the wall works and one stream is
+stuck. 3 consecutive detections -> restart, 15 minute cooldown.
+
+Runs as the kiosk user, since `grim` needs that user's wayland socket, and uses passwordless sudo
+only for the restart. Every 5 minutes from 8 minutes after boot.
+
+### Tested, not assumed
+
+Both were installed in DRY_RUN and driven through their full escalation before being enabled:
+counters increment, the action fires at the threshold, recovery clears the counter, and the
+cooldown suppresses repeats. The tile detector was tested by adding the EMPTY WHITE CELL as a fake
+tile -- a permanently static region -- which produced `STALLED: fake_frozen (live=5 frozen=1)`,
+proving it distinguishes a stalled tile from five live ones. With the real config it stays silent.
+
+### Maintenance trap
+
+`/etc/wall-tiles.conf` regions are LAYOUT-DEPENDENT. Rearranging the dashboard moves the clocks, and
+a stale region silently points at scenery -- reading as permanently frozen (restart loop, capped by
+the cooldown) or permanently live (no detection at all). After any layout change, re-verify with
+`wallpi-stack/tools/show-osd-regions.sh`, which crops the configured regions and labels them so you
+can see whether each still lands on a timestamp. Reinstalling never overwrites a tuned config; it
+drops the new one at `/etc/wall-tiles.conf.dist`.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.

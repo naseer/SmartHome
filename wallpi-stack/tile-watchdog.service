@@ -1,0 +1,14 @@
+# /etc/systemd/system/tile-watchdog.service
+[Unit]
+Description=Detect a stalled wall display tile and restart the kiosk
+After=kiosk.service
+
+[Service]
+Type=oneshot
+# Runs as the kiosk user: grim needs that user's wayland socket. Restarting the unit goes through
+# passwordless sudo rather than running the whole check as root.
+User=naseer
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/local/bin/tile-watchdog.sh
+# Two grabs GAP seconds apart, plus the restart. Comfortably above that.
+TimeoutStartSec=120

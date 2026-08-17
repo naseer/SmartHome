@@ -1,0 +1,15 @@
+# /etc/systemd/system/mailbox-watchdog.service
+# Fired by mailbox-watchdog.timer. See mailbox-watchdog.sh for what this recovers from.
+[Unit]
+Description=Recover the wall display from a wedged VideoCore firmware mailbox
+# No dependency on kiosk.service: this must still run (and reboot) if the kiosk is dead.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mailbox-watchdog.sh
+# Needs root to restart the kiosk unit, reboot, and write /proc/sysrq-trigger.
+User=root
+
+# The probe itself blocks for PROBE_TIMEOUT and the reboot path sleeps 90s before forcing.
+# Well above both, so systemd never kills us mid-recovery.
+TimeoutStartSec=180
