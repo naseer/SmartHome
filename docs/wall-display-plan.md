@@ -392,9 +392,37 @@ ever swapped.
 An HA `tts.speak` aimed at `media_player.wall_display` drove the PCM through
 `closed -> OPEN -> RUNNING`. The chain HA -> DLNA -> gmediarender -> GStreamer -> ALSA is real.
 
-**STILL PHYSICALLY UNVERIFIED: nothing has been heard.** No speaker is connected to anything. PCM
-RUNNING proves the sink was fed, not that the waveform is correct or audible. The remaining test is
-to plug a powered speaker into the Pi's 3.5mm jack and listen.
+**HEARD 2026-08-17.** Headphones into the Pi's 3.5mm jack; both a test tone and an HA TTS
+announcement were audible. Audio is fully verified end to end -- no part of the chain is assumed.
+
+### Volume: two stacked gains, which is what made this confusing
+
+Sound was audible but quiet, and then the tone was fine while ANNOUNCEMENTS were still quiet. That
+asymmetry is the tell: `speaker-test` writes straight to ALSA, while announcements pass through
+gmediarender first, so only announcements saw the second attenuator.
+
+```
+ALSA mixer (card 0 'PCM')     applies to EVERYTHING
+gmediarender INITIAL_VOLUME_DB applies ONLY to what it plays  <- was -10
+```
+
+**The ALSA mixer is now the single volume control; gmediarender sits at unity (0 dB).** Two gains
+that have to be reasoned about together is not worth the trouble.
+
+BEWARE THE MIXER SCALE -- it is steeply logarithmic and the percentage badly misleads:
+
+```
+ 60% = -38.56 dB      80% = -17.28 dB      90% = -6.64 dB      95% = -1.32 dB
+```
+
+60% is not "a bit quieter than 90%", it is 32 dB down -- near inaudible. Set it in dB, not percent.
+Currently 95%, and **persisted with `sudo alsactl store`**, without which it resets to the driver
+default on reboot.
+
+The Pi 4's jack is PWM-driven and weak by design -- treat it as line level. A powered speaker
+brings its own amplifier, which is where loudness should actually come from; these levels just
+avoid throwing signal away first. If it sounds thin or hissy with a real speaker, a USB audio
+dongle appears as another card and `asound.conf` moves to it in one line.
 
 ### Two traps to remember
 

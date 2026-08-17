@@ -23,9 +23,12 @@ UPNP_DEVICE_NAME="Wall Display"
 # gmediarender does not need root; `audio` group membership is what grants /dev/snd access.
 DAEMON_USER="nobody:audio"
 
-# Announcements should be audible over a room without being startling. Raise once a real speaker
-# is connected and the level can actually be judged.
-INITIAL_VOLUME_DB=-10
+# Unity. This is a SECOND attenuation stage stacked on top of the ALSA mixer, and it applies ONLY
+# to what gmediarender plays -- so on 2026-08-17 a speaker-test tone was fine while HA announcements
+# through this renderer were quiet, which is the symptom that identifies this setting. Set the
+# overall level with the ALSA mixer (alsactl store persists it) and leave this at unity, so there is
+# one volume control rather than two that have to be reasoned about together.
+INITIAL_VOLUME_DB=0
 
 # NOTE THE `plug`. The HDMI PCM accepts only IEC958_SUBFRAME_LE; the analog card wants S16_LE.
 # `plug` inserts whatever conversion is needed, so this line works against either card.
