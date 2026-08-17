@@ -432,6 +432,51 @@ dongle appears as another card and `asound.conf` moves to it in one line.
 - The entity was still named `raspberrypi Wall Display` from before the Pi was renamed; renamed to
   `Wall Display`.
 
+## 4g. REBOOT TEST 2026-08-17 -- one hang in two power cycles
+
+Run before relocating the Pi, on the principle that a wall-mounted display must survive losing
+power unattended.
+
+**Power cycle #1 FAILED.** The wall froze on the last frame it had decoded. The kernel and SSH
+stayed fully responsive -- only anything touching the VideoCore firmware blocked, forever, in
+uninterruptible sleep:
+
+```
+1056 D+  rpm_resume                chromium    <- blocked resuming the power-managed decoder
+1326 D   rpi_firmware_property_li  vcgencmd    <- blocked on the firmware mailbox
+1441 D   rpi_firmware_property_li  vcgencmd
+```
+
+**The VideoCore firmware mailbox was wedged.** Chromium could not get decoded frames, so the last
+frame stayed on screen; `grim` hung too (it needs DRM); `vcgencmd` hung, which is the quickest
+one-line test for this state. Load average hit 8 on 4 cores, but that was BLOCKED TASKS, NOT CPU --
+memory was fine (2.2 GB free, zero swap) and there was no real CPU work. Do not read that load
+figure as overload.
+
+A second reboot came back completely clean, so the wedge is transient, not a permanent breakage.
+
+**Power cycle #2 PASSED** -- kiosk active, hardware decode reacquired (/dev/video10 held), mailbox
+answering, ALSA level still -1.32 dB (alsactl store held), gmediarender at unity,
+`media_player.wall_display` back to `idle` on its own, same IP over WiFi. Verified live by diffing
+two screenshots 6s apart: 20% of sampled cells changed, so the wall was genuinely moving.
+
+### Why the obvious fix does not apply
+
+A hardware watchdog (bcm2835_wdt + RuntimeWatchdogSec) will NOT catch this. The kernel never
+stopped scheduling -- SSH, systemd and userspace were all healthy. Only the firmware mailbox was
+dead. The watchdog would keep being petted while the screen stayed frozen.
+
+What matches the observed failure is a health check that tests THE MAILBOX specifically:
+`timeout 5 vcgencmd measure_temp`, and on repeated failure restart the kiosk, escalating to a
+reboot. Not yet built.
+
+### Before relocating
+
+- DHCP reservation for 192.168.50.76. HA caches the DLNA device URL, so a new IP silently kills
+  announcements until the config entry is reloaded.
+- Re-measure WiFi after mounting. Currently 5 GHz (5560 MHz) at signal 67; 5 GHz degrades sharply
+  through walls, and the streams will show it first.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
