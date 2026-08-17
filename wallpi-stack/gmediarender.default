@@ -1,0 +1,32 @@
+# /etc/default/gmediarender -- UPnP/DLNA renderer on the wall display Pi.
+#
+# This is what makes `media_player.wall_display` exist in Home Assistant. HA pushes TTS and media
+# to it over DLNA; gmediarender decodes with GStreamer and writes to ALSA.
+#
+# ALSA_DEVICE: card 0 is the Pi's own 3.5mm jack. It was originally pointed at
+# plughw:CARD=vc4hdmi0 (HDMI, i.e. the monitor), which is a sink with NO SPEAKER -- the PG32UCDM
+# accepts LPCM over HDMI but has no transducer, so audio "worked" and was silent. Keeping audio on
+# the Pi's own jack also means the display can be swapped without silencing announcements.
+#
+# Verified end to end 2026-08-17: an HA tts.speak at this renderer drove
+# /proc/asound/card0/pcm0p/sub0/status through closed -> OPEN -> RUNNING.
+#
+# Install:  sudo cp gmediarender.default /etc/default/gmediarender && sudo systemctl restart gmediarender
+#
+# AFTER RESTARTING, RELOAD THE HA CONFIG ENTRY. HA holds the DLNA device's URL and does not
+# rediscover on its own; the entity sits `unavailable` until reloaded, which is what made this look
+# broken. Either use the integration's reload in the UI, or:
+#   homeassistant.reload_config_entry with the dlna_dmr entry_id
+
+UPNP_DEVICE_NAME="Wall Display"
+
+# gmediarender does not need root; `audio` group membership is what grants /dev/snd access.
+DAEMON_USER="nobody:audio"
+
+# Announcements should be audible over a room without being startling. Raise once a real speaker
+# is connected and the level can actually be judged.
+INITIAL_VOLUME_DB=-10
+
+# NOTE THE `plug`. The HDMI PCM accepts only IEC958_SUBFRAME_LE; the analog card wants S16_LE.
+# `plug` inserts whatever conversion is needed, so this line works against either card.
+ALSA_DEVICE="plughw:CARD=Headphones,DEV=0"

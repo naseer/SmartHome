@@ -347,6 +347,63 @@ Useful card options confirmed while investigating, for whenever this is built:
 `wallpi-stack/tools/screenshot.sh` grabs cage's framebuffer with `grim` over SSH. A layout change
 can be verified in seconds instead of asking someone to photograph the monitor.
 
+## 4f. AUDIO PROVEN 2026-08-17 -- end to end, HA to ALSA
+
+Audio had been "configured but never proven" since the Pi was built. It is now proven, and the
+reason it looked dead is recorded here because it wasted weeks.
+
+**HDMI audio was never broken -- it was being opened wrongly.** The vc4-hdmi PCM accepts EXACTLY
+ONE format:
+
+```
+$ aplay -D hw:1,0 --dump-hw-params /dev/zero
+FORMAT:  IEC958_SUBFRAME_LE          <- S/PDIF framing, nothing else
+RATE:    [32000 48000]
+```
+
+Every player offering ordinary `S16_LE` to `hw:1,0` fails with "Sample format not available", which
+reads as a dead device. **The fix is `plughw:` instead of `hw:`** -- the plug layer inserts the
+IEC958 conversion. With that, the PCM reaches `state: RUNNING` immediately.
+
+**The monitor accepts audio but cannot make sound.** Its ELD advertises the sink honestly:
+
+```
+/proc/asound/card1/eld#0:  monitor_name PG32UCDM
+                           sad0_coding_type [0x1] LPCM, 2ch, 32000/44100/48000
+```
+
+The PG32UCDM has no built-in speakers, only a headphone jack. So HDMI audio was arriving at a
+display with no transducer -- audio was working and inaudible at the same time. gmediarender was
+pointed at exactly this sink (`ALSA_DEVICE="plughw:CARD=vc4hdmi0,DEV=0"`).
+
+### Both sinks, verified
+
+| sink | device | format | result |
+|---|---|---|---|
+| monitor over HDMI | `plughw:1,0` | `IEC958_SUBFRAME_LE` @ 48k | opens, RUNNING, clean close |
+| Pi 3.5mm jack | `plughw:0,0` | `S16_LE` @ 48k | opens, RUNNING, clean close |
+
+**Card 0 (the Pi's own jack) is now the default**, via `wallpi-stack/asound.conf`, and gmediarender
+points at it via `wallpi-stack/gmediarender.default`. Announcements stay working if the monitor is
+ever swapped.
+
+### End-to-end proof
+
+An HA `tts.speak` aimed at `media_player.wall_display` drove the PCM through
+`closed -> OPEN -> RUNNING`. The chain HA -> DLNA -> gmediarender -> GStreamer -> ALSA is real.
+
+**STILL PHYSICALLY UNVERIFIED: nothing has been heard.** No speaker is connected to anything. PCM
+RUNNING proves the sink was fed, not that the waveform is correct or audible. The remaining test is
+to plug a powered speaker into the Pi's 3.5mm jack and listen.
+
+### Two traps to remember
+
+- **`media_player.wall_display` goes `unavailable` whenever gmediarender restarts** and does NOT
+  recover on its own -- HA caches the DLNA device URL. Reload the `dlna_dmr` config entry after any
+  restart. It sat unavailable for exactly this reason.
+- The entity was still named `raspberrypi Wall Display` from before the Pi was renamed; renamed to
+  `Wall Display`.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
