@@ -68,49 +68,50 @@ if [ "$MECH" = "cloud-init" ]; then
   # A NEW instance_id is what forces cloud-init to re-run on an already-booted card.
   NEWID="${HOSTNAME_}-$(date +%Y%m%d%H%M%S)"
 
-  sudo tee "$MNT/meta-data" > /dev/null <<EOF
+  # ==========================================================================================
+  # ALL heredocs below are QUOTED (<<'EOF') so the shell performs NO expansion inside them --
+  # no $VAR, and critically no command substitution. Values are injected afterwards with sed.
+  #
+  # WHY: on 2026-08-17 an UNQUOTED heredoc contained explanatory comments with backticks --
+  # `systemctl enable ssh` and `|| true` -- and bash EXECUTED them against the workstation
+  # writing the card. Privileged commands ran on the wrong machine, and the script died on a
+  # syntax error. Documentation prose became executable code. Never use an unquoted heredoc for
+  # a config file that may contain prose, quotes or shell metacharacters.
+  # ==========================================================================================
+
+  sudo tee "$MNT/meta-data" > /dev/null <<'EOF'
 dsmode: local
-instance_id: ${NEWID}
-local-hostname: ${HOSTNAME_}
+instance_id: @@INSTANCE_ID@@
+local-hostname: @@HOSTNAME@@
 EOF
 
-  sudo tee "$MNT/user-data" > /dev/null <<EOF
+  sudo tee "$MNT/user-data" > /dev/null <<'EOF'
 #cloud-config
 # Written by wallpi-stack/write-firstboot-config.sh
-hostname: ${HOSTNAME_}
+hostname: @@HOSTNAME@@
 manage_etc_hosts: true
-timezone: ${TZ_}
+timezone: @@TZ@@
 
 users:
-  - name: ${USERNAME}
-    # Same group set Pi OS gives its default user, so gpio/i2c/audio/video all work.
+  - name: @@USERNAME@@
     groups: [adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,input,render,netdev,gpio,i2c,spi]
     shell: /bin/bash
     lock_passwd: false
-    passwd: "${UHASH}"
+    passwd: "@@UHASH@@"
     sudo: "ALL=(ALL) NOPASSWD:ALL"
     ssh_authorized_keys:
-      - "${PUB}"
+      - "@@PUBKEY@@"
 
-# Key auth only. The account password exists for the console and sudo, not for SSH.
+# Key auth only; the account password is for console and sudo.
 ssh_pwauth: false
 
-# EXPLICITLY ENABLE sshd. This is NOT automatic: on Pi OS Lite the ssh service is disabled by
-# default, and cloud-init's ssh_pwauth / ssh_authorized_keys CONFIGURE ssh without STARTING it.
-# Measured 2026-08-17: cloud-init ran correctly (hostname applied, avahi installed, wallpi.local
-# resolving) yet port 22 was closed, which reads as "provisioning failed" when it did not.
-#
-# THREE ways, because a single one has already failed once here:
-#  1. raspi-config nonint do_ssh 0 -- the Pi OS-sanctioned path; it knows the distro's details.
-#  2. ssh.socket -- Debian 13 (Trixie) moved OpenSSH to SOCKET ACTIVATION, so `systemctl enable ssh`
-#     can succeed while nothing ever listens on 22. This is the suspected cause of the 2026-08-17
-#     failure: runcmd ran without error and the port stayed closed.
-#  3. ssh.service -- the pre-Trixie path, for older images.
-# `|| true` on each so one failing cannot abort the rest of runcmd.
+# Enable sshd three ways. Pi OS Lite ships it disabled, and cloud-init configures SSH without
+# starting it. Debian 13 moved OpenSSH to socket activation, so enabling the .service alone can
+# succeed while nothing listens on port 22 -- the suspected 2026-08-17 failure.
 runcmd:
   - [ sh, -c, "raspi-config nonint do_ssh 0 || true" ]
   - [ sh, -c, "systemctl enable --now ssh.socket 2>/dev/null || true" ]
-  - [ sh, -c, "systemctl enable --now ssh.service 2>/dev/null || systemctl enable --now ssh || true" ]
+  - [ sh, -c, "systemctl enable --now ssh.service 2>/dev/null || true" ]
   - [ sh, -c, "systemctl is-active ssh.socket ssh.service > /boot/firmware/ssh-status.txt 2>&1 || true" ]
   - [ sh, -c, "ss -tlnp >> /boot/firmware/ssh-status.txt 2>&1 || true" ]
 
@@ -118,14 +119,11 @@ keyboard:
   layout: us
 
 packages:
-  # avahi-daemon is what makes ${HOSTNAME_}.local resolve; without it you need the IP.
   - avahi-daemon
 package_update: true
 EOF
 
-  # netplan v2. The PSK hex is accepted in place of the passphrase, so no plaintext on the card.
-  WIFI_SECRET="${WPSK:-PLAINTEXT_FALLBACK}"
-  sudo tee "$MNT/network-config" > /dev/null <<EOF
+  sudo tee "$MNT/network-config" > /dev/null <<'EOF'
 network:
   version: 2
   ethernets:
@@ -137,17 +135,39 @@ network:
       dhcp4: true
       optional: true
       access-points:
-        "${SSID}":
-          password: "${WIFI_SECRET}"
+        "@@SSID@@":
+          password: "@@WIFI_SECRET@@"
 EOF
 
-  # The stale custom.toml from the previous attempt would only confuse a future reader.
+  WIFI_SECRET="${WPSK:-}"
+  [ -n "$WIFI_SECRET" ] || { echo "!! could not derive a PSK; aborting rather than writing a broken file"; exit 1; }
+
+  # Inject values. Uses a non-/ delimiter and a Python-free approach; values here are hashes,
+  # hex PSKs and base64 keys, none of which contain the | delimiter.
+  for f in meta-data user-data network-config; do
+    sudo sed -i \
+      -e "s|@@INSTANCE_ID@@|${NEWID}|g" \
+      -e "s|@@HOSTNAME@@|${HOSTNAME_}|g" \
+      -e "s|@@TZ@@|${TZ_}|g" \
+      -e "s|@@USERNAME@@|${USERNAME}|g" \
+      -e "s|@@UHASH@@|${UHASH}|g" \
+      -e "s|@@PUBKEY@@|${PUB}|g" \
+      -e "s|@@SSID@@|${SSID}|g" \
+      -e "s|@@WIFI_SECRET@@|${WIFI_SECRET}|g" \
+      "$MNT/$f"
+  done
+
+  # Fail loudly if any placeholder survived -- a silent miss would ship a broken config.
+  if sudo grep -l "@@" "$MNT"/meta-data "$MNT"/user-data "$MNT"/network-config 2>/dev/null; then
+    echo "!! unsubstituted placeholders remain above -- refusing to continue"; exit 1
+  fi
+
   sudo rm -f "$MNT/custom.toml"
 
   echo ">> wrote cloud-init config (instance_id=${NEWID}); secrets masked:"
   for f in meta-data user-data network-config; do
     echo "   --- $f ---"
-    sudo sed -E 's/(passwd:|password:).*/\1 ***MASKED***/' "$MNT/$f" | grep -vE "^\s*#" | grep -v '^\s*$' | sed 's/^/     /'
+    sudo sed -E 's/(passwd:|password:).*/\1 ***MASKED***/' "$MNT/$f" | grep -vE "^\s*#" | grep -v "^\s*$" | sed 's/^/     /'
   done
 else
   echo "!! this card expects the older custom.toml mechanism; not implemented here"; exit 1
