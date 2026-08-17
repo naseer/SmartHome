@@ -499,6 +499,44 @@ Same quality, 28% fewer total events, at 4x the resolution with headroom to spar
 - Phase 4 remains unspent: detect fps 3 -> 5 (the 2026-08-04 emergency cut), face recognition, LPR,
   `package` tracking. One change at a time, measuring between each.
 
+## 6c. 2026-08-17 — daytime load needed a 3rd detector AND MAXN
+
+The "two detectors are enough" and "MODE_50W buys nothing" conclusions were both drawn from
+EVENING measurements and were both wrong for the daytime peak.
+
+**What was observed:** det_fps 58.3 against a two-detector capacity of ~64/s (91%), with frames
+skipped on five cameras. Detection was being starved in normal daytime use.
+
+**Two changes, in order:**
+
+1. **Third detector process** (`onnx_2`). Helped but did not fix it -- and showed why: under load,
+   per-inference latency ROSE from ~32 ms to ~40 ms, because three processes contend for one GPU.
+   Capacity therefore SHRINKS exactly when needed: 92/s -> 75/s. Extra processes overlap host-side
+   work; they cannot create GPU throughput.
+2. **MAXN** (`nvpmodel -m 0`). The GPU was clock-capped: `cur_freq == max_freq == 816 MHz` at
+   MODE_50W, running 67-98% utilised. MAXN lifts the ceiling to **1300 MHz (+59%)**.
+
+| | MODE_50W, 3 detectors | MAXN, 3 detectors |
+|---|---|---|
+| inference | 32 - 42 ms | **22 - 33 ms** |
+| capacity | 75 - 92 /s | **95 - 130 /s** |
+| offered at peak | 67.5 | 87.9 |
+| skipping | 3 cameras | 2 cameras, 3 of 5 samples clean |
+
+**Why the earlier power test was invalid.** On 2026-08-11 MODE_30W -> MODE_50W measured no benefit,
+and that was recorded as "power bought nothing". It was measured while the GPU was NOT the
+bottleneck, so extra clock had nothing to bite on. Once the GPU became the wall, clock mattered
+immediately. **A negative result is only valid under the conditions it was measured in.**
+
+**Power cost is modest, contrary to the earlier warning.** Measured at MAXN under load:
+`VDD_GPU_SOC 10.8-14.0 W`, `VDD_CPU_CV 2.0-2.4 W`. MAXN raises the CEILING; DVFS still scales with
+demand, so the board does not sit at 60 W.
+
+**Residual, not yet addressed:** `backyard` (1.6-2.5) and `front_door` (0.4-0.6) still skip at the
+highest load. Backyard is the widest detect resolution at 1536x576 and consistently the worst --
+that is the next lever if it matters. The offered load reaching 87-89 det/s is itself worth
+understanding before adding more hardware.
+
 ## 7. Rollback
 
 Keep masn able to take Frigate back for at least a week: leave its compose service defined (stopped),
