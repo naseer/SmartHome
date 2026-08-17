@@ -95,6 +95,13 @@ users:
 # Key auth only. The account password exists for the console and sudo, not for SSH.
 ssh_pwauth: false
 
+# EXPLICITLY ENABLE sshd. This is NOT automatic: on Pi OS Lite the ssh service is disabled by
+# default, and cloud-init's ssh_pwauth / ssh_authorized_keys CONFIGURE ssh without STARTING it.
+# Measured 2026-08-17: cloud-init ran correctly (hostname applied, avahi installed, wallpi.local
+# resolving) yet port 22 was closed, which reads as "provisioning failed" when it did not.
+runcmd:
+  - [ systemctl, enable, --now, ssh ]
+
 keyboard:
   layout: us
 
