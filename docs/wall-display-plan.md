@@ -534,6 +534,65 @@ the cooldown) or permanently live (no detection at all). After any layout change
 can see whether each still lands on a timestamp. Reinstalling never overwrites a tuned config; it
 drops the new one at `/etc/wall-tiles.conf.dist`.
 
+## 4i. WHITESPACE GONE 2026-08-17 -- explicit 3x3 grid with an info panel
+
+The empty cell is filled and the wall has NO whitespace anywhere.
+
+```
+drive drive front        driveway spans 2x2 = 2560x1440 = 1.78, vs its 1.75 stream:
+drive drive west         the hero tile shows its full scene with no crop worth seeing
+back  east  info
+```
+
+Built by `wallpi-stack/build-wall-dashboard.py`, pushed over the websocket API with
+`tools/lovelace.py`. The dashboard lives in HA's database, so the SCRIPT is the source of truth --
+keep changes there, not in the UI editor, or the next run silently reverts them.
+
+### Two third-party cards, side-loaded like kiosk-mode (no HACS)
+
+- `layout-card` v2.4.7 -> `custom:grid-layout`, the CSS `grid-template-areas` engine. Needed
+  because advanced-camera-card's own grid is a MASONRY, which always leaves a ragged bottom, and no
+  native HA card does full-bleed unequal columns (see 4e).
+- `card-mod` v4.2.1 -> CSS into cards. Needed because the stock info cards render as a bright white
+  block with ~8px text on a 4K panel: glaring beside five dark video tiles, and unreadable from
+  across a room, which is the only distance this screen is ever viewed from.
+
+Both pinned to a tag and fetched from the repo (neither publishes release assets), installed to
+`/config/www/` and registered as Lovelace resources.
+
+### Things that cost a round trip each
+
+- **`fit` belongs to the CAMERA, not to `live`.** `live.layout.fit: cover` is accepted and does
+  nothing; every tile stayed letterboxed. The video element's object-fit comes from
+  `cameras[].dimensions.layout.fit`.
+- **`1fr` is `minmax(auto, 1fr)`.** A child's min-content grew the driveway rows and squeezed the
+  info row until the Humidity line fell off the bottom. `repeat(3, minmax(0, 1fr))` pins exact
+  thirds.
+- **Markdown renders into `ha-markdown`'s SHADOW DOM.** An `h1` rule at ha-card level never reaches
+  it, so the clock stayed tiny. card-mod's `ha-markdown $:` syntax crosses the boundary.
+- **A vertical-stack sizes each child to content**, leaving a white strip under the panel. Flex
+  column plus `flex: 1` on the last child stretches it to the cell floor.
+
+### front_door is deliberately `contain` while everything else is `cover`
+
+`cover` on a 4:3 stream in a 16:9 cell crops top and bottom, which threw away its OSD CLOCK --
+anchoring the crop to the top with `position: {y: 0}` did NOT bring it back either. That costs the
+timestamp AND leaves tile-watchdog with no liveness signal for that tile. `contain` shows the whole
+frame with modest side bars, and for a door camera keeps the full field of view. A deliberate trade:
+bars on one tile, but every tile stays monitorable.
+
+### The info panel
+
+Clock (markdown, `now()` re-renders every minute -- no sensor or automation needed), 5-day forecast,
+then garage / front door lock / indoor temp / humidity. Dark translucent so it reads as part of the
+wall rather than a floating card.
+
+### THE TILE REGIONS MOVED
+
+This layout change invalidated every region in `/etc/wall-tiles.conf` -- the exact trap recorded in
+4h. New regions verified by cropping and LOOKING at them, not by assuming. Re-verify with
+`wallpi-stack/tools/show-osd-regions.sh` after any future layout change.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
