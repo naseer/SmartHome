@@ -1,0 +1,56 @@
+# /etc/systemd/system/kiosk.service  -- wall display kiosk on the Pi 4
+#
+# `cage` is a Wayland compositor that runs EXACTLY ONE fullscreen application. No window manager,
+# no taskbar, no alt-tab, nothing behind the browser. If Chromium exits, cage exits and systemd
+# restarts it. That is a much stronger guarantee than "a desktop with the panel hidden", where a
+# stray tap can still surface a menu -- which is what the user explicitly asked to avoid.
+#
+# Runs on tty1 as the login user (not root): Chromium refuses to run as root, and the user is
+# already in `video`/`render`/`input`, which is what cage needs for DRM and libinput.
+#
+# Install with wallpi-stack/setup-kiosk.sh.
+
+[Unit]
+Description=Wall display kiosk (cage + Chromium)
+# Wait for the network: the dashboard is remote, and Chromium caches a failed load as a blank page
+# rather than retrying, so starting early produces a permanently dead screen.
+After=network-online.target systemd-user-sessions.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=naseer
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_SESSION_TYPE=wayland
+# Chromium tries to talk to a keyring for saved passwords; on a headless Lite box there is none,
+# and it blocks on the prompt forever. basic = store in the profile, no keyring.
+Environment=CHROMIUM_FLAGS=
+
+ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \
+    --kiosk \
+    --ozone-platform=wayland \
+    --enable-features=UseOzonePlatform \
+    --password-store=basic \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --disable-features=Translate \
+    --check-for-update-interval=31536000 \
+    --autoplay-policy=no-user-gesture-required \
+    --user-data-dir=/home/naseer/.kiosk-profile \
+    KIOSK_URL_PLACEHOLDER
+
+# A wall display must heal itself: nobody is going to notice a dead screen at 3 a.m.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
