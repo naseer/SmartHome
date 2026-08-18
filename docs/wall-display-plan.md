@@ -581,6 +581,14 @@ timestamp AND leaves tile-watchdog with no liveness signal for that tile. `conta
 frame with modest side bars, and for a door camera keeps the full field of view. A deliberate trade:
 bars on one tile, but every tile stays monitorable.
 
+### Card backgrounds are forced black
+
+HA cards are WHITE in the light theme, so anything the video does not cover shows as a white bar --
+most visibly the pillarbox either side of front_door, which is the one `contain` tile. card-mod
+forces `ha-card` to black on every camera card, and drops the border, shadow and corner radius, so
+the tiles butt together as one surface. Black reads as the frame of a video wall; white reads as a
+missing tile.
+
 ### The info panel
 
 Clock (markdown, `now()` re-renders every minute -- no sensor or automation needed), 5-day forecast,

@@ -58,6 +58,17 @@ def camera_card(name, entity, stream, area, fit, position=None):
             "animated_progress_indicator": False,
             "card_loading_effects": False,
         }},
+        # HA cards are white in the light theme, so anything the video does not cover shows as a
+        # WHITE bar -- most visibly the pillarbox either side of front_door, which is `contain`.
+        # Black reads as the frame of a video wall instead of a missing tile.
+        "card_mod": {"style": """
+  ha-card {
+    background: #000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+"""},
         "view_layout": {"grid-area": area},
     }
 
