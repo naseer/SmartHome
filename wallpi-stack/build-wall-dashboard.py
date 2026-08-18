@@ -85,8 +85,11 @@ INFO_STYLE = """
     border-radius: 0 !important;
   }
   ha-card * { color: #f0f0f0 !important; }
-  /* a scrollbar on a wall display is just visual noise -- nobody can scroll it */
-  * { overflow: hidden !important; scrollbar-width: none !important; }
+  /* Hide scrollbars -- nobody can scroll a wall. NOTE: do NOT use `overflow: hidden` on * to do
+     this. It also clips elements that overflow on purpose, which silently ate the "degC" the
+     weather card renders as a superscript beside the temperature. Hiding the scrollbar itself is
+     enough. */
+  * { scrollbar-width: none !important; }
   *::-webkit-scrollbar { display: none !important; }
 """
 
@@ -137,7 +140,11 @@ INFO_CARD = {
   .state { font-size: 20px !important; }
   .temp { font-size: 34px !important; }
   .icon-image { min-height: 44px !important; }
-  .temp-attribute { text-align: right !important; }
+  .temp-attribute { text-align: right !important; overflow: visible !important; }
+  /* The unit is a superscript span that sits outside the temperature's box; it needs room and must
+     not wrap or be clipped, or the wall reads "25" with no idea whether that is C or F. */
+  .temp { white-space: nowrap !important; overflow: visible !important; padding-right: 2px !important; }
+  .temp span, .temp .unit { font-size: 17px !important; }
   /* The info block flex-grows by default, which shoved the temperature to the far edge and left a
      hole between it and the condition. Pin every child to its content width so icon, condition and
      temperature travel together as one group against the right edge. */

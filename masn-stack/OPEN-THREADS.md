@@ -557,14 +557,26 @@ still polls the other five.
   moved the broker off loopback-only onto the LAN — which is exactly when "later" stopped being an
   acceptable answer. Old credential verified REJECTED afterwards.
 
-## Wall display Pi is no longer using hardware H.264 decode (2026-08-18)
+## RESOLVED: wall display Pi hardware H.264 decode (2026-08-18)
 
-Nothing holds `/dev/video10` any more. Earlier the same day Chromium did, and the build notes claim
-hardware decode is active -- so the docs are currently describing something that is not happening.
+Nothing held `/dev/video10`. Cause was the VideoCore memory split, not Chromium:
 
-It does not hurt today: 31.5% busy of 4 cores, 55 C, `throttled=0x0`, all five tiles live. Software
-decode of five small sub-streams is comfortably within budget. But it is headroom being spent for
-nothing, and it would matter if the wall ever gains tiles or resolution.
+```
+gpu=76M                                       <- firmware default
+bcm2835_mmal_vchiq: failed to create component -62 (Not enough GPU mem?)
+bcm2835-codec: failed to create component ril.video_decode
+```
 
-Check with:  `fuser /dev/video10`  on wallpi (expect one chromium pid).
-Unknown whether a Chromium update, a flag, or the sub-stream parameter changes caused the fallback.
+Each hardware decode component allocates from `gpu_mem`, and five simultaneous streams exhaust
+76MB. The firmware refuses the decoder and **Chromium falls back to software silently** -- nothing
+in the UI reports it -- then retries forever (112 failures in 30 minutes). The only visible symptom
+is an unheld `/dev/video10`, which is why it went unnoticed. CMA was NOT the constraint (301MB of
+512MB free).
+
+Fixed with `gpu_mem=256` in `/boot/firmware/config.txt` (see `wallpi-stack/config.txt.snippet`).
+After reboot: `gpu=256M`, `/dev/video10` held by chromium, zero codec failures.
+
+**CPU DID NOT IMPROVE: 31.5% busy in software vs 31.9% with hardware decode.** Five small
+sub-streams are cheap enough to decode in software that the offload is not measurable here. The
+real wins are the headroom and no longer spamming failed allocations -- not a lower number. Costs
+~180MB of RAM (3886MB -> 3620MB total), with 2495MB still available.
