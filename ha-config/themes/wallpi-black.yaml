@@ -1,0 +1,34 @@
+# A theme used by exactly one dashboard view: the wall display.
+#
+# WHY A THEME AND NOT card_mod: the wall had TWO different whites, painted by two different things,
+# and chasing them individually kept half-working:
+#   #ffffff  the camera card's own background, showing as pillarbox bars beside the 4:3 front_door
+#   #fafafa  HA's page background, showing as seams in the grid gaps
+# card_mod could not reach the first (advanced-camera-card barely uses ha-card, and neither
+# --advanced-camera-card-background nor the HA theme variables set on the container touched it).
+# A theme sets the variables at the root, so everything downstream inherits, whatever paints it.
+#
+# Applied per-view via `theme: wallpi-black` in build-wall-dashboard.py, so it affects ONLY the wall
+# and nobody's phone.
+
+wallpi-black:
+  # every surface
+  primary-background-color: "#000000"
+  secondary-background-color: "#000000"
+  card-background-color: "#000000"
+  ha-card-background: "#000000"
+  lovelace-background: "#000000"
+  app-header-background-color: "#000000"
+
+  # cards should read as tiles in one surface, not as floating paper
+  ha-card-box-shadow: "none"
+  ha-card-border-width: "0"
+  ha-card-border-radius: "0"
+  divider-color: "#1a1a1a"
+
+  # legible against black
+  primary-text-color: "#f0f0f0"
+  secondary-text-color: "#b0b0b0"
+  text-primary-color: "#f0f0f0"
+  state-icon-color: "#9fb8d4"
+  paper-item-icon-color: "#9fb8d4"

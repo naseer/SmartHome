@@ -19,10 +19,10 @@ import json, sys
 # name, entity, stream, grid-area, fit, optional crop anchor
 CAMERAS = [
     ("driveway",   "camera.driveway",   "driveway_sub",   "drive", "cover"),
-    # front_door is 4:3 in a 16:9 cell. `cover` cropped away its OSD CLOCK -- anchoring the crop to
-    # the top did not bring it back either -- which loses the timestamp AND leaves tile-watchdog with
-    # no liveness signal for this tile. `contain` shows the whole frame with modest side bars, which
-    # for a door camera also keeps the full field of view. Deliberate trade: bars, but monitorable.
+    # front_door is 640x480 (4:3) in a 16:9 cell, so it cannot both fill the cell and show its
+    # whole frame. `contain` keeps the whole porch view AND its OSD clock (so tile-watchdog can see
+    # this tile), at the cost of pillarbox bars -- which the wallpi-black theme paints black, so
+    # they read as part of the surround rather than as missing video.
     ("front_door", "camera.front_door", "front_door_sub", "front", "contain"),
     ("west_gate",  "camera.west_gate",  "west_gate_sub",  "west",  "cover"),
     ("east_gate",  "camera.east_gate",  "east_gate_sub",  "east",  "cover"),
@@ -155,6 +155,8 @@ def main():
         "path": "cameras",
         "icon": "mdi:cctv",
         "type": "custom:grid-layout",
+        # Scoped to THIS view: the family's phones keep the normal light theme.
+        "theme": "wallpi-black",
         "layout": {
             "grid-template-columns": "repeat(3, minmax(0, 1fr))",
             "grid-template-rows": "repeat(3, minmax(0, 1fr))",
@@ -164,8 +166,16 @@ def main():
             "height": "100vh",
             "margin": "0",
             "padding": "0",
-            "grid-gap": "2px",
-            # Anything not covered by video should read as deliberate, not as a missing tile.
+            # NO GAP. A gap shows the grid container's background between tiles, and that background
+            # renders WHITE -- setting `background` here, the view's background, and the HA theme
+            # variables all failed to colour it, the same dead end as the pillarbox bars. Zero gap
+            # means there is nothing to colour: the tiles butt together as one continuous surface,
+            # which is what a video wall should look like anyway.
+            # BOTH SPELLINGS: `grid-gap` alone was ignored and left an 8px gap that nobody asked
+            # for, showing HA's #fafafa page background between the tiles as white seams.
+            "grid-gap": "0",
+            "gap": "0",
+            "--masonry-view-card-margin": "0",
             "background": "#000000",
         },
         "cards": [camera_card(*c) for c in CAMERAS] + [INFO_CARD],

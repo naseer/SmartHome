@@ -581,6 +581,49 @@ timestamp AND leaves tile-watchdog with no liveness signal for that tile. `conta
 frame with modest side bars, and for a door camera keeps the full field of view. A deliberate trade:
 bars on one tile, but every tile stays monitorable.
 
+### Everything white is fixed by ONE THEME, not by card styling
+
+There were TWO different whites, painted by two different things, which is why fixing them one at a
+time kept half-working:
+
+```
+#ffffff   the camera card's own background -> pillarbox bars beside the 4:3 front_door
+#fafafa   HA's page background             -> seams in the grid gaps
+```
+
+`card_mod` could not reach the first: advanced-camera-card barely uses `ha-card`, and neither
+`--advanced-camera-card-background` nor the HA theme variables set on the grid container touched
+it. Setting the VIEW background fixed the seams and the strip under the info panel but not the bars.
+
+**The fix is a theme.** `ha-config/themes/wallpi-black.yaml` sets the surface variables at the root,
+so everything downstream inherits regardless of which element paints it, and it is applied with
+`theme: wallpi-black` ON THE VIEW -- so it affects only the wall, and the family's phones keep the
+normal light theme. HA's config already had `frontend: themes: !include_dir_merge_named themes` with
+no themes directory, so this needed no restart: create the directory, drop the file in, call
+`frontend.reload_themes`.
+
+Verified by sampling pixels rather than eyeballing a downscaled screenshot -- which is how the bars
+were missed the first time round:
+
+```
+front_door bar (2600,400)   (0,0,0)
+vertical seam (2560,900)    (0,0,0)
+horizontal seam (900,1440)  (0,0,0)
+```
+
+An 8px grid gap also existed that was never asked for; `grid-gap` alone was ignored, so the layout
+now sets `grid-gap`, `gap` and `--masonry-view-card-margin` together.
+
+### front_door: pillarbox, deliberately
+
+It is 640x480 (4:3) in a 16:9 cell and cannot both fill the cell and show its whole frame. `cover`
+fills it but crops 120px off the top, taking the OSD CLOCK with it -- which blinds tile-watchdog to
+that tile. `dimensions.layout.position` did NOT move the crop (`{"y": 0}` had no effect), so that
+escape route does not exist. `contain` keeps the whole porch view and the clock; the bars it leaves
+are black under the theme. While it was briefly on `cover`, it had to be REMOVED from
+`/etc/wall-tiles.conf`: a region with no clock never changes, and tile-watchdog would have read it
+as permanently frozen and restarted the kiosk every cooldown, forever. It is back in now.
+
 ### Card backgrounds are forced black
 
 HA cards are WHITE in the light theme, so anything the video does not cover shows as a white bar --
