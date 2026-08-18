@@ -580,3 +580,39 @@ After reboot: `gpu=256M`, `/dev/video10` held by chromium, zero codec failures.
 sub-streams are cheap enough to decode in software that the offload is not measurable here. The
 real wins are the headroom and no longer spamming failed allocations -- not a lower number. Costs
 ~180MB of RAM (3886MB -> 3620MB total), with 2495MB still available.
+
+## Wall display brief skips -> both APs auto-selected DFS channels (2026-08-18)
+
+Symptom: occasional brief video skips on the wall, a second or so, across different tiles. Measured
+rate: 1 frozen sample in 29 over 4 minutes (8s sampling), on one tile. tile-watchdog never fires,
+correctly -- it needs 3 consecutive detections 5 minutes apart, and these are far shorter than that.
+
+**The link is not the problem.** Everything that would explain skips looks perfect:
+
+```
+signal -49 dBm    tx bitrate 433 Mbit/s    tx failed 0
+0% packet loss over 60 pings to the Orin, avg 3.2ms
+channel utilisation 6%    interface errors 0
+```
+
+**Both APs are on DFS channels, chosen by `auto`:**
+
+```
+U7 Pro Max   na channel=112  DFS   tx_retries=491  util=6%   configured: auto
+U7-Pro-Wall  na channel=64   DFS   tx_retries=0    util=2%   configured: auto
+```
+
+DFS channels (52-144) oblige the AP to vacate within seconds of detecting radar, dropping every
+client briefly. That is the one mechanism consistent with perfect signal, zero loss, an idle
+channel, and yet intermittent short interruptions.
+
+**Proposed fix (NOT APPLIED -- whole-house change, and our UniFi account is read-only by design):**
+pin the 5 GHz radios to non-DFS channels: U7 Pro Max -> 149, U7-Pro-Wall -> 36. No downside at 6%
+utilisation.
+
+**To confirm first:** UniFi UI -> System Log, look for "Radar detected" or channel changes on the
+U7 Pro Max. The API cannot fetch this -- every event endpoint 404s on this firmware, see the header
+of `tools/unifi-events.sh`.
+
+NOT PROVEN, only strongly circumstantial. The decisive test is pinning the channel and seeing
+whether the skips stop.
