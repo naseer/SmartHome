@@ -8,6 +8,19 @@
 # Runs on tty1 as the login user (not root): Chromium refuses to run as root, and the user is
 # already in `video`/`render`/`input`, which is what cage needs for DRM and libinput.
 #
+# --disable-accelerated-video-decode: HARDWARE DECODE IS DELIBERATELY OFF. The Pi 4 has ONE video
+# decoder block, and five simultaneous H.264 sessions make it hiccup. Measured 2026-08-18 at 1s
+# resolution over 4 minutes, same tiles, same everything else:
+#
+#     hardware decode   west_gate 10/239s frozen (4.2%), driveway 5/239s (2.1%)  -- 15 skips
+#     software decode   west_gate  0/239s frozen (0.0%), driveway 0/239s (0.0%)  --  0 skips
+#
+# Software decode is also CHEAPER here: 30.4% of 4 cores against 31.9%. These sub-streams are small
+# enough that the offload buys nothing and costs smoothness. Do not "fix" this by re-enabling it.
+#
+# NOTE: a 6-second sampler saw almost nothing (0.2%) because it only detects stalls lasting >=6s.
+# These skips are ~1s. Measure at 1s resolution or they are invisible -- see tools/fine.sh.
+#
 # Install with wallpi-stack/setup-kiosk.sh.
 
 [Unit]
@@ -36,6 +49,7 @@ Environment=CHROMIUM_FLAGS=
 
 ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \
     --kiosk \
+    --disable-accelerated-video-decode \
     --ozone-platform=wayland \
     --enable-features=UseOzonePlatform \
     --password-store=basic \

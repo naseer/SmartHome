@@ -256,6 +256,11 @@ mode via `wallpi-stack/kiosk.service`. HA dashboard `/wall-display`, logged in a
 local-only** `WallPi` user. `kiosk-mode` (a single JS file in `config/www/`, registered as a Lovelace
 resource -- no HACS) hides the sidebar and header on that dashboard only.
 
+**NOTE (2026-08-18): hardware decode is now DELIBERATELY DISABLED.** Five simultaneous H.264
+sessions on the Pi 4's single decoder caused ~15 visible ~1s skips per 4 minutes; software decode
+measured zero and used slightly less CPU. See OPEN-THREADS.md. The measurement below is kept as the
+record of what the hardware could do, not as the current configuration.
+
 **HARDWARE DECODE CONFIRMED** -- the reason the Pi 4 was chosen over a Pi 5:
 ```
 /dev/video10 held by chromium      <- the Pi's H.264 decoder

@@ -1,17 +1,20 @@
-# Append to /boot/firmware/config.txt on the wall display Pi (under [all]). Requires a reboot.
+# /boot/firmware/config.txt notes for the wall display Pi.
 #
-# WHY: the firmware's default gpu_mem is 76MB, and every hardware H.264 decode component allocates
-# from it. Five simultaneous streams exhaust it, so the firmware refuses new decoders:
+# gpu_mem IS LEFT AT THE DEFAULT (76). An earlier version of this file recommended gpu_mem=256 to
+# fix hardware decode; that recommendation is WITHDRAWN, for two reasons found on 2026-08-18:
 #
-#   bcm2835_mmal_vchiq: vchiq_mmal_component_init: failed to create component -62 (Not enough GPU mem?)
-#   bcm2835-codec: bcm2835_codec_create_component: failed to create component ril.video_decode
+# 1. HARDWARE DECODE IS NOW DELIBERATELY DISABLED (see kiosk.service). Five simultaneous H.264
+#    sessions on the Pi 4's single decoder produced ~15 visible ~1s skips per 4 minutes; software
+#    decode produced zero, and used slightly LESS CPU. So the decoder is not wanted at all.
 #
-# Chromium then falls back to SOFTWARE DECODE SILENTLY -- nothing in the UI says so -- and retries
-# forever (112 failures in 30 minutes on 2026-08-18). The wall keeps working, which is exactly why
-# this went unnoticed: the only symptom is that nothing holds /dev/video10.
+# 2. THE 76MB FAILURE WAS PROBABLY A LEAK, NOT A SHORTAGE. With gpu_mem back at 76 and a fresh
+#    boot, hardware decode worked fine -- the same 76MB that had been failing. The original
+#    failures began 19 minutes after boot, after several kiosk restarts:
 #
-# It is NOT a CMA problem (301MB of 512MB CMA was free) and NOT a Chromium problem.
+#      bcm2835_mmal_vchiq: failed to create component -62 (Not enough GPU mem?)
 #
-# Diagnose with:  fuser /dev/video10   (expect one chromium pid)
-#                 dmesg | grep "failed to create component"
-gpu_mem=256
+#    which points at decode components not being released across restarts, with gpu_mem=256 merely
+#    postponing exhaustion. Moot now that the decoder is unused, but do not treat 256 as the fix if
+#    hardware decode is ever revisited.
+#
+# Leaving gpu_mem at 76 returns ~180MB of RAM to the system.

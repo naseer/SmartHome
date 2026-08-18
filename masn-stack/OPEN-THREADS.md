@@ -581,48 +581,55 @@ sub-streams are cheap enough to decode in software that the offload is not measu
 real wins are the headroom and no longer spamming failed allocations -- not a lower number. Costs
 ~180MB of RAM (3886MB -> 3620MB total), with 2495MB still available.
 
-## Wall display brief skips -- DFS RULED OUT, cause still unknown (2026-08-18)
+## RESOLVED: wall display skips were HARDWARE DECODE (2026-08-18)
 
-Symptom: occasional brief video skips on the wall, about a second, across different tiles. Measured
-rate: 1 frozen sample in 29 over 4 minutes (8s sampling), on one tile. tile-watchdog never fires,
-correctly -- it needs 3 consecutive detections 5 minutes apart and these are far shorter.
+Brief ~1s video skips on the wall. The user's own observation -- "I started noticing after we moved
+to HW decode" -- turned out to be exactly right.
 
-**The link is not the problem.** Everything that would explain skips looks fine:
+### Measured, not argued
+
+Same tiles, same 4-minute window, 1-SECOND sampling of the burnt-in OSD clock:
 
 ```
-client-side: -49 dBm, tx bitrate 433 Mbit/s, tx failed 0, 0 interface errors
-AP-side:     -63 dBm  (note the disagreement -- the AP's view is the pessimistic one)
-0% packet loss over 60 pings to the Orin, avg 3.2ms, max 16.8ms
-5GHz channel utilisation 6%
+hardware decode   west_gate 10/239s frozen (4.2%)   driveway 5/239s (2.1%)   -- 15 skips
+software decode   west_gate  0/239s frozen (0.0%)   driveway 0/239s (0.0%)   --  0 skips
 ```
 
-### DFS was the leading theory. IT IS NOT SUPPORTED.
+The Pi 4 has ONE video decoder block and was being asked to run five simultaneous H.264 sessions.
+Software decode is also slightly CHEAPER here -- 30.4% of 4 cores against 31.9% -- because these
+sub-streams are small. The offload bought nothing and cost smoothness.
 
-Both APs are on DFS channels picked by `auto` (U7 Pro Max 112, U7-Pro-Wall 64), and a radar vacate
-would explain brief drops on an otherwise perfect link. The evidence says otherwise:
+Fixed with `--disable-accelerated-video-decode` in kiosk.service.
 
-- **No "Radar detected" in the controller log.**
-- **No channel change in over 2 hours** of `tools/wifi-channel-watch.py` sampling every 2 minutes.
-- **`wallpi` held ONE continuous association for 7592s** -- a vacate would have bounced it.
+### METHODOLOGY TRAP: a 6-second sampler cannot see a 1-second skip
 
-Moving to non-DFS channels is still mildly worthwhile hygiene, but it is NOT the fix for this, and
-should not be presented as one.
+The first measurement compared frames 6s apart and reported 0.20% -- essentially clean -- which
+flatly contradicted what was visible on the screen. It can only detect stalls lasting >= 6s. The
+skips are ~1s, so they were invisible. `wallpi-stack/tools/fine.sh` samples at 1s and is the tool
+to use for this class of problem.
 
-### Still open: what actually causes the skips
+### Ruled out along the way
 
-Candidates, none confirmed:
-- Five concurrent hardware H.264 decode sessions on the Pi 4's single decoder. Note the skips were
-  reported after `gpu_mem=256` restored hardware decode -- but stalls were also seen earlier the
-  same day under SOFTWARE decode, so this is not clean.
-- MSE jitter buffering in Chromium, which recovers on the next keyframe (now 1s, hence "brief").
-- Something on the Orin/go2rtc side.
+- **The source.** go2rtc sent data continuously in all 44 of 44 twenty-second windows across all six
+  streams. Cameras, go2rtc and the Orin are not involved.
+- **The network.** -49 dBm client-side, 433 Mbit/s, 0% packet loss over 60 pings, 6% channel
+  utilisation, zero interface errors.
+- **DFS radar.** Proposed as the leading theory and DISPROVEN: no radar message in the controller
+  log, no channel change in over 2 hours of monitoring, and wallpi held one continuous association
+  for 7592s. `tools/wifi-channel-watch.py` still runs and is harmless to leave in place.
 
-**The controlled test:** measure the skip rate with `stallwatch.sh` over 15-30 minutes, then set
-`gpu_mem=76` to force software decode and measure again. Same rate means decode is not involved.
+### Side finding: gpu_mem=256 was papering over a leak
 
-### Unrelated finding: the IQAir AirVisual Pro is flapping
+With gpu_mem back at 76 and a FRESH BOOT, hardware decode worked fine -- the same 76MB that had
+been failing earlier. Those failures began 19 minutes after boot, following several kiosk restarts,
+which points at decode components not being released across restarts rather than the pool being too
+small. Moot now the decoder is unused, but do not treat 256 as the fix if this is ever revisited.
+gpu_mem is back to 76, returning ~180MB of RAM.
 
-`Fn-Link Technology Limited` on MASN 2.4 GHz reassociates every ~40s at -46 dBm (52s uptime when
-checked), bouncing between both APs. Not a coverage problem and nothing to do with the wall, but it
-floods the event log -- which is what made the client log unreadable when looking for radar events --
-and wastes airtime on a 2.4 GHz band already at 71% utilisation.
+### Unrelated: the IQAir AirVisual Pro is flapping
+
+`Fn-Link Technology Limited` on MASN 2.4 GHz reassociates every ~40s at -46 dBm, bouncing between
+both APs. Not coverage, and nothing to do with the wall -- but it floods the client event log, which
+is what made that log unreadable while looking for radar events, and wastes airtime on a 2.4 GHz
+band already at 71% utilisation. Usually fixed by pinning the device to one AP or disabling
+fast-roaming/band-steering for it.
