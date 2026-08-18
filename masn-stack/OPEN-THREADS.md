@@ -581,48 +581,48 @@ sub-streams are cheap enough to decode in software that the offload is not measu
 real wins are the headroom and no longer spamming failed allocations -- not a lower number. Costs
 ~180MB of RAM (3886MB -> 3620MB total), with 2495MB still available.
 
-## Wall display brief skips -> both APs auto-selected DFS channels (2026-08-18)
+## Wall display brief skips -- DFS RULED OUT, cause still unknown (2026-08-18)
 
-Symptom: occasional brief video skips on the wall, a second or so, across different tiles. Measured
+Symptom: occasional brief video skips on the wall, about a second, across different tiles. Measured
 rate: 1 frozen sample in 29 over 4 minutes (8s sampling), on one tile. tile-watchdog never fires,
-correctly -- it needs 3 consecutive detections 5 minutes apart, and these are far shorter than that.
+correctly -- it needs 3 consecutive detections 5 minutes apart and these are far shorter.
 
-**The link is not the problem.** Everything that would explain skips looks perfect:
-
-```
-signal -49 dBm    tx bitrate 433 Mbit/s    tx failed 0
-0% packet loss over 60 pings to the Orin, avg 3.2ms
-channel utilisation 6%    interface errors 0
-```
-
-**Both APs are on DFS channels, chosen by `auto`:**
+**The link is not the problem.** Everything that would explain skips looks fine:
 
 ```
-U7 Pro Max   na channel=112  DFS   tx_retries=491  util=6%   configured: auto
-U7-Pro-Wall  na channel=64   DFS   tx_retries=0    util=2%   configured: auto
+client-side: -49 dBm, tx bitrate 433 Mbit/s, tx failed 0, 0 interface errors
+AP-side:     -63 dBm  (note the disagreement -- the AP's view is the pessimistic one)
+0% packet loss over 60 pings to the Orin, avg 3.2ms, max 16.8ms
+5GHz channel utilisation 6%
 ```
 
-DFS channels (52-144) oblige the AP to vacate within seconds of detecting radar, dropping every
-client briefly. That is the one mechanism consistent with perfect signal, zero loss, an idle
-channel, and yet intermittent short interruptions.
+### DFS was the leading theory. IT IS NOT SUPPORTED.
 
-**Proposed fix (NOT APPLIED -- whole-house change, and our UniFi account is read-only by design):**
-pin the 5 GHz radios to non-DFS channels: U7 Pro Max -> 149, U7-Pro-Wall -> 36. No downside at 6%
-utilisation.
+Both APs are on DFS channels picked by `auto` (U7 Pro Max 112, U7-Pro-Wall 64), and a radar vacate
+would explain brief drops on an otherwise perfect link. The evidence says otherwise:
 
-**The event log is a dead end from BOTH directions.** The API 404s on this firmware (see the header
-of `tools/unifi-events.sh`), and the cloud Site Manager answers "No Logs Available. UniFi Fabric
-only stores critical system logs." The full log needs the LOCAL controller at
-`https://192.168.50.1`, not Site Manager.
+- **No "Radar detected" in the controller log.**
+- **No channel change in over 2 hours** of `tools/wifi-channel-watch.py` sampling every 2 minutes.
+- **`wallpi` held ONE continuous association for 7592s** -- a vacate would have bounced it.
 
-**So watch the outcome instead of the log.** `tools/wifi-channel-watch.py` runs from cron on masn
-every 2 minutes and records any 5 GHz channel change to `/opt/stack/logs/wifi-channel.log`. A radar
-detection MOVES the channel, so a timestamped change is direct evidence, and one that lines up with
-a visible skip confirms the diagnosis. Baseline recorded 2026-08-18: U7 Pro Max 112 [DFS],
-U7-Pro-Wall 64 [DFS].
+Moving to non-DFS channels is still mildly worthwhile hygiene, but it is NOT the fix for this, and
+should not be presented as one.
 
-After pinning both radios to non-DFS, a permanently quiet log is the confirmation that the vacates
-have stopped.
+### Still open: what actually causes the skips
 
-NOT PROVEN, only strongly circumstantial. The decisive test is pinning the channel and seeing
-whether the skips stop.
+Candidates, none confirmed:
+- Five concurrent hardware H.264 decode sessions on the Pi 4's single decoder. Note the skips were
+  reported after `gpu_mem=256` restored hardware decode -- but stalls were also seen earlier the
+  same day under SOFTWARE decode, so this is not clean.
+- MSE jitter buffering in Chromium, which recovers on the next keyframe (now 1s, hence "brief").
+- Something on the Orin/go2rtc side.
+
+**The controlled test:** measure the skip rate with `stallwatch.sh` over 15-30 minutes, then set
+`gpu_mem=76` to force software decode and measure again. Same rate means decode is not involved.
+
+### Unrelated finding: the IQAir AirVisual Pro is flapping
+
+`Fn-Link Technology Limited` on MASN 2.4 GHz reassociates every ~40s at -46 dBm (52s uptime when
+checked), bouncing between both APs. Not a coverage problem and nothing to do with the wall, but it
+floods the event log -- which is what made the client log unreadable when looking for radar events --
+and wastes airtime on a 2.4 GHz band already at 71% utilisation.
