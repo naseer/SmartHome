@@ -715,6 +715,53 @@ for less than 120s.
   Its children are pinned to content width so icon, condition and temperature group together at the
   right edge instead of the temperature being flung to the far corner.
 
+## 4k. Shrinking the backyard sub-stream (2026-08-18)
+
+backyard was the worst offender for MSE stalls -- by far the largest sub-stream at 1536x576
+(884k pixels, roughly double driveway's).
+
+**RESOLUTION IS NOT ADJUSTABLE ON THIS CAMERA.** `GetEnc` with `action: 1` returns the allowed
+ranges, and the sub-stream `size` is a single fixed value, not a list:
+
+```
+subStream range:  size "1536*576"            <- fixed, no smaller option
+                  frameRate [20,15,10,7,4]   <- was 20
+                  bitRate   [256,512,1024,1536,2048]
+```
+
+So the win came from FRAMES, not pixels. Decode cost scales with frames x pixels, and **Frigate only
+samples this stream at 5 fps for detection**, so 20 fps was being decoded and mostly discarded by
+both the Orin and the Pi. Now `frameRate: 10, bitRate: 512` -- half the decode work and half the
+bandwidth, with no resolution loss at all. Verified on the wire: 1 keyframe every 10 frames, which
+is the 1-second GOP at 10 fps.
+
+### RECORDING IS UNAFFECTED
+
+Only the SUB stream changed. Recording uses the MAIN stream, verified untouched on the wire as
+`hevc, 4608x1728, 20 fps` at 8192 kbps, and segments continue to land at ~9.5-10.5 MB per 10s --
+in line with cameras that were never touched. The sub-stream feeds detection and the wall only.
+
+### CHANGING ENCODER PARAMETERS CRASHES FRIGATE'S DETECT PROCESS
+
+Expect this and plan for it. go2rtc keeps serving the old stream description, so ffmpeg fails with
+`Invalid data found when processing input` and the camera crash-loops -- and it spread to west_gate
+too, not just the camera that changed:
+
+```
+ffmpeg.backyard.detect  ERROR : rtsp://127.0.0.1:8554/backyard_sub: Invalid data found
+watchdog.backyard       ERROR : Ffmpeg process crashed unexpectedly
+frigate.record.maintainer WARNING : Too many unprocessed recording segments in cache
+```
+
+`docker restart frigate` clears it by forcing renegotiation. Afterwards every camera reported
+`skipped_fps 0.0` with detectors at ~25.5 ms. **Do the restart as part of any encoder change rather
+than discovering the crash-loop later.**
+
+### Same win is available on the other four
+
+Every camera's sub-stream is consumed by Frigate at 5 fps, so any of them still running at 15-20 fps
+is doing the same wasted work. Not applied yet -- backyard was the one causing trouble.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
