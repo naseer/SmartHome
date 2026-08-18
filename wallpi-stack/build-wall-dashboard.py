@@ -129,19 +129,40 @@ INFO_CARD = {
 """},
         },
         {
-            "type": "entities",
-            "show_header_toggle": False,
-            "entities": [
-                {"entity": "binary_sensor.garage_door_sensor_contact", "name": "Garage"},
-                {"entity": "lock.aqara_smart_lock_u200_us", "name": "Front door"},
-                {"entity": "sensor.thermostat_hub_w200_temperature", "name": "Indoor"},
-                {"entity": "sensor.dining_room_thermostat_hub_w200_humidity", "name": "Humidity"},
+            # TILES, NOT AN ENTITIES LIST. An entities card renders a `lock` as an ACTION BUTTON
+            # showing the action available, so a LOCKED door displayed the word "Unlock" -- which
+            # reads as the state, and reads exactly backwards, which is the worst thing a status
+            # panel can do. Tiles show the STATE ("Locked").
+            #
+            # tap_action none on every tile: this is a wall panel in a hallway. It should never be
+            # able to unlock the front door, and today it only cannot because the monitor happens to
+            # have no touch input. Not relying on that.
+            "type": "grid",
+            "columns": 2,
+            "square": False,
+            "cards": [
+                {"type": "tile", "entity": "binary_sensor.garage_door_sensor_contact",
+                 "name": "Garage", "tap_action": {"action": "none"},
+                 "icon_tap_action": {"action": "none"}},
+                {"type": "tile", "entity": "lock.aqara_smart_lock_u200_us",
+                 "name": "Front door", "tap_action": {"action": "none"},
+                 "icon_tap_action": {"action": "none"}},
+                {"type": "tile", "entity": "sensor.thermostat_hub_w200_temperature",
+                 "name": "Indoor", "tap_action": {"action": "none"},
+                 "icon_tap_action": {"action": "none"}},
+                {"type": "tile", "entity": "sensor.dining_room_thermostat_hub_w200_humidity",
+                 "name": "Humidity", "tap_action": {"action": "none"},
+                 "icon_tap_action": {"action": "none"}},
             ],
-            "card_mod": {"style": INFO_STYLE + """
-  #states { padding: 0 !important; }
-  .card-content { font-size: 25px !important; padding: 4px 12px !important; }
-  state-badge { width: 34px !important; height: 34px !important; }
-"""},
+            "card_mod": {"style": {
+                "hui-tile-card $": """
+  ha-card { background: rgba(255,255,255,0.06) !important; border: none !important;
+            box-shadow: none !important; border-radius: 6px !important; }
+""",
+                ".": """
+  #root { gap: 6px !important; }
+""",
+            }},
         },
     ],
     "view_layout": {"grid-area": "info"},

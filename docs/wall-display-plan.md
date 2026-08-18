@@ -632,6 +632,18 @@ forces `ha-card` to black on every camera card, and drops the border, shadow and
 the tiles butt together as one surface. Black reads as the frame of a video wall; white reads as a
 missing tile.
 
+### The status rows are TILES, and deliberately inert
+
+An `entities` card renders a `lock` as an ACTION BUTTON labelled with the action available, so a
+LOCKED front door displayed the word **"Unlock"**. On a glanceable status panel that reads as the
+state, and reads exactly backwards -- the worst thing this panel could do. Tile cards show the STATE
+("Locked") instead.
+
+Every tile sets `tap_action: none` and `icon_tap_action: none`. This is a wall panel in a hallway and
+it should never be able to unlock the front door. Today it cannot only because the monitor happens to
+have no touch input; that is luck, not a design, and it stops being true the moment the display is
+swapped for a touchscreen.
+
 ### The info panel
 
 Clock (markdown, `now()` re-renders every minute -- no sensor or automation needed), 5-day forecast,
