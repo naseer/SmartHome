@@ -124,33 +124,36 @@ INFO_CARD = {
                     }},
                 },
                 {
-                    # show_forecast off: the 5-day strip does not fit beside the clock, and the
-                    # prayer table is the better use of the height. One flag to put it back.
-                    "type": "weather-forecast",
-                    "entity": "weather.forecast_home",
-                    "show_current": True,
-                    "show_forecast": False,
-                    "card_mod": {"style": INFO_STYLE + """
-  ha-card { padding: 10px 16px 6px 0 !important; }
-  /* Flush right, so the clock owns the left and the weather reads as a corner block. */
-  .content { font-size: 16px !important; padding: 0 !important;
-             justify-content: flex-end !important; gap: 10px !important; }
-  /* "Forecast Home" is the ENTITY's friendly name, not weather -- pure noise on a wall. */
-  .name { display: none !important; }
-  .state { font-size: 20px !important; }
-  .temp { font-size: 34px !important; }
-  .icon-image { min-height: 44px !important; }
-  .temp-attribute { text-align: right !important; overflow: visible !important; }
-  /* The unit is a superscript span that sits outside the temperature's box; it needs room and must
-     not wrap or be clipped, or the wall reads "25" with no idea whether that is C or F. */
-  .temp { white-space: nowrap !important; overflow: visible !important; padding-right: 2px !important; }
-  .temp span, .temp .unit { font-size: 17px !important; }
-  /* The info block flex-grows by default, which shoved the temperature to the far edge and left a
-     hole between it and the condition. Pin every child to its content width so icon, condition and
-     temperature travel together as one group against the right edge. */
-  .content > * { flex: 0 0 auto !important; }
-  .info { flex: 0 0 auto !important; margin-right: 0 !important; }
-"""},
+                    # A MARKDOWN CARD, NOT weather-forecast. The stock card lays out icon,
+                    # condition and temperature as one horizontal strip, which put "Cloudy" on the
+                    # temperature's baseline with a gap beside it -- and every attempt to move it
+                    # meant fighting that card's internal CSS (it had already clipped the degree
+                    # symbol once). Rendering the same three values as Markdown gives the exact
+                    # shape of the clock opposite it: big number, small line beneath. Symmetric,
+                    # and nothing to fight.
+                    "type": "markdown",
+                    "content": (
+                        "{% set w = 'weather.forecast_home' %}"
+                        "{% set t = state_attr(w,'temperature') %}"
+                        "{% set h = state_attr(w,'humidity') %}"
+                        # states() gives the raw slug (partlycloudy); this is the human form
+                        "{% set c = states(w) | replace('-',' ') | replace('partlycloudy','partly cloudy') | title %}"
+                        "{% if t is not none %}"
+                        "# {{ t | round(1) }}\u00b0\n"
+                        "### {{ c }}{% if h is not none %} \u00b7 {{ h | round(0) }}%{% endif %}"
+                        "{% else %}# --\n### Weather unavailable{% endif %}"
+                    ),
+                    "card_mod": {"style": {
+                        "ha-markdown $": """
+  /* Mirrors the clock's type exactly, right-aligned. */
+  h1 { font-size: 76px !important; line-height: 1 !important; margin: 0 !important;
+       font-weight: 300 !important; letter-spacing: -3px !important; color: #ffffff !important;
+       text-align: right !important; }
+  h3 { font-size: 22px !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
+       color: #b0b0b0 !important; text-align: right !important; }
+""",
+                        ".": INFO_STYLE + "  ha-card { padding: 8px 16px 4px 4px !important; }",
+                    }},
                 },
             ],
         },

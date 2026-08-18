@@ -711,9 +711,25 @@ for less than 120s.
   or HA draws a stray rule above Fajr.
 - The next prayer is bolded by the template (comparing `now()` to the `t24` field the scraper adds,
   so no 12-hour parsing in Jinja) and coloured green by CSS. After Isha it falls back to Fajr.
-- The weather card's `.name` is hidden: "Forecast Home" is the ENTITY's friendly name, not weather.
-  Its children are pinned to content width so icon, condition and temperature group together at the
-  right edge instead of the temperature being flung to the far corner.
+- **The weather is a MARKDOWN CARD, not `weather-forecast`.** The stock card lays icon, condition
+  and temperature out as one horizontal strip, so "Cloudy" sat on the temperature's baseline with a
+  gap beside it, and moving it meant fighting that card's internal CSS -- which had already clipped
+  the degree symbol once (see below). Rendering the same values as Markdown gives the exact shape of
+  the clock opposite it, and there is nothing left to fight:
+
+  ```
+  4:30                                  25.2 deg
+  Tuesday, 18 August                Cloudy . 56%
+  ```
+
+  `states()` returns the raw slug, so `partlycloudy` is expanded to "Partly Cloudy" in the template.
+  It degrades to "Weather unavailable" if the entity has no temperature. The trade is losing HA's
+  weather icon graphic.
+
+- **Never set `overflow: hidden` on `*` to hide scrollbars.** That was in the shared INFO_STYLE and
+  it clipped the degree unit, which HA renders as a superscript that overflows its box on purpose --
+  the wall showed "25" with no unit, and had silently lost the decimal too. `scrollbar-width: none`
+  plus the `::-webkit-scrollbar` rule is enough on its own.
 
 ## 4k. Shrinking the backyard sub-stream (2026-08-18)
 
