@@ -610,9 +610,19 @@ channel, and yet intermittent short interruptions.
 pin the 5 GHz radios to non-DFS channels: U7 Pro Max -> 149, U7-Pro-Wall -> 36. No downside at 6%
 utilisation.
 
-**To confirm first:** UniFi UI -> System Log, look for "Radar detected" or channel changes on the
-U7 Pro Max. The API cannot fetch this -- every event endpoint 404s on this firmware, see the header
-of `tools/unifi-events.sh`.
+**The event log is a dead end from BOTH directions.** The API 404s on this firmware (see the header
+of `tools/unifi-events.sh`), and the cloud Site Manager answers "No Logs Available. UniFi Fabric
+only stores critical system logs." The full log needs the LOCAL controller at
+`https://192.168.50.1`, not Site Manager.
+
+**So watch the outcome instead of the log.** `tools/wifi-channel-watch.py` runs from cron on masn
+every 2 minutes and records any 5 GHz channel change to `/opt/stack/logs/wifi-channel.log`. A radar
+detection MOVES the channel, so a timestamped change is direct evidence, and one that lines up with
+a visible skip confirms the diagnosis. Baseline recorded 2026-08-18: U7 Pro Max 112 [DFS],
+U7-Pro-Wall 64 [DFS].
+
+After pinning both radios to non-DFS, a permanently quiet log is the confirmation that the vacates
+have stopped.
 
 NOT PROVEN, only strongly circumstantial. The decisive test is pinning the channel and seeing
 whether the skips stop.
