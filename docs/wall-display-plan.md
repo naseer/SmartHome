@@ -757,10 +757,28 @@ frigate.record.maintainer WARNING : Too many unprocessed recording segments in c
 `skipped_fps 0.0` with detectors at ~25.5 ms. **Do the restart as part of any encoder change rather
 than discovering the crash-loop later.**
 
-### Same win is available on the other four
+### The other cameras: three were ALREADY tuned
 
-Every camera's sub-stream is consumed by Frigate at 5 fps, so any of them still running at 15-20 fps
-is doing the same wasted work. Not applied yet -- backyard was the one causing trouble.
+Checked 2026-08-18 with `masn-stack/tools/tune-substreams.py --dry-run`. front_door, west_gate and
+east_gate were already at 10 fps with gop 1; only driveway was still at 15 fps, now 10. So the
+earlier assumption that every camera was wasting frames was WRONG -- only two ever were.
+
+Sub-stream state across the fleet, all with a 1-second GOP:
+
+```
+driveway    896*512   10 fps      front_door  640*480  10 fps
+west_gate   640*360   10 fps      east_gate   640*360  10 fps
+backyard    1536*576  10 fps @ 512 kbps
+```
+
+Every `size` is FIXED on these cameras -- the allowed-values range is a single string, not a list --
+so frame rate is the only lever any of them offer.
+
+Result: Pi CPU 36.2% -> 31.5% busy of 4 cores at 55 C, all cameras `skipped_fps 0.0`.
+
+NOTE: driveway is the hero tile, and 15 -> 10 fps is a visible smoothness reduction on the thing
+people actually watch. To put it back:
+    ./tune-substreams.py --only driveway --fps 15   (then restart frigate)
 
 ## 5. Open questions
 

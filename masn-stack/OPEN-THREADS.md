@@ -556,3 +556,15 @@ still polls the other five.
   session's traceback) is rotated. Done as part of Orin migration Phase 1, because the same change
   moved the broker off loopback-only onto the LAN — which is exactly when "later" stopped being an
   acceptable answer. Old credential verified REJECTED afterwards.
+
+## Wall display Pi is no longer using hardware H.264 decode (2026-08-18)
+
+Nothing holds `/dev/video10` any more. Earlier the same day Chromium did, and the build notes claim
+hardware decode is active -- so the docs are currently describing something that is not happening.
+
+It does not hurt today: 31.5% busy of 4 cores, 55 C, `throttled=0x0`, all five tiles live. Software
+decode of five small sub-streams is comfortably within budget. But it is headroom being spent for
+nothing, and it would matter if the wall ever gains tiles or resolution.
+
+Check with:  `fuser /dev/video10`  on wallpi (expect one chromium pid).
+Unknown whether a Chromium update, a flag, or the sub-stream parameter changes caused the fallback.
