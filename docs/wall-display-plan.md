@@ -656,6 +656,65 @@ This layout change invalidated every region in `/etc/wall-tiles.conf` -- the exa
 4h. New regions verified by cropping and LOOKING at them, not by assuming. Re-verify with
 `wallpi-stack/tools/show-osd-regions.sh` after any future layout change.
 
+## 4j. Prayer times + info panel layout (2026-08-18)
+
+The info cell now carries: clock (left) with weather flush right, the Masjid Quba Iqamah table, and
+the four status tiles.
+
+### Scraping ajaxmasjid.ca
+
+`masn-stack/tools/masjid-prayer-times.py`, installed by `masn-stack/setup-masjid-times.sh`.
+The page is SERVER-RENDERED WordPress, so the times are in the raw HTML -- no browser needed.
+
+**DO NOT KEY ON `class="end-time"`.** Most rows mark Azan and Iqamah with that class, but MAGHRIB
+OMITS IT and uses bare `<span>`s -- presumably because its times are computed offsets from sunset:
+
+```
+<li><span class="thm-clr">Fajr</span>    <span class="start-time">4:57 am</span>
+    <span class="end-time">05:30 AM</span><span class="end-time">05:45 AM</span></li>
+<li><span class="thm-clr">Maghrib</span> <span class=" start-time">8:15 PM</span>
+    <span>08:16 PM</span><span>08:18 PM</span></li>          <- no class at all
+```
+
+The first attempt keyed on the class and silently returned 4 of 5 prayers. The parser now reads
+every span in the row and takes the LAST one that looks like a time, which holds for both shapes.
+Sunrise is excluded automatically by requiring at least two times in the row.
+
+A partial scrape publishes NOTHING -- half a board is worse than yesterday's complete one.
+
+### Why it runs hourly but only fetches once a day
+
+**Home Assistant forgets REST-API states when it restarts.** A purely daily job would leave the
+table blank for up to 24h after any HA restart. The script caches to
+`/opt/stack/state/masjid-prayer-times.json` and re-publishes from cache every hour, going to the
+network only when the cache is not from today. Roughly one request a day to the mosque's site.
+
+If the site is unreachable the cached times are published anyway and the run SUCCEEDS; the card
+shows `updated <when>` so stale times are visibly stale. Only a failure with no cache at all is
+fatal. All three paths were tested (unreachable + cache, unreachable + no cache, changed layout).
+
+**Scheduled with the USER CRONTAB, not systemd.** masn requires a password for sudo, which a
+non-interactive session cannot supply, so everything lives in paths the login user already owns.
+(wallpi has passwordless sudo; masn does not -- do not assume.)
+
+### tile-watchdog needed a startup grace period
+
+A check landing in the 40-60s after a KIOSK RESTART logged `STALLED: backyard` and incremented the
+counter, because a tile that has not started yet looks exactly like a stalled one. Three of those
+would have restarted the kiosk, restarting the streams, tripping it again. The timer's `OnBootSec`
+does not cover a restart of the unit alone, so the script now skips if `kiosk.service` has been up
+for less than 120s.
+
+### Small things
+
+- The status rows use `| | |` as a Markdown header purely to make a table; `thead` is hidden in CSS
+  or HA draws a stray rule above Fajr.
+- The next prayer is bolded by the template (comparing `now()` to the `t24` field the scraper adds,
+  so no 12-hour parsing in Jinja) and coloured green by CSS. After Isha it falls back to Fajr.
+- The weather card's `.name` is hidden: "Forecast Home" is the ENTITY's friendly name, not weather.
+  Its children are pinned to content width so icon, condition and temperature group together at the
+  right edge instead of the temperature being flung to the far corner.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.

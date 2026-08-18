@@ -58,6 +58,22 @@ WD=$(find_display) || {
 }
 export WAYLAND_DISPLAY="$WD"
 
+# GRACE PERIOD AFTER A KIOSK RESTART. Tiles take 40-60s to negotiate their streams, and a tile that
+# has not started yet is not a stalled tile. Observed 2026-08-18: a check landing in that window
+# logged `STALLED: backyard (live=4 frozen=1)` and incremented the counter -- three of those in a
+# row would have restarted the kiosk, which would restart the streams, which would trip it again.
+# The boot grace in the timer (OnBootSec) does not cover a restart of the unit alone.
+KIOSK_MIN_UPTIME="${KIOSK_MIN_UPTIME:-120}"
+started=$(systemctl show kiosk.service -p ActiveEnterTimestampMonotonic --value 2>/dev/null || echo 0)
+if [ -n "$started" ] && [ "$started" -gt 0 ] 2>/dev/null; then
+    now_mono=$(awk '{printf "%d", $1 * 1000000}' /proc/uptime)
+    age=$(( (now_mono - started) / 1000000 ))
+    if [ "$age" -lt "$KIOSK_MIN_UPTIME" ]; then
+        log "kiosk started ${age}s ago (< ${KIOSK_MIN_UPTIME}s) -- still bringing streams up, skipping"
+        exit 0
+    fi
+fi
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 

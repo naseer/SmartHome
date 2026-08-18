@@ -102,31 +102,89 @@ INFO_CARD = {
         " #root > *:last-child { flex: 1 1 auto; }"}},
     "cards": [
         {
-            # A wall display should answer "what time is it" without anyone walking up to it.
-            # now() re-renders every minute, so no automation or sensor is needed.
-            "type": "markdown",
-            "content": "# {{ now().strftime('%-I:%M') }}\n### {{ now().strftime('%A, %-d %B') }}",
-            "card_mod": {"style": {
-                "ha-markdown $": """
-  h1 { font-size: 92px !important; line-height: 1 !important; margin: 0 !important;
+            # Clock and weather share one row: the clock is the thing you read from the doorway,
+            # the weather is a glance, and the prayer table below needs the vertical space.
+            "type": "horizontal-stack",
+            "cards": [
+                {
+                    # now() re-renders every minute, so no automation or sensor is needed.
+                    "type": "markdown",
+                    "content": "# {{ now().strftime('%-I:%M') }}\n### {{ now().strftime('%A, %-d %B') }}",
+                    "card_mod": {"style": {
+                        "ha-markdown $": """
+  h1 { font-size: 76px !important; line-height: 1 !important; margin: 0 !important;
        font-weight: 300 !important; letter-spacing: -3px !important; color: #ffffff !important; }
-  h3 { font-size: 27px !important; margin: 4px 0 0 0 !important; font-weight: 400 !important;
+  h3 { font-size: 22px !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
        color: #b0b0b0 !important; }
 """,
-                ".": INFO_STYLE + "  ha-card { padding: 10px 16px 6px 16px !important; }",
-            }},
+                        ".": INFO_STYLE + "  ha-card { padding: 8px 4px 4px 16px !important; }",
+                    }},
+                },
+                {
+                    # show_forecast off: the 5-day strip does not fit beside the clock, and the
+                    # prayer table is the better use of the height. One flag to put it back.
+                    "type": "weather-forecast",
+                    "entity": "weather.forecast_home",
+                    "show_current": True,
+                    "show_forecast": False,
+                    "card_mod": {"style": INFO_STYLE + """
+  ha-card { padding: 10px 16px 6px 0 !important; }
+  /* Flush right, so the clock owns the left and the weather reads as a corner block. */
+  .content { font-size: 16px !important; padding: 0 !important;
+             justify-content: flex-end !important; gap: 10px !important; }
+  /* "Forecast Home" is the ENTITY's friendly name, not weather -- pure noise on a wall. */
+  .name { display: none !important; }
+  .state { font-size: 20px !important; }
+  .temp { font-size: 34px !important; }
+  .icon-image { min-height: 44px !important; }
+  .temp-attribute { text-align: right !important; }
+  /* The info block flex-grows by default, which shoved the temperature to the far edge and left a
+     hole between it and the condition. Pin every child to its content width so icon, condition and
+     temperature travel together as one group against the right edge. */
+  .content > * { flex: 0 0 auto !important; }
+  .info { flex: 0 0 auto !important; margin-right: 0 !important; }
+"""},
+                },
+            ],
         },
         {
-            "type": "weather-forecast",
-            "entity": "weather.forecast_home",
-            "forecast_type": "daily",
-            "show_current": True,
-            "show_forecast": True,
-            "card_mod": {"style": INFO_STYLE + """
-  .content, .forecast { font-size: 21px !important; }
-  .temp { font-size: 32px !important; }
-  ha-card { padding: 8px 12px 2px 12px !important; }
-"""},
+            # Iqamah times scraped from ajaxmasjid.ca once a day by masn-stack/tools/
+            # masjid-prayer-times.py. If the site is unreachable the last known times stay up and
+            # the "updated" line below reveals they are stale -- a blank board would be worse.
+            "type": "markdown",
+            "content": (
+                "#### Prayer Times &nbsp;·&nbsp; Masjid Quba\n"
+                "{% set ps = state_attr('sensor.masjid_quba_prayers','prayers') %}"
+                "{% if ps %}"
+                "{% set t = now().strftime('%H:%M') %}"
+                "{% set later = ps | selectattr('t24','gt',t) | list %}"
+                # after Isha there is no "next" today, so fall back to tomorrow's Fajr
+                "{% set nxt = (later | first).name if later else ps[0].name %}"
+                "\n| | |\n|:--|--:|\n"
+                "{% for p in ps %}"
+                "| {% if p.name == nxt %}**{{ p.name }}**{% else %}{{ p.name }}{% endif %} "
+                "| {% if p.name == nxt %}**{{ p.iqamah }}**{% else %}{{ p.iqamah }}{% endif %} |\n"
+                "{% endfor %}"
+                "\n<small>updated {{ state_attr('sensor.masjid_quba_prayers','last_updated_local') }}</small>"
+                "{% else %}\n_Prayer times unavailable_{% endif %}"
+            ),
+            "card_mod": {"style": {
+                "ha-markdown $": """
+  h4 { font-size: 19px !important; margin: 0 0 4px 0 !important; font-weight: 500 !important;
+       color: #7fd1b9 !important; letter-spacing: .4px !important; }
+  table { width: 100% !important; border-collapse: collapse !important; border: none !important; }
+  /* the header is `| | |` -- two empty cells purely to make Markdown emit a table. HA's default
+     styling still draws it, leaving a stray rule above Fajr. */
+  thead { display: none !important; }
+  th, td { border: none !important; }
+  td { font-size: 23px !important; padding: 3px 2px !important;
+       border-bottom: 1px solid #161616 !important; color: #e8e8e8 !important; }
+  /* the next prayer is bolded by the template; make it unmistakable from across the room */
+  td strong { color: #7fd1b9 !important; font-weight: 600 !important; }
+  small { font-size: 13px !important; color: #6e6e6e !important; }
+""",
+                ".": INFO_STYLE + "  ha-card { padding: 6px 16px 4px 16px !important; }",
+            }},
         },
         {
             # TILES, NOT AN ENTITIES LIST. An entities card renders a `lock` as an ACTION BUTTON
