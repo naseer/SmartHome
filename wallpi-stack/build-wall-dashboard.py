@@ -136,11 +136,26 @@ INFO_CARD = {
                         "{% set w = 'weather.forecast_home' %}"
                         "{% set t = state_attr(w,'temperature') %}"
                         "{% set h = state_attr(w,'humidity') %}"
+                        # Stands in for the weather icon lost when this stopped being a
+                        # weather-forecast card. Covers every state HA can report, so an unusual
+                        # one never renders as a blank. NEEDS fonts-noto-color-emoji ON THE PI --
+                        # without it the fallback is DejaVu Sans, which has flat outlines for one
+                        # or two of these and TOFU BOXES for the rest.
+                        "{% set icons = {"
+                        "'clear-night':'\U0001F319','cloudy':'\u2601\uFE0F',"
+                        "'exceptional':'\u26A0\uFE0F','fog':'\U0001F32B\uFE0F',"
+                        "'hail':'\U0001F9CA','lightning':'\u26A1',"
+                        "'lightning-rainy':'\u26C8\uFE0F','partlycloudy':'\u26C5',"
+                        "'pouring':'\U0001F327\uFE0F','rainy':'\U0001F326\uFE0F',"
+                        "'snowy':'\u2744\uFE0F','snowy-rainy':'\U0001F328\uFE0F',"
+                        "'sunny':'\u2600\uFE0F','windy':'\U0001F4A8','windy-variant':'\U0001F4A8'"
+                        "} %}"
+                        "{% set e = icons.get(states(w), '') %}"
                         # states() gives the raw slug (partlycloudy); this is the human form
                         "{% set c = states(w) | replace('-',' ') | replace('partlycloudy','partly cloudy') | title %}"
                         "{% if t is not none %}"
                         "# {{ t | round(1) }}\u00b0\n"
-                        "### {{ c }}{% if h is not none %} \u00b7 {{ h | round(0) }}%{% endif %}"
+                        "### {{ e }} {{ c }}{% if h is not none %} \u00b7 {{ h | round(0) }}%{% endif %}"
                         "{% else %}# --\n### Weather unavailable{% endif %}"
                     ),
                     "card_mod": {"style": {

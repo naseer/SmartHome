@@ -723,8 +723,16 @@ for less than 120s.
   ```
 
   `states()` returns the raw slug, so `partlycloudy` is expanded to "Partly Cloudy" in the template.
-  It degrades to "Weather unavailable" if the entity has no temperature. The trade is losing HA's
-  weather icon graphic.
+  It degrades to "Weather unavailable" if the entity has no temperature.
+
+- **The lost weather icon is replaced by an emoji**, mapped from the state -- all 15 states HA's
+  weather platform can report, verified by rendering the map through `/api/template` rather than
+  waiting for the weather to change.
+
+  **THIS NEEDS `fonts-noto-color-emoji` ON THE PI.** Raspberry Pi OS Lite ships NO emoji font: the
+  fallback was DejaVu Sans, which happens to have flat monochrome outlines for a couple of these and
+  TOFU BOXES for the rest (the rain and fog ones are outside its coverage entirely). Check with
+  `fc-match ":charset=1f327"` -- it must resolve to NotoColorEmoji, not DejaVuSans.
 
 - **Never set `overflow: hidden` on `*` to hide scrollbars.** That was in the shared INFO_STYLE and
   it clipped the degree unit, which HA renders as a superscript that overflows its box on purpose --

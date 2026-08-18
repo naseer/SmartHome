@@ -12,6 +12,12 @@ UNIT_SRC="$(dirname "$0")/kiosk.service"
 [ -f "$UNIT_SRC" ] || { echo "!! kiosk.service not found next to this script"; exit 1; }
 command -v cage >/dev/null || { echo "!! cage not installed"; exit 1; }
 command -v chromium >/dev/null || { echo "!! chromium not installed"; exit 1; }
+# Pi OS Lite ships no emoji font, and the weather block renders its condition as an emoji. Without
+# this the fallback is DejaVu Sans, which shows tofu boxes for most of them.
+fc-match ":charset=1f327" 2>/dev/null | grep -qi emoji || {
+  echo ">> installing fonts-noto-color-emoji (weather condition icons)"
+  sudo apt-get install -y fonts-noto-color-emoji && fc-cache -f >/dev/null
+}
 
 echo ">> installing kiosk.service with URL: $KIOSK_URL"
 sed "s|KIOSK_URL_PLACEHOLDER|${KIOSK_URL}|" "$UNIT_SRC" | sudo tee /etc/systemd/system/kiosk.service > /dev/null
