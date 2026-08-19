@@ -98,35 +98,6 @@ INFO_STYLE = """
   *::-webkit-scrollbar { display: none !important; }
 """
 
-GRID_CARD = {
-    "type": "custom:advanced-camera-card",
-    "cameras": [{
-        # engine MUST be explicit. With no camera_entity there is nothing for the card to infer
-        # from, and it fails with "Could not determine suitable engine for camera".
-        # engine `frigate`, NOT `generic`: that makes the card build its MSE URL through Home
-        # Assistant's existing Frigate proxy (/api/frigate/<client_id>/mse/...), which already
-        # reaches the Orin's go2rtc. `generic` would need go2rtc's port 1984 published on the LAN,
-        # and that port is an UNAUTHENTICATED admin API -- exactly what the :5000 lockdown exists to
-        # prevent. This keeps the browser talking only to HA.
-        "engine": "frigate",
-        "frigate": {"client_id": "frigate"},
-        # id MUST be explicit too: with no camera_entity the card cannot derive one and fails with
-        # "Could not determine camera id ... may need to set 'id' parameter manually".
-        "id": "wall_grid",
-        "live_provider": "go2rtc",
-        # mse only -- webrtc in this list caused constant renegotiation churn (2026-08-11)
-        "go2rtc": {"modes": ["mse"], "stream": "wall_grid"},
-    }],
-    "live": {"lazy_load": False, "show_image_during_load": False,
-             "controls": {"thumbnails": {"mode": "none"}}},
-    "menu": {"style": "none"},
-    "dimensions": {"aspect_ratio_mode": "unconstrained", "height": "100%"},
-    "performance": {"features": {"animated_progress_indicator": False,
-                                 "card_loading_effects": False}},
-    # row-start / col-start / row-end / col-end -- spans the whole 3x3
-    "view_layout": {"grid-area": "1 / 1 / 4 / 4"},
-}
-
 INFO_CARD = {
     "type": "vertical-stack",
     # Fills the cell and paints it black, so the panel reads as part of the wall rather than as a
@@ -222,18 +193,11 @@ INFO_CARD = {
                 "{% set later = ps | selectattr('t24','gt',t) | list %}"
                 # after Isha there is no "next" today, so fall back to tomorrow's Fajr
                 "{% set nxt = (later | first).name if later else ps[0].name %}"
-                # RAW HTML TABLE, not Markdown. A Markdown table REQUIRES a header row, and the
-                # only way to have no visible header was `| | |` hidden with CSS -- which showed up
-                # as a PHANTOM EMPTY ROW on any client where card-mod had not loaded. HTML needs no
-                # header, so this now looks right even unstyled.
-                "\n<table>"
+                "\n| | |\n|:--|--:|\n"
                 "{% for p in ps %}"
-                "<tr><td>{% if p.name == nxt %}<strong>{{ p.name }}</strong>"
-                "{% else %}{{ p.name }}{% endif %}</td>"
-                "<td class='t'>{% if p.name == nxt %}<strong>{{ p.iqamah }}</strong>"
-                "{% else %}{{ p.iqamah }}{% endif %}</td></tr>"
+                "| {% if p.name == nxt %}**{{ p.name }}**{% else %}{{ p.name }}{% endif %} "
+                "| {% if p.name == nxt %}**{{ p.iqamah }}**{% else %}{{ p.iqamah }}{% endif %} |\n"
                 "{% endfor %}"
-                "</table>"
                 "\n<small>updated {{ state_attr('sensor.masjid_quba_prayers','last_updated_local') }}</small>"
                 "{% else %}\n_Prayer times unavailable_{% endif %}"
             ),
@@ -252,7 +216,7 @@ INFO_CARD = {
   th, td, .content th, .content td { border: none !important; background: none !important; }
   td, .content td { font-size: 1.05vh !important; padding: 0.25vh 2px !important;
        border-bottom: 1px solid #202020 !important; color: #e8e8e8 !important; }
-  td.t, .content td.t, td:last-child { text-align: right !important; }
+  td:last-child, .content td:last-child { text-align: right !important; }
   /* the next prayer is bolded by the template; make it unmistakable from across the room */
   td strong, .content td strong { color: #7fd1b9 !important; font-weight: 600 !important; }
   small { font-size: 0.62vh !important; color: #6e6e6e !important;
@@ -309,8 +273,7 @@ INFO_CARD = {
             }},
         },
     ],
-    # top-right cell, drawn OVER the video's black corner
-    "view_layout": {"grid-area": "1 / 3 / 2 / 4"},
+    "view_layout": {"grid-area": "info"},
 }
 
 
@@ -344,11 +307,7 @@ def main():
             "--masonry-view-card-margin": "0",
             "background": "#000000",
         },
-        # ONE video layer, not five. The grid is composited on the Orin (orin-stack/wall-grid),
-        # which took the Pi's renderer from painting five live videos to painting one. Line-based
-        # grid-area lets the two cards OVERLAP: the video covers all 9 cells, and the info panel
-        # sits on top of the black cell the compositor deliberately leaves at the top right.
-        "cards": [GRID_CARD, INFO_CARD],
+        "cards": [camera_card(*c) for c in CAMERAS] + [INFO_CARD],
     }
     cfg["views"] = [view] + [v for v in cfg["views"] if v.get("path") != "cameras"]
     json.dump(cfg, open(sys.argv[2], "w"), indent=2)

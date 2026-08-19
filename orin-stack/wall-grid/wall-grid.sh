@@ -27,10 +27,16 @@ FPS="${GRID_FPS:-10}"
 # Where the composited stream is served. go2rtc pulls this from inside the frigate container.
 PORT="${GRID_PORT:-8099}"
 
+# NO videorate. Asking videorate for 10fps DUPLICATED frames rather than producing unique ones:
+# measured 33 of 57 consecutive frames essentially identical (median 13 changed pixels) while a
+# single camera over the same window changed on 50 of 51 frames (median 375). The output rate has
+# to be negotiated on the COMPOSITOR's src pad so it composites at that rate, instead of being
+# rate-converted afterwards.
+#
 # leaky=downstream: if one camera hiccups, drop its frames rather than stalling the whole grid.
 src() {
   echo "rtspsrc location=$1 protocols=tcp latency=200 ! rtph264depay ! h264parse ! nvv4l2decoder \
-        ! queue max-size-buffers=3 leaky=downstream ! comp.sink_$2"
+        ! queue max-size-buffers=8 ! comp.sink_$2"
 }
 
 exec gst-launch-1.0 -e \
@@ -42,7 +48,6 @@ exec gst-launch-1.0 -e \
     sink_4::xpos=1280 sink_4::ypos=720 sink_4::width=640  sink_4::height=360 \
   ! "video/x-raw(memory:NVMM),width=1920,height=1080" \
   ! nvvidconv ! "video/x-raw(memory:NVMM),format=NV12" \
-  ! videorate ! "video/x-raw(memory:NVMM),framerate=${FPS}/1" \
   ! nvv4l2h264enc bitrate="$BITRATE" iframeinterval="$FPS" idrinterval="$FPS" insert-sps-pps=true \
   ! h264parse ! mpegtsmux ! tcpserversink host=0.0.0.0 port="$PORT" recover-policy=keyframe \
       sync-method=latest-keyframe sync=false \

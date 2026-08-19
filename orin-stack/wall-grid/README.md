@@ -1,4 +1,10 @@
-# Server-side wall grid -- DEPLOYED 2026-08-19
+# Server-side wall grid -- BUILT AND WORKING, BUT REVERTED 2026-08-19
+
+**NOT IN USE.** It works and costs almost nothing, but nvcompositor only re-samples its inputs
+about 4 times a second, so motion looked like ~4fps against 10fps sources. See "The blocker" at the
+bottom. The wall is back on five client-side tiles.
+
+# Server-side wall grid
 
 The Orin stitches the five camera sub-streams into ONE 1080p stream. Displays render a single video
 element instead of five.
@@ -69,3 +75,43 @@ With one stream every clock freezes together, so the watchdog's usual safety rul
 some tiles are live and others frozen") would NEVER fire. `mode single_stream` in
 `/etc/wall-tiles.conf` tells it all-frozen is actionable. Verified by killing the compositor:
 `STALLED: live=0 frozen=5`, then `all tiles healthy again` once cron restored it.
+
+
+## THE BLOCKER: nvcompositor re-samples its inputs ~4 times a second
+
+The stream carries a full 10fps, but most consecutive frames are DUPLICATES. Measured against the
+east_gate camera, which has a permanently spinning AC fan and so changes every frame at source:
+
+```
+east_gate_sub (source)          60 frames,  3/59 near-identical, median diff 246
+east cell inside wall_grid      57 frames, 31/56 near-identical, median diff  16
+                                -> only ~4 unique composites per second
+```
+
+Ruled out, each by measurement:
+
+- **`videorate`** -- moving the rate onto the compositor's src pad barely changed it (33/57 -> 30/56).
+- **Leaky queues starving the compositor** -- removing `leaky=downstream` and raising depth 3 -> 8
+  made it slightly WORSE (34/56, median 3).
+- **Output rate capping** -- free-running the compositor still gave ~3.5 unique fps.
+- **Input count / VIC throughput** -- with only TWO inputs it was 2.3 unique fps, i.e. no better.
+  So it is not a scaling limit.
+
+That points at aggregator timing with live RTSP sources rather than throughput: nvcompositor emits
+on its own clock and repeatedly composites input buffers it has already used. Worth trying next:
+timestamp handling on `rtspsrc` (`do-timestamp`, `latency`), nvcompositor's start-time/sync
+behaviour, or the DeepStream `nvstreammux` (`live-source=1`, `batched-push-timeout`) +
+`nvmultistreamtiler` path -- though the tiler only does UNIFORM tiles, which would lose the
+driveway hero layout.
+
+## Where the trade-off stands
+
+```
+                     motion (unique fps)   dropped frames   Pi renderer
+five client tiles          10                  ~9%             94-98% of a core
+one composited stream      ~4                   0%             45.5% of a core
+```
+
+The composited path wins on CPU and drops, and loses on motion -- which is the thing you actually
+see. Hence the revert. Everything here stays deployed on the Orin (the pipeline and its keepalive
+keep running, costing ~2% of one core) so it can be picked up without rebuilding.
