@@ -868,13 +868,36 @@ alone looked wrong while they looked fine. All three are now at their model's ma
 `masn-stack/tools/tune-substreams.py --max-bitrate` does this, taking each camera's own ceiling
 rather than assuming a shared one -- the ceilings differ by model.
 
-### A red herring worth recording
+### The PPS errors were NOT cosmetic -- they broke every NEW viewer
 
-go2rtc's restream of that camera reports `non-existing PPS 0 referenced` / `decode_slice_header
-error` (18-28 per 5s) while the SAME camera probed DIRECTLY is completely clean, and other cameras
-through go2rtc are clean too. It survives a frigate restart and an encoder restart. It does not
-visibly affect the tile, so it is cosmetic as far as the wall goes -- but do not chase it as the
-cause of a picture problem.
+I initially wrote these off because the wall's tile kept playing. That was wrong, and a screenshot
+of a fresh browser showed why: front_door rendered as a BLACK TILE WITH A PLAY BUTTON while every
+already-running client carried on fine.
+
+**The doorbell sends SPS/PPS only once, at stream start.** Anything that joins later has no
+parameter sets and cannot initialise its decoder, so playback never begins. Sessions already
+running had received them and were unaffected -- which is exactly why it looked cosmetic.
+
+```
+                                   decode errors in 5s
+camera probed DIRECTLY                      0
+via go2rtc (plain rtsp source)          18-28     <- and new viewers get a black tile
+via go2rtc with an `ffmpeg:` source          0
+```
+
+Fixed by giving ONLY this camera an `ffmpeg:` source in the go2rtc config, which re-inserts the
+parameter sets for every new consumer:
+
+```yaml
+front_door_sub:
+  - "ffmpeg:rtsp://admin:{FRIGATE_RTSP_PASSWORD}@192.168.50.151:554/h264Preview_01_sub#video=copy"
+```
+
+A frigate restart and an encoder restart both failed to fix it beforehand -- the camera behaves this
+way by design, so the stream has to be normalised rather than restarted.
+
+**LESSON: "the tile still looks fine" does not mean a stream error is cosmetic.** Test a COLD start,
+not a session that is already running.
 
 **DO NOT `DELETE /api/streams?src=...` to force go2rtc to reconnect.** It removes the stream
 outright, and Frigate's detect for that camera reads from it -- a restart is needed to regenerate
