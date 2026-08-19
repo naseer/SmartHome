@@ -66,6 +66,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--fps", type=int, default=DEFAULT_FPS)
     ap.add_argument("--only", help="comma-separated camera names")
+    ap.add_argument("--max-bitrate", action="store_true",
+                    help="also raise each sub-stream to the highest bitrate the camera allows")
     args = ap.parse_args()
 
     pw = os.environ["FRIGATE_RTSP_PASSWORD"]
@@ -106,6 +108,12 @@ def main():
             continue
 
         body = {k: cur[k] for k in ("bitRate", "profile", "size", "vType") if k in cur}
+        # Bitrate matters more than it looks. front_door shipped at 256 kbps for a 640x480 frame --
+        # 33% more pixels than the 640x360 gates on the SAME budget -- and looked visibly broken
+        # while they looked fine. The allowed ceiling differs per model (512 on the gates and
+        # front_door, 1228 on driveway, 2048 on backyard), so take each camera's own maximum.
+        if args.max_bitrate and isinstance(rng.get("bitRate"), list) and rng["bitRate"]:
+            body["bitRate"] = max(rng["bitRate"])
         body["frameRate"] = target
         body["gop"] = 1          # 1s keyframes: MSE can only start/recover on a keyframe
         r = api(ip, "SetEnc",

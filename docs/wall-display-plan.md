@@ -848,6 +848,39 @@ justified it.
 Do not lower the frame rate to "reduce load" without measuring DISPLAYED fps. Load is not the
 symptom; motion is.
 
+## 4m. front_door looked broken: BITRATE STARVATION (2026-08-19)
+
+Reported as "front door seems broken". It was neither frozen nor stalled -- its clock advanced in
+11 of 11 samples and go2rtc delivered it. The cause was the encoder budget:
+
+```
+camera       size       bitrate   pixels    ceiling the model allows
+front_door   640*480    256 kbps  307k      512
+west_gate    640*360    256 kbps  230k      512
+east_gate    640*360    256 kbps  230k      512
+driveway     896*512   1024 kbps  459k      1228
+backyard    1536*576   1024 kbps  885k      2048
+```
+
+**front_door carries 33% more pixels than the gates on an identical 256 kbps**, which is why it
+alone looked wrong while they looked fine. All three are now at their model's maximum of 512.
+
+`masn-stack/tools/tune-substreams.py --max-bitrate` does this, taking each camera's own ceiling
+rather than assuming a shared one -- the ceilings differ by model.
+
+### A red herring worth recording
+
+go2rtc's restream of that camera reports `non-existing PPS 0 referenced` / `decode_slice_header
+error` (18-28 per 5s) while the SAME camera probed DIRECTLY is completely clean, and other cameras
+through go2rtc are clean too. It survives a frigate restart and an encoder restart. It does not
+visibly affect the tile, so it is cosmetic as far as the wall goes -- but do not chase it as the
+cause of a picture problem.
+
+**DO NOT `DELETE /api/streams?src=...` to force go2rtc to reconnect.** It removes the stream
+outright, and Frigate's detect for that camera reads from it -- a restart is needed to regenerate
+the config. A subsequent decode test then reports "0 errors" purely because there is nothing to
+connect to, which reads as success.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
