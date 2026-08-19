@@ -758,6 +758,15 @@ An earlier entry said a better PSU "will not fix the renderer saturation", based
 sample that happened to fall between events. That was wrong, and the sampling was too short for the
 event rate. The renderer being busy is the baseline; the STUTTER is the brownouts.
 
+**UPDATE, same day: it went from intermittent to CONTINUOUS.** 90 of 90 samples over 3 minutes
+showed `0x50005` with the ARM clock pinned at 600MHz -- the Pi now runs permanently at 40% speed,
+not in bursts. Temperature 51 C, so not thermal. No software change can compensate for losing more
+than half the CPU, and this is why the wall stayed choppy after every tuning attempt.
+
+FIRST THING TO CHECK: what the Pi is actually plugged into. A monitor USB port, a hub, or a phone
+charger supplies well under what a Pi 4 needs (up to 3A) and produces exactly this. It ran clean at
+the desk on its old supply.
+
 **A proper 5V/3A supply and a short, thick USB-C cable is the fix.** Verify with
 `vcgencmd get_throttled` -- it must read `0x0` after a full power cycle -- then re-measure with
 `wallpi-stack/tools/video-stats.py 90`.
