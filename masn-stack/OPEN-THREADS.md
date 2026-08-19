@@ -676,3 +676,53 @@ buffering -- that claim was made prematurely and the controlled comparison dispr
 
 Mechanism still unknown. Next candidates if it ever does matter: UAPSD on the SSID (UniFi exposes a
 per-WLAN toggle), or simply Ethernet at the wall position.
+
+## Wall display "buffering" is DROPPED FRAMES, and the Pi is browning out (2026-08-19)
+
+### It is not buffering. Measured directly, not inferred.
+
+`wallpi-stack/tools/video-stats.py` attaches to the kiosk over the DevTools protocol and reads what
+the browser itself reports for every <video>: `waiting`/`stalled` events, dropped-vs-total frames,
+readyState and buffer depth. Across every configuration tried:
+
+```
+waiting: 0    stalled: 0    readyState: 4 (HAVE_ENOUGH_DATA)    ~1s buffered ahead
+```
+
+**Zero rebuffering events, ever.** The network delivers every frame on time. What is visible as
+"buffering" is FRAMES BEING DROPPED AT RENDER TIME.
+
+NOTE: the video elements live inside advanced-camera-card's SHADOW DOM, so
+`document.querySelectorAll('video')` finds nothing -- the tool walks shadow roots.
+
+### Drop rates by configuration (90s samples)
+
+```
+source fps   decode      driveway   front_door   gates      backyard
+10 fps       software        3.0%         0.3%   0.7/0.2%       0.2%
+20/15 fps    software       15.9%         9.8%   4.2/4.3%       5.4%
+15 fps       software       13.6%         8.8%   3.7/4.0%      13.0%
+15 fps       HARDWARE       27.1%        23.2%  20.2/5.7%      13.0%
+```
+
+Hardware decode is roughly TWICE as bad as software, confirming the earlier finding with a far
+better instrument. Software decode stays.
+
+### THE LIKELY ROOT CAUSE: under-voltage
+
+```
+vcgencmd get_throttled -> 0x50000
+   bit 16: UNDER-VOLTAGE has occurred
+   bit 18: THROTTLING has occurred
+```
+
+Not thermal -- 51 C, nowhere near the 80 C limit. The Pi has been browning out at its new location,
+and under-voltage throttles CPU and GPU, which drops frames exactly like this. **Check the power
+supply and cable first** (official 5V/3A USB-C; long or thin cables are the usual cause). Clear the
+sticky flags by fully power-cycling, then re-check with `vcgencmd get_throttled` -- 0x0 means fixed.
+
+### Where it stands
+
+Left at 15 fps sources with software decode. 10 fps had far fewer drops but was visibly choppy,
+which is what prompted this. Re-measure with `tools/video-stats.py 90` after the power is sorted,
+before changing anything else -- the frame rate may well be fine once the Pi stops throttling.
