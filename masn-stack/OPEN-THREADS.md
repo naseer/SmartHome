@@ -726,3 +726,51 @@ sticky flags by fully power-cycling, then re-check with `vcgencmd get_throttled`
 Left at 15 fps sources with software decode. 10 fps had far fewer drops but was visibly choppy,
 which is what prompted this. Re-measure with `tools/video-stats.py 90` after the power is sorted,
 before changing anything else -- the frame rate may well be fine once the Pi stops throttling.
+
+## The wall's ceiling is Chromium's RENDERER THREAD (2026-08-19)
+
+Cameras are back at 10 fps, at the user's request -- 10 fps looked fine on the old 4K panel.
+
+### The bottleneck, measured
+
+```
+94.9% of one core   --type=renderer      <-- saturated
+21.2% of one core   --type=gpu-process
+ 8.6% of one core   browser/main
+```
+
+Chromium composites in a SINGLE renderer thread. Five live video layers saturate one Pi 4 core, and
+whatever it cannot paint in time is dropped. This explains every earlier observation at once: more
+fps meant more drops, hardware decode was WORSE (extra copies through the same thread), and drops
+persisted even at 10 fps.
+
+### Things tried that did NOT move it
+
+```
+                                       driveway  front_door  backyard   renderer
+10fps, software decode                    11.6%        6.6%      5.5%      94.9%
+  + GPU rasterization/zero-copy            7.3%        5.5%      7.2%      95.1%
+  + output dropped to 1920x1080            8.8%        9.5%      8.3%      87.3%
+```
+
+GPU flags help marginally and are kept. **Output resolution barely matters** -- so this is a
+single-core compute ceiling, not pixel count and not decode. Run-to-run variance is wide (5-12%),
+which is what being right at the edge looks like.
+
+### Under-voltage is real but is NOT the current cause
+
+`vcgencmd get_throttled` = `0x50000`: under-voltage and throttling HAVE occurred since boot. But
+sampled live, the ARM clock holds 1500MHz, core voltage is steady and temperature is ~49 C, with no
+active throttle bits. A better PSU is still worth fitting (the flags are real), but it will not fix
+the renderer saturation.
+
+### Where to go if 10 fps still looks wrong
+
+1. **Fewer tiles.** Four cameras instead of five is a straight ~20% cut in compositing work.
+2. **Composite server-side.** The Orin has NVENC and spare capacity: ffmpeg `xstack` the five
+   sub-streams into ONE 1080p stream, and the Pi renders a single video element instead of five.
+   That removes almost all of the renderer's work and is the architecturally right fix for a Pi 4.
+3. **A Pi 5**, which has substantially better single-core performance.
+
+Do not spend more time on frame rates, decode paths or resolutions -- all three have been measured
+and none of them is the constraint.
