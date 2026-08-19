@@ -28,6 +28,21 @@ sudo systemctl daemon-reload
 echo ">> masking getty on tty1 so it cannot fight cage for the console"
 sudo systemctl disable --now getty@tty1.service 2>/dev/null || true
 
+# WIFI POWER SAVE MUST BE OFF. With it on, the link shows a repeating pattern of one fast packet
+# followed by two at ~104ms (the beacon interval) -- 56ms average, 270ms peaks -- with ZERO packet
+# loss and a healthy -59 dBm, which is why it looks nothing like a WiFi problem. It buffers the
+# video badly: measured 4.47% of samples frozen with it on against 0.22% with it off.
+# `iw dev wlan0 set power_save off` DOES NOT STICK -- NetworkManager reapplies its own policy. It
+# has to go in the connection profile, and only takes effect on reassociation.
+WIFI_CON=$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null | grep ':wl' | cut -d: -f1 | head -1)
+if [ -n "$WIFI_CON" ]; then
+  if [ "$(nmcli -t -f 802-11-wireless.powersave con show "$WIFI_CON" 2>/dev/null)" != "802-11-wireless.powersave:disable" ]; then
+    echo ">> disabling wifi power save on '$WIFI_CON' (was buffering the video)"
+    sudo nmcli con modify "$WIFI_CON" 802-11-wireless.powersave 2
+    sudo nmcli con up "$WIFI_CON" >/dev/null 2>&1 || true
+  fi
+fi
+
 sudo systemctl enable kiosk.service >/dev/null
 sudo systemctl restart kiosk.service
 sleep 6

@@ -633,3 +633,46 @@ both APs. Not coverage, and nothing to do with the wall -- but it floods the cli
 is what made that log unreadable while looking for radar events, and wastes airtime on a 2.4 GHz
 band already at 71% utilisation. Usually fixed by pinning the device to one AP or disabling
 fast-roaming/band-steering for it.
+
+## Wall display moved: 2560x1440 monitor, and a WiFi latency oddity (2026-08-19)
+
+The Pi was relocated to its wall position and a DIFFERENT MONITOR attached: **2560x1440**, not the
+3840x2160 PG32UCDM it was built against.
+
+### What that broke, and what fixed it
+
+- **Every tile-watchdog region.** They are absolute pixel coordinates; a display change invalidates
+  all of them. Rescaled by 2/3 and re-verified by cropping each one and looking at it.
+- **The info panel overflowed into the camera tile below.** Font sizes were fixed px tuned for a
+  2160px-tall panel. **All info-panel typography is now in `vh`**, so it scales with whatever
+  display is attached. Anything left in px will break at the next monitor swap.
+- **The status tiles still overflowed** even at smaller type, because HA tile cards carry an
+  intrinsic minimum height. They are now ONE ROW OF FOUR instead of 2x2.
+- **The prayer table lost its styling** -- HA's own markdown table rules outrank a bare `table`
+  selector. Qualified as `table, .content table, ha-markdown table` and it wins again.
+
+### The WiFi latency oddity -- real, understood in symptom, NOT the cause of buffering
+
+At this position the link shows a strict repeating pattern to the FIRST HOP (the AP):
+
+```
+2ms, 104ms, 104ms, 1.5ms, 104ms, 107ms, ...    two of every three packets delayed ~104ms
+avg 55ms, max 270ms, mdev 51ms, 0% packet loss, -59 dBm, tx failed 0
+```
+
+Established by measurement:
+- **Not the Pi's load** -- identical with the kiosk STOPPED and no video decoding at all.
+- **Not client power save** -- `iw set power_save off` and an off/on/off toggle change nothing.
+- **Only a full reassociation clears it** (`nmcli con up`), and it stays clean for ~7 minutes before
+  drifting back.
+
+**IT DOES NOT MEASURABLY AFFECT THE VIDEO.** Stall rate is 0.22% with latency at 3ms and 0.22% with
+it at 64ms -- identical. An earlier 4.47% reading was the streams still settling after the move
+(backyard was 62s behind at the time), not the network.
+
+WiFi power save is now disabled in the connection profile anyway (setup-kiosk.sh applies it). It is
+harmless and did improve latency temporarily, but it should NOT be described as the fix for
+buffering -- that claim was made prematurely and the controlled comparison disproves it.
+
+Mechanism still unknown. Next candidates if it ever does matter: UAPSD on the SSID (UniFi exposes a
+per-WLAN toggle), or simply Ethernet at the wall position.

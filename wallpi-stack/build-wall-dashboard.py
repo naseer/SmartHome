@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Rebuild the wall-display 'cameras' view as an explicit 3x3 grid with an info panel.
 
+FONT SIZES ARE IN vh, NOT px. They were originally tuned in pixels against a 3840x2160 panel; when
+the monitor was swapped for a 2560x1440 one on 2026-08-18 every size was suddenly 1.5x too large for
+its cell and the status tiles overflowed into the camera tile below. vh scales with the display, so
+this survives a monitor change. Anything sized in px here will break the next time one is swapped.
+
 WHY layout-card: advanced-camera-card's own `display.mode: grid` is a MASONRY. Masonry always
 leaves a ragged bottom, which is where the empty cell came from -- and a card cannot place anything
 in its own empty cell. HA natively has no full-bleed layout engine with unequal columns
@@ -115,12 +120,12 @@ INFO_CARD = {
                     "content": "# {{ now().strftime('%-I:%M') }}<small>{{ now().strftime('%p') | lower }}</small>\n### {{ now().strftime('%A, %-d %B') }}",
                     "card_mod": {"style": {
                         "ha-markdown $": """
-  h1 { font-size: 76px !important; line-height: 1 !important; margin: 0 !important;
+  h1 { font-size: 3.5vh !important; line-height: 1 !important; margin: 0 !important;
        font-weight: 300 !important; letter-spacing: -3px !important; color: #ffffff !important; }
   /* am/pm rides at the end of the clock, much smaller so it does not compete with the digits */
-  h1 small { font-size: 26px !important; font-weight: 400 !important; letter-spacing: 0 !important;
+  h1 small { font-size: 1.2vh !important; font-weight: 400 !important; letter-spacing: 0 !important;
              color: #b0b0b0 !important; margin-left: 6px !important; }
-  h3 { font-size: 22px !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
+  h3 { font-size: 1.0vh !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
        color: #b0b0b0 !important; }
 """,
                         ".": INFO_STYLE + "  ha-card { padding: 8px 4px 4px 16px !important; }",
@@ -164,10 +169,10 @@ INFO_CARD = {
                     "card_mod": {"style": {
                         "ha-markdown $": """
   /* Mirrors the clock's type exactly, right-aligned. */
-  h1 { font-size: 76px !important; line-height: 1 !important; margin: 0 !important;
+  h1 { font-size: 3.5vh !important; line-height: 1 !important; margin: 0 !important;
        font-weight: 300 !important; letter-spacing: -3px !important; color: #ffffff !important;
        text-align: right !important; }
-  h3 { font-size: 22px !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
+  h3 { font-size: 1.0vh !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
        color: #b0b0b0 !important; text-align: right !important; }
 """,
                         ".": INFO_STYLE + "  ha-card { padding: 8px 16px 4px 4px !important; }",
@@ -198,18 +203,24 @@ INFO_CARD = {
             ),
             "card_mod": {"style": {
                 "ha-markdown $": """
-  h4 { font-size: 19px !important; margin: 0 0 4px 0 !important; font-weight: 500 !important;
+  h4 { font-size: 0.9vh !important; margin: 0 0 4px 0 !important; font-weight: 500 !important;
        color: #7fd1b9 !important; letter-spacing: .4px !important; }
-  table { width: 100% !important; border-collapse: collapse !important; border: none !important; }
+  /* HA's own markdown table rules outrank a bare `table` selector, which left the table narrow
+     with default cell borders. Qualify with the wrapper so these actually win. */
+  table, .content table, ha-markdown table {
+      width: 100% !important; min-width: 100% !important;
+      border-collapse: collapse !important; border: none !important; }
   /* the header is `| | |` -- two empty cells purely to make Markdown emit a table. HA's default
      styling still draws it, leaving a stray rule above Fajr. */
-  thead { display: none !important; }
-  th, td { border: none !important; }
-  td { font-size: 23px !important; padding: 3px 2px !important;
-       border-bottom: 1px solid #161616 !important; color: #e8e8e8 !important; }
+  thead, .content thead { display: none !important; }
+  th, td, .content th, .content td { border: none !important; background: none !important; }
+  td, .content td { font-size: 1.05vh !important; padding: 0.25vh 2px !important;
+       border-bottom: 1px solid #202020 !important; color: #e8e8e8 !important; }
+  td:last-child, .content td:last-child { text-align: right !important; }
   /* the next prayer is bolded by the template; make it unmistakable from across the room */
-  td strong { color: #7fd1b9 !important; font-weight: 600 !important; }
-  small { font-size: 13px !important; color: #6e6e6e !important; }
+  td strong, .content td strong { color: #7fd1b9 !important; font-weight: 600 !important; }
+  small { font-size: 0.62vh !important; color: #6e6e6e !important;
+          display: block !important; margin-top: 0.2vh !important; }
 """,
                 ".": INFO_STYLE + "  ha-card { padding: 6px 16px 4px 16px !important; }",
             }},
@@ -223,8 +234,11 @@ INFO_CARD = {
             # tap_action none on every tile: this is a wall panel in a hallway. It should never be
             # able to unlock the front door, and today it only cannot because the monitor happens to
             # have no touch input. Not relying on that.
+            # ONE ROW OF FOUR, not 2x2. Two rows of tiles did not fit the cell on a 1440p display
+            # and drew over the camera tile below; trimming padding got close but never all the way.
+            # A single row halves the height they need, with margin to spare.
             "type": "grid",
-            "columns": 2,
+            "columns": 4,
             "square": False,
             "cards": [
                 {"type": "tile", "entity": "binary_sensor.garage_door_sensor_contact",
@@ -240,13 +254,21 @@ INFO_CARD = {
                  "name": "Humidity", "tap_action": {"action": "none"},
                  "icon_tap_action": {"action": "none"}},
             ],
+            # Tile cards carry an intrinsic minimum height that vh font sizes do not affect, so on
+            # a shorter display they overflowed the cell and drew over the camera tile below.
+            # min-height:0 plus tightened padding lets them shrink with everything else.
             "card_mod": {"style": {
                 "hui-tile-card $": """
   ha-card { background: rgba(255,255,255,0.06) !important; border: none !important;
-            box-shadow: none !important; border-radius: 6px !important; }
+            box-shadow: none !important; border-radius: 6px !important;
+            min-height: 0 !important; }
+  .content { padding: 0.5vh 0.8vh !important; min-height: 0 !important; }
+  ha-tile-icon { --tile-icon-size: 2.2vh !important; }
+  .primary { font-size: 0.85vh !important; line-height: 1.2 !important; }
+  .secondary { font-size: 0.75vh !important; line-height: 1.2 !important; }
 """,
                 ".": """
-  #root { gap: 6px !important; }
+  #root { gap: 0.4vh !important; }
 """,
             }},
         },
