@@ -842,3 +842,36 @@ the renderer saturation.
 
 Do not spend more time on frame rates, decode paths or resolutions -- all three have been measured
 and none of them is the constraint.
+
+## The wall's remaining stutter is the RENDERER CEILING, not buffering (2026-08-19)
+
+Reported as "back to buffering". It is not buffering in any measurable sense -- across every
+configuration tried, `waiting` and `stalled` are ZERO, readyState stays 4, ~1s stays buffered
+ahead, and no tile freezes (all advanced 19/19 over three minutes). Frames are DROPPED at render.
+
+```
+source fps   dropped    DISPLAYED   renderer
+10           ~14%        8.6 fps     ~95% of one core
+15           ~12%       13.0 fps
+20           ~12%       17.6 fps     ~124% of one core
+```
+
+**The drop percentage barely moves.** Chromium's renderer composites in one thread and is saturated
+at any setting, so the frame-rate knob only trades displayed rate against judder -- it cannot remove
+the drops. Lowering fps to "reduce load" makes motion worse, not better (measured: 15fps gave 13.0
+displayed against 17.6 at 20fps, with the SAME drop rate). Left at 20fps, which measures best.
+
+Ruled out on this round: power is clean (`0x0`, 1500MHz, 55 C), WiFi latency is irrelevant (0.22%
+stall rate measured at both 3ms and 64ms), and reverting the bitrate increase changed nothing.
+
+### The only two things that would actually fix it
+
+1. **FEWER TILES.** Four instead of five is a straight ~20% cut in compositing work, and it is the
+   one lever available today.
+2. **COMPOSITE ON THE ORIN** (orin-stack/wall-grid). Already built and measured: it took the
+   renderer from 94-98% to 45.5% of a core with ZERO dropped frames. It is parked because
+   nvcompositor only re-samples its inputs ~4 times a second, so motion looked like 4fps. Fixing
+   that one problem fixes the wall properly, and makes extra displays nearly free.
+
+Do not spend more time on frame rate, bitrate, decode path or resolution. All four have now been
+measured and none of them is the constraint.
