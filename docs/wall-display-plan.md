@@ -817,6 +817,37 @@ NOTE: driveway is the hero tile, and 15 -> 10 fps is a visible smoothness reduct
 people actually watch. To put it back:
     ./tune-substreams.py --only driveway --fps 15   (then restart frigate)
 
+## 4l. Source frame rate: HIGHER is smoother, even though more frames are dropped (2026-08-19)
+
+Counter-intuitive, and it reverses an earlier decision in this file. What matters is not the drop
+PERCENTAGE but how many frames actually reach the screen. Measured with `tools/video-stats.py`,
+same wall, same code, healthy power:
+
+```
+source fps      dropped     DISPLAYED
+10              14.3%        8.6 fps
+15              13.6%       13.0 fps
+20              15.9%       16.8 fps
+```
+
+The renderer drops a roughly constant FRACTION, so sending more frames delivers more of them. Now
+running at each camera's maximum (20fps for driveway and backyard, 15fps for the rest):
+
+```
+driveway 17.0    backyard 19.0    front_door 13.5    gates 13.3
+```
+
+Roughly double the motion of the 10fps configuration, with zero rebuffering (`waiting` and
+`stalled` both 0, readyState 4 throughout).
+
+**Why the earlier "go back to 10fps" was wrong:** it was decided while the Pi was browning out and
+pinned at 600MHz, where extra frames genuinely could not be painted. Once the cable was replaced
+that constraint disappeared, but the setting stayed. A conclusion outlived the condition that
+justified it.
+
+Do not lower the frame rate to "reduce load" without measuring DISPLAYED fps. Load is not the
+symptom; motion is.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
