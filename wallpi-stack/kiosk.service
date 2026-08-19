@@ -22,11 +22,13 @@
 # These skips are ~1s. Measure at 1s resolution or they are invisible -- see tools/fine.sh.
 # Better still, use tools/video-stats.py, which reads the browser's own dropped-frame counters.
 #
-# --ignore-gpu-blocklist / --enable-gpu-rasterization / --enable-zero-copy: modest help only.
-# Driveway drops fell from 11.6% to 7.3%, but the RENDERER PROCESS STAYS PEGGED AT ~95% OF ONE CORE
-# either way. Chromium composites in a single renderer thread, and five live video layers saturate
-# one Pi 4 core. Dropping the output to 1920x1080 did NOT help either (8.8%), so this is a
-# single-core compute ceiling, not pixels and not decode.
+# GPU flags (--ignore-gpu-blocklist / --enable-gpu-rasterization / --enable-zero-copy) were TRIED
+# AND DROPPED: with healthy power they made no difference (driveway 9.1% without vs 10.0% with,
+# inside run-to-run variance). They only looked helpful while the Pi was browning out.
+#
+# THE REMAINING LIMIT is Chromium's renderer thread, pegged at ~98% of one core. It composites in a
+# single thread and five live video layers saturate one Pi 4 core. Output resolution barely matters
+# (1920x1080 measured no better), so this is single-core compute, not pixels and not decode.
 #
 # Install with wallpi-stack/setup-kiosk.sh.
 
@@ -57,9 +59,6 @@ Environment=CHROMIUM_FLAGS=
 ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \
     --kiosk \
     --disable-accelerated-video-decode \
-    --ignore-gpu-blocklist \
-    --enable-gpu-rasterization \
-    --enable-zero-copy \
     --ozone-platform=wayland \
     --enable-features=UseOzonePlatform \
     --password-store=basic \

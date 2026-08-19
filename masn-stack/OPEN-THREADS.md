@@ -758,7 +758,24 @@ An earlier entry said a better PSU "will not fix the renderer saturation", based
 sample that happened to fall between events. That was wrong, and the sampling was too short for the
 event rate. The renderer being busy is the baseline; the STUTTER is the brownouts.
 
-**UPDATE, same day: it went from intermittent to CONTINUOUS.** 90 of 90 samples over 3 minutes
+**RESOLVED 2026-08-19: IT WAS THE USB-C CABLE.** An Anker cable that fast-charges a phone was
+browning out the Pi; a UGREEN cable fixed it outright:
+
+```
+                 before (Anker)      after (UGREEN)
+sticky flags     0x50005             0x0
+arm clock        600 MHz             1500 MHz
+brownouts        90 of 90 samples    0 of 90
+CPU busy         84.5%               34.5%
+```
+
+**A cable that fast-charges a phone proves nothing for a Pi 4.** Phone fast charging negotiates
+higher voltage and LOWER current (9V/2A), where cable resistance barely matters. The Pi 4 pulls up
+to 3A at a fixed 5V, so the same resistance costs three times the voltage drop -- 0.2 ohm round trip
+is 0.6V, landing under the ~4.63V threshold. Use the shortest, thickest cable available, and note
+the official supply outputs 5.1V specifically to leave margin for this.
+
+**UPDATE (superseded by the above): it went from intermittent to CONTINUOUS.** 90 of 90 samples over 3 minutes
 showed `0x50005` with the ARM clock pinned at 600MHz -- the Pi now runs permanently at 40% speed,
 not in bursts. Temperature 51 C, so not thermal. No software change can compensate for losing more
 than half the CPU, and this is why the wall stayed choppy after every tuning attempt.
@@ -803,7 +820,8 @@ persisted even at 10 fps.
   + output dropped to 1920x1080            8.8%        9.5%      8.3%      87.3%
 ```
 
-GPU flags help marginally and are kept. **Output resolution barely matters** -- so this is a
+GPU flags were REMOVED after retesting on healthy power: driveway 9.1% without them against 10.0%
+with, which is inside run-to-run variance. They only appeared to help while the Pi was browning out. **Output resolution barely matters** -- so this is a
 single-core compute ceiling, not pixel count and not decode. Run-to-run variance is wide (5-12%),
 which is what being right at the edge looks like.
 
