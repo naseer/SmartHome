@@ -222,11 +222,18 @@ INFO_CARD = {
                 "{% set later = ps | selectattr('t24','gt',t) | list %}"
                 # after Isha there is no "next" today, so fall back to tomorrow's Fajr
                 "{% set nxt = (later | first).name if later else ps[0].name %}"
-                "\n| | |\n|:--|--:|\n"
+                # RAW HTML TABLE, not Markdown. A Markdown table REQUIRES a header row, and the
+                # only way to have no visible header was `| | |` hidden with CSS -- which showed up
+                # as a PHANTOM EMPTY ROW on any client where card-mod had not loaded. HTML needs no
+                # header, so this now looks right even unstyled.
+                "\n<table>"
                 "{% for p in ps %}"
-                "| {% if p.name == nxt %}**{{ p.name }}**{% else %}{{ p.name }}{% endif %} "
-                "| {% if p.name == nxt %}**{{ p.iqamah }}**{% else %}{{ p.iqamah }}{% endif %} |\n"
+                "<tr><td>{% if p.name == nxt %}<strong>{{ p.name }}</strong>"
+                "{% else %}{{ p.name }}{% endif %}</td>"
+                "<td class='t'>{% if p.name == nxt %}<strong>{{ p.iqamah }}</strong>"
+                "{% else %}{{ p.iqamah }}{% endif %}</td></tr>"
                 "{% endfor %}"
+                "</table>"
                 "\n<small>updated {{ state_attr('sensor.masjid_quba_prayers','last_updated_local') }}</small>"
                 "{% else %}\n_Prayer times unavailable_{% endif %}"
             ),
@@ -245,7 +252,7 @@ INFO_CARD = {
   th, td, .content th, .content td { border: none !important; background: none !important; }
   td, .content td { font-size: 1.05vh !important; padding: 0.25vh 2px !important;
        border-bottom: 1px solid #202020 !important; color: #e8e8e8 !important; }
-  td:last-child, .content td:last-child { text-align: right !important; }
+  td.t, .content td.t, td:last-child { text-align: right !important; }
   /* the next prayer is bolded by the template; make it unmistakable from across the room */
   td strong, .content td strong { color: #7fd1b9 !important; font-weight: 600 !important; }
   small { font-size: 0.62vh !important; color: #6e6e6e !important;

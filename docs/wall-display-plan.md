@@ -717,8 +717,11 @@ for less than 120s.
 
 ### Small things
 
-- The status rows use `| | |` as a Markdown header purely to make a table; `thead` is hidden in CSS
-  or HA draws a stray rule above Fajr.
+- The prayer table is a RAW HTML `<table>`, not Markdown. Markdown REQUIRES a header row, so the
+  only way to have no visible header was `| | |` hidden with CSS -- and that showed up as a PHANTOM
+  EMPTY ROW on any client where card-mod had not loaded (a cached browser, for instance). HTML needs
+  no header row, so it now looks correct even completely unstyled. Do not go back to a Markdown
+  table for this.
 - The next prayer is bolded by the template (comparing `now()` to the `t24` field the scraper adds,
   so no 12-hour parsing in Jinja) and coloured green by CSS. After Isha it falls back to Fajr.
 - **The weather is a MARKDOWN CARD, not `weather-forecast`.** The stock card lays icon, condition
