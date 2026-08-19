@@ -727,6 +727,47 @@ Left at 15 fps sources with software decode. 10 fps had far fewer drops but was 
 which is what prompted this. Re-measure with `tools/video-stats.py 90` after the power is sorted,
 before changing anything else -- the frame rate may well be fine once the Pi stops throttling.
 
+## Wall display stutter: THE POWER SUPPLY (2026-08-19)
+
+**The user's observation cracked this**: it was smooth on the 4K panel yesterday and started
+stuttering on the 2560x1440 panel today. That inverts the compute explanation -- 4K is 2.25x MORE
+compositing work, and the videos were upscaled harder there too. Something else changed with the
+move, and it was power.
+
+### Caught in the act
+
+Sampling `vcgencmd get_throttled` every 2s for 5 minutes:
+
+```
+12:06:54  ACTIVE: 0x50005  arm=600MHz
+12:08:10  ACTIVE: 0x50005  arm=600MHz
+12:09:12  ACTIVE: 0x50005  arm=600MHz
+12:10:09  ACTIVE: 0x50005  arm=600MHz
+4 events in 150 samples; sticky flags 0x50000
+```
+
+`0x50005` sets bit 0 (UNDER-VOLTAGE NOW) and bit 2 (CURRENTLY THROTTLED). **The ARM clock collapses
+from 1500MHz to 600MHz** -- 40% of normal -- about once every 75 seconds. A renderer already running
+near one core's limit drops a burst of frames every time that happens.
+
+At the desk the Pi read `throttled=0x0`. At the wall it browns out. Same Pi, same software.
+
+### CORRECTION
+
+An earlier entry said a better PSU "will not fix the renderer saturation", based on a 30-SECOND live
+sample that happened to fall between events. That was wrong, and the sampling was too short for the
+event rate. The renderer being busy is the baseline; the STUTTER is the brownouts.
+
+**A proper 5V/3A supply and a short, thick USB-C cable is the fix.** Verify with
+`vcgencmd get_throttled` -- it must read `0x0` after a full power cycle -- then re-measure with
+`wallpi-stack/tools/video-stats.py 90`.
+
+### Method note
+
+Intermittent faults need sampling matched to the event rate. One 30-second look said "not
+throttling" and sent the investigation down the wrong path for an hour. The 5-minute sample found it
+immediately.
+
 ## The wall's ceiling is Chromium's RENDERER THREAD (2026-08-19)
 
 Cameras are back at 10 fps, at the user's request -- 10 fps looked fine on the old 4K panel.
