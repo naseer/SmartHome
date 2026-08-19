@@ -98,35 +98,6 @@ INFO_STYLE = """
   *::-webkit-scrollbar { display: none !important; }
 """
 
-GRID_CARD = {
-    "type": "custom:advanced-camera-card",
-    "cameras": [{
-        # engine MUST be explicit. With no camera_entity there is nothing for the card to infer
-        # from, and it fails with "Could not determine suitable engine for camera".
-        # engine `frigate`, NOT `generic`: that makes the card build its MSE URL through Home
-        # Assistant's existing Frigate proxy (/api/frigate/<client_id>/mse/...), which already
-        # reaches the Orin's go2rtc. `generic` would need go2rtc's port 1984 published on the LAN,
-        # and that port is an UNAUTHENTICATED admin API -- exactly what the :5000 lockdown exists to
-        # prevent. This keeps the browser talking only to HA.
-        "engine": "frigate",
-        "frigate": {"client_id": "frigate"},
-        # id MUST be explicit too: with no camera_entity the card cannot derive one and fails with
-        # "Could not determine camera id ... may need to set 'id' parameter manually".
-        "id": "wall_grid",
-        "live_provider": "go2rtc",
-        # mse only -- webrtc in this list caused constant renegotiation churn (2026-08-11)
-        "go2rtc": {"modes": ["mse"], "stream": "wall_grid"},
-    }],
-    "live": {"lazy_load": False, "show_image_during_load": False,
-             "controls": {"thumbnails": {"mode": "none"}}},
-    "menu": {"style": "none"},
-    "dimensions": {"aspect_ratio_mode": "unconstrained", "height": "100%"},
-    "performance": {"features": {"animated_progress_indicator": False,
-                                 "card_loading_effects": False}},
-    # row-start / col-start / row-end / col-end -- spans the whole 3x3
-    "view_layout": {"grid-area": "1 / 1 / 4 / 4"},
-}
-
 INFO_CARD = {
     "type": "vertical-stack",
     # Fills the cell and paints it black, so the panel reads as part of the wall rather than as a
@@ -302,8 +273,7 @@ INFO_CARD = {
             }},
         },
     ],
-    # top-right cell, drawn OVER the video's black corner
-    "view_layout": {"grid-area": "1 / 3 / 2 / 4"},
+    "view_layout": {"grid-area": "info"},
 }
 
 
@@ -337,11 +307,7 @@ def main():
             "--masonry-view-card-margin": "0",
             "background": "#000000",
         },
-        # ONE video layer, not five. The grid is composited on the Orin (orin-stack/wall-grid),
-        # which took the Pi's renderer from painting five live videos to painting one. Line-based
-        # grid-area lets the two cards OVERLAP: the video covers all 9 cells, and the info panel
-        # sits on top of the black cell the compositor deliberately leaves at the top right.
-        "cards": [GRID_CARD, INFO_CARD],
+        "cards": [camera_card(*c) for c in CAMERAS] + [INFO_CARD],
     }
     cfg["views"] = [view] + [v for v in cfg["views"] if v.get("path") != "cameras"]
     json.dump(cfg, open(sys.argv[2], "w"), indent=2)

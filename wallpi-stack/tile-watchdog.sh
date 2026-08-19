@@ -77,11 +77,16 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+# `mode single_stream` in the conf: the wall renders ONE composited stream, so every clock freezes
+# together and the mixed-picture rule below would never fire. See wall-tiles.conf.
+SINGLE_STREAM=0
+grep -qE '^[[:space:]]*mode[[:space:]]+single_stream' "$CONF" 2>/dev/null && SINGLE_STREAM=1
+
 grab() {  # grab <pass> ; fills $TMP/<pass>_<name>.png
     local pass="$1" name geom
     while read -r name geom; do
         [ -z "${name:-}" ] && continue
-        case "$name" in \#*) continue;; esac
+        case "$name" in \#*|mode) continue;; esac
         grim -g "$geom" "$TMP/${pass}_${name}.png" 2>/dev/null
     done < "$CONF"
 }
@@ -93,7 +98,7 @@ grab b
 live=0; frozen=0; frozen_names=""
 while read -r name geom; do
     [ -z "${name:-}" ] && continue
-    case "$name" in \#*) continue;; esac
+    case "$name" in \#*|mode) continue;; esac
     A="$TMP/a_${name}.png"; B="$TMP/b_${name}.png"
     [ -s "$A" ] && [ -s "$B" ] || continue      # a failed grab is not evidence of a stall
     if [ "$(md5sum < "$A")" = "$(md5sum < "$B")" ]; then
@@ -106,7 +111,13 @@ done < "$CONF"
 # Requiring at least one LIVE tile is what makes this safe: if every tile is frozen the fault is the
 # display, the compositor or the network, and restarting the kiosk is the wrong (and possibly
 # looping) response. Only a MIXED picture proves the wall works and one stream is stuck.
-if [ "$frozen" -eq 0 ] || [ "$live" -eq 0 ]; then
+# In single-stream mode all-frozen IS the stall signal, so only "nothing frozen" is healthy.
+if [ "$SINGLE_STREAM" = 1 ]; then
+    healthy_condition=$([ "$frozen" -eq 0 ] && echo yes || echo no)
+else
+    healthy_condition=$([ "$frozen" -eq 0 ] || [ "$live" -eq 0 ] && echo yes || echo no)
+fi
+if [ "$healthy_condition" = yes ]; then
     if [ "$fails" -gt 0 ]; then
         log "all tiles healthy again (live=$live frozen=$frozen); clearing"
         printf 'fails=0\nlast_restart=%s\n' "$last_restart" > "$STATE"

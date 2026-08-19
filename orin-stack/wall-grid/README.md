@@ -1,64 +1,71 @@
-# Server-side wall grid (WORK IN PROGRESS -- not deployed)
+# Server-side wall grid -- DEPLOYED 2026-08-19
 
-Stitch the five camera sub-streams into ONE video on the Orin, so any display renders a single
-video element instead of five. The wall Pi's limit is Chromium's renderer thread, pegged at ~98% of
-one core compositing five live layers; one layer removes almost all of that. It also means extra
-displays cost nothing beyond bandwidth.
+The Orin stitches the five camera sub-streams into ONE 1080p stream. Displays render a single video
+element instead of five.
 
-## Why this shape
+## Why
 
-The Orin has three DEDICATED hardware blocks, all separate from the CUDA cores the detectors use:
+The wall Pi's ceiling was Chromium's RENDERER THREAD, pegged at 94-98% of one core compositing five
+live video layers. Chromium composites in a single thread, so this was a hard single-core limit --
+frame rate, decode path and output resolution were all measured and none of them was the constraint.
 
-```
-nvv4l2decoder  -> NVDEC   decode 5 sub-streams
-nvcompositor   -> VIC     scale + composite   (Video Image Compositor)
-nvv4l2h264enc  -> NVENC   encode one 1080p stream
-```
-
-All three are present on this box. **This matters because GR3D (the GPU) already runs at 81-98%**
-for the three yolov9s detectors -- a GPU/CUDA compositing approach would fight them, and the VIC
-path does not.
-
-Source is `rtsp://127.0.0.1:8554/<name>_sub` from go2rtc (8554 is published on the host), so this
-reuses the existing camera connections rather than opening new ones.
-
-Layout mirrors the wall and LEAVES THE TOP-RIGHT CELL BLACK for HA's info panel to overlay:
+Measured on the Pi, same 10fps sources, before and after:
 
 ```
-1920x1080:  driveway 1280x720 @ (0,0)      [black 640x360 @ (1280,0) = info panel]
-            west_gate 640x360 @ (1280,360)
-            backyard 640x360 @ (0,720)   east_gate 640x360 @ (640,720)
-            front_door 640x360 @ (1280,720)
+                 renderer CPU     dropped frames (90s)
+five videos      94-98% of core   driveway 9.1%, front_door 5.5%, backyard 5.2%
+ONE composited   45.5% of core    0.0%   <- zero
 ```
 
-## BLOCKED ON
+Cost on the Orin: **2.1% of 12 cores, and no GPU.**
 
-`sudo apt-get install gstreamer1.0-plugins-bad` on the Orin -- it provides `h264parse` and
-`mpegtsmux`. The Orin requires a sudo password, so this needs a human. Without h264parse the
-pipeline builds but has not been proven to emit frames.
+## How
 
-## What was ruled out
-
-**ffmpeg inside the frigate container** (which does have NVDEC/NVENC via nvmpi) fails with five
-simultaneous decodes:
+Every stage runs on dedicated silicon, NOT the GPU -- which matters because GR3D already sits at
+81-98% for the three yolov9s detectors. A CUDA/GL compositor would compete with detection; the VIC
+does not.
 
 ```
-No empty buffers available to transform, Frame skipped!
-Got 0 size buffer in capture
+nvv4l2decoder (NVDEC)  ->  nvcompositor (VIC)  ->  nvv4l2h264enc (NVENC)  ->  mpegtsmux -> tcp :8099
 ```
 
-The nvmpi wrapper runs out of buffers. Not worth pursuing over the GStreamer/VIC path.
+Sources are `rtsp://127.0.0.1:8554/<name>_sub` from go2rtc, so this reuses the existing camera
+connections rather than opening five more to the cameras. go2rtc then re-publishes the result as the
+`wall_grid` stream (see the frigate config), and Home Assistant proxies it to the browser.
 
-## Load estimate -- NOT YET VERIFIED
+Layout leaves the top-right cell BLACK for HA's info panel to overlay:
 
-Expected well under one core, since decode, composite and encode all run on dedicated silicon and
-userspace only shuffles buffer handles. **Every CPU measurement taken so far read 0.0% while the
-pipeline was actually failing to link**, so treat the estimate as unproven until the output file is
-confirmed to contain frames. Verify with `ffprobe -count_frames` on a filesink capture, not by
-whether the process is alive.
+```
+1920x1080:  driveway 1280x720 @ 0,0        [ black 640x360 @ 1280,0 = info panel ]
+            west_gate 640x360 @ 1280,360
+            backyard 640x360 @ 0,720   east_gate 640x360 @ 640,720   front_door 640x360 @ 1280,720
+```
 
-## Serving it once it works
+## Install
 
-Add to go2rtc as a stream the Pi can consume, then replace the five camera cards in
-`wallpi-stack/build-wall-dashboard.py` with one card pointing at it, keeping the info panel overlaid
-on the black cell.
+`./setup-wall-grid.sh` on the Orin. No sudo -- it uses paths the login user owns and the user
+crontab, because the Orin requires a password for sudo.
+
+**The keepalive is not optional.** The pipeline EXITS whenever go2rtc goes away: rtspsrc gets EOS
+("The server closed the connection"), so any frigate restart kills it silently. Cron restarts it
+within a minute; this was verified by killing the pipeline and watching it come back.
+
+## Things that cost an iteration
+
+- **`engine: frigate`, not `generic`.** Generic needs go2rtc's port 1984 published on the LAN, and
+  that is an unauthenticated admin API -- exactly what the :5000 lockdown exists to prevent. The
+  frigate engine routes through HA's existing proxy, so the browser only ever talks to HA.
+- **`id` must be set explicitly.** With no `camera_entity` the card cannot derive one:
+  "Could not determine camera id ... may need to set 'id' parameter manually".
+- **ffmpeg inside the frigate container is a dead end** despite having NVDEC/NVENC: five
+  simultaneous decodes exhaust the nvmpi wrapper ("No empty buffers available to transform").
+- **`h264parse` and `mpegtsmux` need `gstreamer1.0-plugins-bad`**, which is not installed by default.
+- **nvcompositor outputs RGBA**; nvv4l2h264enc needs NV12, so an `nvvidconv` sits between them.
+- Cap the output rate with `videorate`, or the compositor emits ~30fps from 10fps sources.
+
+## tile-watchdog needed a mode change
+
+With one stream every clock freezes together, so the watchdog's usual safety rule ("only act when
+some tiles are live and others frozen") would NEVER fire. `mode single_stream` in
+`/etc/wall-tiles.conf` tells it all-frozen is actionable. Verified by killing the compositor:
+`STALLED: live=0 frozen=5`, then `all tiles healthy again` once cron restored it.
