@@ -28,4 +28,9 @@ exit 1
 REMOTE
 
 scp -q "$PI:/tmp/wall-shot.png" "$OUT"
-echo ">> $OUT  ($(identify -format '%wx%h' "$OUT" 2>/dev/null || echo 'size unknown'))"
+# `identify` needs ImageMagick, which is not on every workstation; `file` reports PNG dimensions
+# without it, so this never has to say "size unknown".
+DIM=$(identify -format '%wx%h' "$OUT" 2>/dev/null \
+      || file -b "$OUT" 2>/dev/null | grep -oE '[0-9]+ x [0-9]+' | tr -d ' ' \
+      || echo '?')
+echo ">> $OUT  ($DIM)"
