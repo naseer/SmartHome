@@ -655,6 +655,11 @@ Clock (markdown, `now()` re-renders every minute -- no sensor or automation need
 then garage / front door lock / indoor temp / humidity. Dark translucent so it reads as part of the
 wall rather than a floating card.
 
+### 2026-08-18: info panel moved to the TOP right
+
+`info` and `front_door` swapped cells. front_door's watchdog region shifted down one cell height
+(+1440), everything else stayed put. Re-verified by cropping all five regions and looking at them.
+
 ### THE TILE REGIONS MOVED
 
 This layout change invalidated every region in `/etc/wall-tiles.conf` -- the exact trap recorded in

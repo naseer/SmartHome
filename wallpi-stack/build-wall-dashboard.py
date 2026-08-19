@@ -7,9 +7,9 @@ in its own empty cell. HA natively has no full-bleed layout engine with unequal 
 (horizontal-stack splits evenly, the classic grid card has no spans, sections cap their own width),
 so the tiles are placed here by CSS grid-template-areas instead.
 
-    drive drive front
+    drive drive info
     drive drive west
-    back  east  info
+    back  east  front
 
 On the 3840x2160 panel every cell is 1280x720 and driveway spans 2x2 = 2560x1440 = 1.78, which is
 almost exactly its stream's 1.75 -- the hero tile shows its full scene with no crop worth seeing.
@@ -112,11 +112,14 @@ INFO_CARD = {
                 {
                     # now() re-renders every minute, so no automation or sensor is needed.
                     "type": "markdown",
-                    "content": "# {{ now().strftime('%-I:%M') }}\n### {{ now().strftime('%A, %-d %B') }}",
+                    "content": "# {{ now().strftime('%-I:%M') }}<small>{{ now().strftime('%p') | lower }}</small>\n### {{ now().strftime('%A, %-d %B') }}",
                     "card_mod": {"style": {
                         "ha-markdown $": """
   h1 { font-size: 76px !important; line-height: 1 !important; margin: 0 !important;
        font-weight: 300 !important; letter-spacing: -3px !important; color: #ffffff !important; }
+  /* am/pm rides at the end of the clock, much smaller so it does not compete with the digits */
+  h1 small { font-size: 26px !important; font-weight: 400 !important; letter-spacing: 0 !important;
+             color: #b0b0b0 !important; margin-left: 6px !important; }
   h3 { font-size: 22px !important; margin: 2px 0 0 0 !important; font-weight: 400 !important;
        color: #b0b0b0 !important; }
 """,
@@ -264,7 +267,7 @@ def main():
         "layout": {
             "grid-template-columns": "repeat(3, minmax(0, 1fr))",
             "grid-template-rows": "repeat(3, minmax(0, 1fr))",
-            "grid-template-areas": '"drive drive front" "drive drive west" "back east info"',
+            "grid-template-areas": '"drive drive info" "drive drive west" "back east front"',
             # Fill the panel exactly. Without an explicit height the 1fr rows collapse to content
             # height and the wall floats in the top of the screen.
             "height": "100vh",
