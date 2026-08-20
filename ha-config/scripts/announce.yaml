@@ -1,0 +1,43 @@
+# script.announce -- ONE place that knows which speaker announcements go to.
+#
+# Automations call this rather than naming a media_player, so the target can change (Nest Mini,
+# the wall Pi's 3.5mm output, a future second speaker) without touching every automation.
+#
+# Target today: media_player.family_room_speaker -- a Google Nest Mini, onboarded automatically by
+# the Cast integration. NOTE the name comes from Google Home, not from HA.
+#
+# `mode: queued` matters: two doors opening at once should announce twice, one after the other,
+# rather than the second silently replacing the first (`mode: single` would drop it).
+alias: Announce
+description: Speak a message on the house announcement speaker
+mode: queued
+max: 10
+fields:
+  message:
+    name: Message
+    description: What to say
+    required: true
+    selector:
+      text:
+  volume:
+    name: Volume
+    description: 0.0-1.0. Announcements should be audible without being startling.
+    selector:
+      number:
+        min: 0
+        max: 1
+        step: 0.05
+sequence:
+  # Set volume first: a Nest Mini keeps whatever level it was last left at, which may be a level
+  # someone chose for music rather than for a doorbell.
+  - service: media_player.volume_set
+    target:
+      entity_id: media_player.family_room_speaker
+    data:
+      volume_level: "{{ volume | default(0.55) }}"
+  - service: tts.speak
+    target:
+      entity_id: tts.google_translate_en_com
+    data:
+      media_player_entity_id: media_player.family_room_speaker
+      message: "{{ message }}"

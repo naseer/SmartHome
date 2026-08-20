@@ -7,3 +7,7 @@ masn-stack/zigbee2mqtt/data/
 
 # OS cruft
 .DS_Store
+
+# screenshot.sh output
+wall*.png
+osd-regions.png

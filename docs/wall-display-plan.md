@@ -914,6 +914,40 @@ outright, and Frigate's detect for that camera reads from it -- a restart is nee
 the config. A subsequent decode test then reports "0 errors" purely because there is nothing to
 connect to, which reads as success.
 
+## 4n. Announcements go through the Nest Mini (2026-08-20)
+
+**No integration work was needed.** HA's Cast integration discovers Nest Minis automatically; the
+one that was added is already onboarded as `media_player.family_room_speaker` -- the name comes from
+GOOGLE HOME, not from HA, which is why it did not look like the "Nest Mini" entity.
+
+There are TWO Nest Minis in the registry with different UUIDs:
+
+```
+media_player.family_room_speaker   3470913a-...   available, confirmed audible
+media_player.nest_mini             d0821047-...   unavailable
+```
+
+The second is an older device. Left in place rather than deleted -- an unavailable Cast entity is
+harmless, and removing the wrong one costs more than it saves.
+
+### Automations call `script.announce`, never a speaker directly
+
+`ha-config/scripts/announce.yaml`. One place decides where announcements go, so the target can move
+between the Nest Mini, the wall Pi's 3.5mm output and anything added later without editing every
+automation.
+
+- `mode: queued` -- two doors opening together announce one after the other. `mode: single` would
+  silently DROP the second.
+- Volume is set before speaking, because a Nest Mini keeps whatever level it was last left at, which
+  may be a level someone chose for music rather than for a doorbell.
+
+### Worth knowing before leaning on it
+
+A Nest Mini announcement INTERRUPTS whatever it is playing, and its volume cannot be set
+independently of the device. If the speaker is also used for music, frequent alerts will cut in. The
+Pi's 3.5mm output (proven working end to end, see 4f) does not have that problem, so a sensible
+split is spoken alerts on the Nest Mini and anything frequent on the Pi.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.
