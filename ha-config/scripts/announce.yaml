@@ -1,13 +1,22 @@
-# script.announce -- ONE place that knows which speaker announcements go to.
+# script.announce -- ONE place that knows where spoken alerts go.
 #
-# Automations call this rather than naming a media_player, so the target can change (Nest Mini,
-# the wall Pi's 3.5mm output, a future second speaker) without touching every automation.
+# Automations call this rather than naming a media_player, so the target can change (Nest Mini, the
+# wall Pi's 3.5mm output, a future speaker) without touching every automation.
 #
-# Target today: media_player.family_room_speaker -- a Google Nest Mini, onboarded automatically by
-# the Cast integration. NOTE the name comes from Google Home, not from HA.
+# Target: media_player.family_room_speaker, a Google Nest Mini. The Cast integration discovers these
+# automatically -- no setup was required. The name comes from Google Home, not from HA.
 #
-# `mode: queued` matters: two doors opening at once should announce twice, one after the other,
-# rather than the second silently replacing the first (`mode: single` would drop it).
+# Engine: Nabu Casa Cloud (Azure neural voices). Google Translate TTS was tried first and sounded
+# slow -- not latency (both start speaking in about a second) but the voice's own flat delivery.
+# Cloud needs the internet; if announcements must survive an outage, Piper running locally is the
+# swap, and this script is the only place that would change.
+#
+# NO CHIME. A two-tone chime was built and abandoned: a Nest Mini plays MEDIA far quieter than
+# announcements, Cast does NOT support announce mode (MEDIA_ANNOUNCE is unsupported, so the flag is
+# accepted and ignored), and making the file louder cannot close the gap -- at -8.8 LUFS it was
+# eleven dB HOTTER than the TTS that sounded fine, and still faint. The Reolink chime already rings
+# a real doorbell tune on a press (select.reolink_chime_visitor_ringtone), which is the right device
+# for a chime anyway.
 alias: Announce
 description: Speak a message on the house announcement speaker
 mode: queued
@@ -24,67 +33,24 @@ fields:
     description: Cloud voice id, e.g. JennyNeural, AriaNeural, AndrewNeural
     selector:
       text:
-  chime:
-    name: Chime first
-    description: Play the two-tone doorbell chime before speaking
-    selector:
-      boolean:
   volume:
     name: Volume
-    description: 0.0-1.0. Announcements should be audible without being startling.
+    description: 0.0-1.0
     selector:
       number:
         min: 0
         max: 1
         step: 0.05
 sequence:
-  # Set volume first: a Nest Mini keeps whatever level it was last left at, which may be a level
-  # someone chose for music rather than for a doorbell.
+  # A Nest Mini keeps whatever level it was last left at, which may be a level someone chose for
+  # music rather than for an alert.
   - service: media_player.volume_set
     target:
       entity_id: media_player.family_room_speaker
     data:
       volume_level: "{{ volume | default(0.55) }}"
-  # Give the speaker a moment to apply the new level. Without this, playback can START before the
-  # volume change lands, so the first sound -- the chime -- plays at whatever level the speaker was
-  # previously on, which is exactly the "chime is quiet but the voice is fine" symptom.
+  # Let the level land before speaking -- playback can otherwise start at the previous volume.
   - delay: "00:00:01"
-  # Nabu Casa Cloud, not Google Translate. Both start speaking in about a second (measured: 0.55s
-  # vs 1.33s to `playing`), so the "slow" feel was the Google Translate VOICE -- flat and slow-paced
-  # by design -- not latency. Cloud uses Azure neural voices and reads at a natural pace.
-  #
-  # 132 en-US voices are available; JennyNeural is clear and neutral for a short spoken alert.
-  # Alternatives worth trying: AriaNeural, AvaNeural, AndrewNeural, MichelleNeural.
-  #
-  # NOTE this needs the internet. If announcements must survive an outage, Piper (Wyoming, local)
-  # is the swap -- and this script is the only place that would change.
-  # Optional chime before the words. Generated with ffmpeg (E5 then C5, each struck and decaying)
-  # rather than downloaded, so there is no licensing question and no external dependency.
-  #
-  # The file is normalised to -16 LUFS to sit alongside the TTS voice (-19.7). It is NOT made
-  # louder than that on purpose -- see the announce note below for why louder does not help.
-  # Check any regenerated file with:  ffmpeg -i doorbell.mp3 -af ebur128 -f null -
-  #
-  # THE DELAY IS NOT OPTIONAL: a Cast device plays one thing at a time, so speaking immediately
-  # would cut the chime off mid-note. 2.7s is the file's length, plus a little for the speaker to
-  # start. If the chime is ever replaced, this must be re-timed to match.
-  - if:
-      - condition: template
-        value_template: "{{ chime | default(false) }}"
-    then:
-      - service: media_player.play_media
-        target:
-          entity_id: media_player.family_room_speaker
-        data:
-          media_content_id: http://192.168.50.50:8123/local/sounds/doorbell.mp3
-          media_content_type: music
-          # announce: true is THE fix for "the chime is quiet but the voice is fine".
-          # A Nest Mini plays MEDIA and ANNOUNCEMENTS at different effective levels. Measured: the
-          # chime file was -8.8 LUFS against the TTS file at -19.7 -- eleven dB LOUDER -- and still
-          # sounded far quieter, which proves it was the playback path, not the audio. Announce mode
-          # routes it the way TTS goes. Making the file louder cannot fix this; do not try.
-          announce: true
-      - delay: "00:00:03"
   - service: tts.speak
     target:
       entity_id: tts.home_assistant_cloud

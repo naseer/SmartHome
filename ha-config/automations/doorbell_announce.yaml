@@ -18,5 +18,4 @@ actions:
   - action: script.announce
     data:
       message: Someone is at the front door.
-      chime: true
       volume: 0.7

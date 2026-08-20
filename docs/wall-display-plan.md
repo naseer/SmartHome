@@ -1024,41 +1024,37 @@ UNLOCKED and OPEN are different things: the bolt can be retracted with the door 
 can stand open with the bolt out. Contact sensors have been ordered (2026-08-20); once fitted, this
 becomes a straightforward `for: "00:05:00"` state trigger on the new contact.
 
-## 4p. The doorbell chime: it was the PLAYBACK PATH, not the audio (2026-08-20)
+## 4p. ABANDONED: a chime through the Nest Mini. Announcements are speech only.
 
-The chime sounded far quieter than the spoken part, at the same device volume. Three rounds of
-making the file louder did not fix it, because the file was never the problem.
+Chased for several rounds and dropped. Kept here so it is not attempted again.
 
-Measured, which is what settled it:
+**Cast does NOT support announce mode.** `media_player.family_room_speaker` reports
+`MEDIA_ANNOUNCE` as unsupported (`supported_features` 152463), so `announce: true` is accepted and
+SILENTLY IGNORED. I claimed it as the fix before checking `supported_features`; it did nothing.
 
-```
-TTS audio file    -19.7 LUFS   peak -3.4 dB
-chime file         -8.8 LUFS   peak -3.7 dB     <- ELEVEN dB LOUDER, and still sounded quieter
-```
+**A Nest Mini plays media far quieter than announcements, and volume cannot close the gap.** Even
+at full media volume the chime stayed faint next to the speech.
 
-**A Google Nest Mini plays MEDIA and ANNOUNCEMENTS at different effective levels**, and
-`media_player.volume_set` only moves the media one. `media_player.play_media` with
-`announce: true` routes audio the way TTS goes, which is the actual fix.
+**Making the file louder cannot work.** Three attempts (-27 -> -12.2 -> -8.8 LUFS). The last was
+ELEVEN dB hotter than the TTS file (-19.7) that sounded perfectly fine, and was still faint. When
+two audio paths are attenuated differently, loudness is the wrong lever entirely.
 
-The file is now normalised to -16 LUFS to sit beside the voice, deliberately NOT louder.
+**A ready-made sample would not have helped** -- same path. (Commons has no public-domain doorbell
+audio either: the doorbell hits are photographs, the bell audio is church bells under CC BY-SA.)
 
-### Do not repeat these
+### What to use instead
 
-- **Making the file louder.** Three attempts (-27 -> -12.2 -> -8.8 LUFS). The last was already 11 dB
-  hotter than the speech that sounded fine. If media and announcement paths differ, loudness cannot
-  close the gap.
-- **Hunting for a "better" sample.** Wikimedia Commons has no public-domain doorbell audio (the
-  doorbell hits are all photographs; the bell audio is church bells under CC BY-SA). A recording
-  would have played through the same attenuated path.
+**The Reolink chime, which already exists and is already configured.**
+`select.reolink_chime_visitor_ringtone` = `originaltune`, `number.reolink_chime_volume` = 4. It is a
+purpose-built doorbell chime that rings on a press with no HA involvement, no media path and no
+latency. The sensible split is chime on that device, speech on the Nest Mini.
 
-### Also worth keeping
+### Kept from the exercise
 
-- A pure sine IS perceived as much quieter than speech at equal peak level, so the harmonic
-  overtones added along the way are still worth having.
-- There is a one-second settle delay after `volume_set` before playback: a Cast device can start
-  playing before a volume change lands, so the first sound plays at the previous level.
-- The three-second gap between chime and speech is the file length plus start-up. A Cast device
-  plays one thing at a time, so speaking sooner cuts the chime off mid-note.
+- A pure sine is perceived much quieter than speech at equal PEAK level; measure with
+  `ffmpeg -i file.mp3 -af ebur128 -f null -`, not by looking at peaks.
+- A Cast device can begin playing before a `volume_set` lands, so `script.announce` keeps a
+  one-second settle delay before speaking.
 
 ## 5. Open questions
 
