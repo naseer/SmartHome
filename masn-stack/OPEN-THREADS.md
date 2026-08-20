@@ -901,3 +901,21 @@ leave it running while the wall uses client-side tiles -- it is pure extra load 
 Nothing about the 4K panel itself. It ran driveway 15 / others 10 with software decode and no
 compositor competing for streams -- which is exactly the state now restored. The intervening
 difference was the frame-rate increases and the compositor consuming streams alongside the wall.
+
+## TODO when the door contact sensors arrive (ordered 2026-08-20)
+
+Two things are waiting on them. Both need the CONTACT, not the lock -- the Aqara exposes the BOLT,
+so it cannot tell a closed door from one standing wide open with the bolt retracted.
+
+1. **Announce if the front door is left OPEN for 5 minutes.** A `for: "00:05:00"` state trigger on
+   the new contact calling `script.announce`. Straightforward once the entity exists.
+
+2. **Auto-lock after 10 minutes, ONLY IF THE CONTACT SAYS CLOSED.** This is the important one.
+   `ha-config/packages/door_lock.yaml` is deliberately warning-only today, and its own comment gives
+   the reason: auto-locking a deadbolt can trap someone out, or drive the bolt into a door that is
+   standing open. A closed-contact condition is exactly what makes auto-locking safe, so it must be
+   a HARD CONDITION on the lock action -- not merely a trigger. If the contact is unavailable,
+   DO NOT LOCK: treat unknown as open.
+
+Until then the existing behaviour stands: warn at 15 minutes unlocked, by push and by announcement,
+with a "Lock it" button for a human to decide.
