@@ -941,6 +941,29 @@ automation.
 - Volume is set before speaking, because a Nest Mini keeps whatever level it was last left at, which
   may be a level someone chose for music rather than for a doorbell.
 
+### TTS engine: Nabu Casa Cloud, not Google Translate
+
+The Google Translate voice sounded slow. It was NOT latency -- both engines start speaking in about
+a second, measured to the `playing` state:
+
+```
+Google Translate   service call 0.04s   speaker started 0.55s
+Nabu Casa Cloud    service call 0.02s   speaker started 1.33s
+```
+
+It is the VOICE: Google Translate is flat and slow-paced by design. Cloud uses Azure neural voices
+and reads naturally. 132 en-US voices are available; `JennyNeural` is the default here, with
+`AriaNeural`, `AvaNeural`, `AndrewNeural` and `MichelleNeural` as alternatives -- `script.announce`
+takes a `voice` field, so trying one is a single service call.
+
+**Cloud TTS needs the internet.** For a security-adjacent alert that may matter; Piper (Wyoming,
+local) is the swap, and `script.announce` is the only place that would change.
+
+### Observed: the Nest Mini overrides the volume we set
+
+The script sets 0.55 before speaking, but the speaker reported 0.72 afterwards -- Google adjusts it
+independently. Treat the script's volume as a starting point, not a guarantee.
+
 ### Worth knowing before leaning on it
 
 A Nest Mini announcement INTERRUPTS whatever it is playing, and its volume cannot be set
