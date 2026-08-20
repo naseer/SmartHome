@@ -45,6 +45,10 @@ sequence:
       entity_id: media_player.family_room_speaker
     data:
       volume_level: "{{ volume | default(0.55) }}"
+  # Give the speaker a moment to apply the new level. Without this, playback can START before the
+  # volume change lands, so the first sound -- the chime -- plays at whatever level the speaker was
+  # previously on, which is exactly the "chime is quiet but the voice is fine" symptom.
+  - delay: "00:00:01"
   # Nabu Casa Cloud, not Google Translate. Both start speaking in about a second (measured: 0.55s
   # vs 1.33s to `playing`), so the "slow" feel was the Google Translate VOICE -- flat and slow-paced
   # by design -- not latency. Cloud uses Azure neural voices and reads at a natural pace.
@@ -57,12 +61,9 @@ sequence:
   # Optional chime before the words. Generated with ffmpeg (E5 then C5, each struck and decaying)
   # rather than downloaded, so there is no licensing question and no external dependency.
   #
-  # LOUDNESS MATTERS AND IS EASY TO GET WRONG. The first version was a pure sine at -27 LUFS, about
-  # 15 dB below the TTS voice (~-16), so the announcement sounded fine while the chime nearly
-  # vanished. A pure tone is perceived as far quieter than speech at the same PEAK level. The fix
-  # was a harmonic overtone per note for body, then loudnorm to -12 LUFS -- slightly louder than the
-  # voice, which is what a doorbell should be. If the sound is ever regenerated, check it with:
-  #     ffmpeg -i doorbell.mp3 -af ebur128 -f null -
+  # The file is normalised to -16 LUFS to sit alongside the TTS voice (-19.7). It is NOT made
+  # louder than that on purpose -- see the announce note below for why louder does not help.
+  # Check any regenerated file with:  ffmpeg -i doorbell.mp3 -af ebur128 -f null -
   #
   # THE DELAY IS NOT OPTIONAL: a Cast device plays one thing at a time, so speaking immediately
   # would cut the chime off mid-note. 2.7s is the file's length, plus a little for the speaker to
@@ -77,6 +78,12 @@ sequence:
         data:
           media_content_id: http://192.168.50.50:8123/local/sounds/doorbell.mp3
           media_content_type: music
+          # announce: true is THE fix for "the chime is quiet but the voice is fine".
+          # A Nest Mini plays MEDIA and ANNOUNCEMENTS at different effective levels. Measured: the
+          # chime file was -8.8 LUFS against the TTS file at -19.7 -- eleven dB LOUDER -- and still
+          # sounded far quieter, which proves it was the playback path, not the audio. Announce mode
+          # routes it the way TTS goes. Making the file louder cannot fix this; do not try.
+          announce: true
       - delay: "00:00:03"
   - service: tts.speak
     target:
