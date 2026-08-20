@@ -57,6 +57,13 @@ sequence:
   # Optional chime before the words. Generated with ffmpeg (E5 then C5, each struck and decaying)
   # rather than downloaded, so there is no licensing question and no external dependency.
   #
+  # LOUDNESS MATTERS AND IS EASY TO GET WRONG. The first version was a pure sine at -27 LUFS, about
+  # 15 dB below the TTS voice (~-16), so the announcement sounded fine while the chime nearly
+  # vanished. A pure tone is perceived as far quieter than speech at the same PEAK level. The fix
+  # was a harmonic overtone per note for body, then loudnorm to -12 LUFS -- slightly louder than the
+  # voice, which is what a doorbell should be. If the sound is ever regenerated, check it with:
+  #     ffmpeg -i doorbell.mp3 -af ebur128 -f null -
+  #
   # THE DELAY IS NOT OPTIONAL: a Cast device plays one thing at a time, so speaking immediately
   # would cut the chime off mid-note. 2.7s is the file's length, plus a little for the speaker to
   # start. If the chime is ever replaced, this must be re-timed to match.
