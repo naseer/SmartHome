@@ -51,6 +51,7 @@ URL = os.environ.get("MASJID_URL", "https://www.ajaxmasjid.ca/")
 # Under /opt/stack, not /var/lib: masn requires a password for sudo, so this is
 # installed and scheduled entirely as the login user (see setup-masjid-times.sh).
 CACHE = os.environ.get("MASJID_CACHE", "/opt/stack/state/masjid-prayer-times.json")
+FRESH_HOURS = float(os.environ.get("MASJID_FRESH_HOURS", "6"))
 HA = os.environ.get("HA_URL", "http://192.168.50.50:8123")
 ENTITY = os.environ.get("MASJID_ENTITY", "sensor.masjid_quba_prayers")
 # Sunrise appears in the same list but has no Iqamah, and is not a prayer -- excluded.
@@ -160,7 +161,17 @@ def publish(prayers, fetched):
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
     cache = load_cache()
-    fresh = bool(cache) and cache.get("day") == today
+    # NOT "same calendar day". The mosque site rolls over to TOMORROW's times once Isha has passed,
+    # so a day-keyed cache left the board showing times that had all already happened, from Isha
+    # until midnight. Re-fetch if the cache is older than FRESH_HOURS -- about four network requests
+    # a day, and the rollover is picked up within a couple of hours of it happening.
+    fresh = False
+    if cache:
+        try:
+            age = (datetime.now() - datetime.fromisoformat(cache["fetched"])).total_seconds() / 3600
+            fresh = age < FRESH_HOURS and cache.get("day") == today
+        except Exception:
+            fresh = False
 
     if fresh and os.environ.get("FORCE") != "1":
         publish(cache["prayers"], cache["fetched"])

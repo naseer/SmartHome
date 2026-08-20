@@ -692,7 +692,17 @@ Sunrise is excluded automatically by requiring at least two times in the row.
 
 A partial scrape publishes NOTHING -- half a board is worse than yesterday's complete one.
 
-### Why it runs hourly but only fetches once a day
+### Cache freshness is TIME-based, not calendar-day based
+
+**The mosque site rolls over to TOMORROW's times once Isha has passed.** A cache keyed on the
+calendar day therefore left the board showing times that had all already happened, from Isha until
+midnight -- which reads as "the prayer times are broken". Caught 2026-08-19 at 22:52: the site
+showed Maghrib 08:15 PM while the wall still showed 08:17 PM from that morning's fetch.
+
+The cache is now considered fresh for 6 hours (`MASJID_FRESH_HOURS`), so the rollover is picked up
+within a couple of hours. That is roughly four network requests a day.
+
+### Why it runs hourly but only fetches a few times a day
 
 **Home Assistant forgets REST-API states when it restarts.** A purely daily job would leave the
 table blank for up to 24h after any HA restart. The script caches to
