@@ -1003,15 +1003,26 @@ Note that Frigate was unaffected throughout: it reads RTSP directly with credent
 config, so the cameras looked fine on the wall while every HA-side Reolink entity was dead. **A
 working camera feed does not mean the integration is working.**
 
-### NOT BUILT: "front door left open for 5 minutes" -- there is no sensor for it
+### Front door unlocked for 15 minutes: ADDED TO THE EXISTING AUTOMATION
+
+`ha-config/packages/door_lock.yaml` already had `front_door_unlocked_warning`, which pushes a mobile
+notification with a "Lock it" button after 15 minutes and re-checks every 15. The announcement was
+added to THAT automation rather than a new one -- a second automation watching the same lock would
+announce twice, and the trigger, the still-unlocked condition and the re-check already existed.
+
+The existing design is deliberately WARNING-ONLY (its own comment explains that auto-locking a
+deadbolt can trap someone out or drive the bolt into an open door). Adding a spoken alert does not
+change that.
+
+### STILL NOT POSSIBLE: "front door left OPEN for 5 minutes" -- no sensor for it
 
 The front door has NO open/closed contact. What exists is `lock.aqara_smart_lock_u200_us` and
 `binary_sensor.aqara_smart_lock_u200_us_actuator`, which is the BOLT, not the door. A door can be
 wide open with the bolt retracted and nothing in HA can tell.
 
-Options: a contact sensor on the door (the only way to detect it properly), or announce on the lock
-being UNLOCKED for 5 minutes as a proxy -- different thing, and there is already an automation for
-unlocked-for-15-minutes, so check for overlap before adding one.
+UNLOCKED and OPEN are different things: the bolt can be retracted with the door shut, and the door
+can stand open with the bolt out. Contact sensors have been ordered (2026-08-20); once fitted, this
+becomes a straightforward `for: "00:05:00"` state trigger on the new contact.
 
 ## 5. Open questions
 

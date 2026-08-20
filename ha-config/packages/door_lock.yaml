@@ -1,0 +1,385 @@
+# Front door lock -- Aqara U200, a native MATTER device (commissioned 2026-08-08, area "Entrance"),
+# so it arrives via the matter-server container, NOT Z2M. `lock.aqara_smart_lock_u200_us` is the entity;
+# battery is `sensor.aqara_smart_lock_u200_us_battery`.
+# Deployed to /opt/stack/homeassistant/config/packages/ (config/ is gitignored, so this repo copy
+# is the source of truth -- redeploy after editing). Loaded via `packages: !include_dir_named packages/`.
+#
+# NOTIFICATION CHANNELS -- two, and the split is load-bearing (learned the hard way 2026-08-09):
+#   "Door lock"        routine locked/unlocked events. Quiet by design.
+#   "Door lock alerts" 15-min warning, JAMMED, unreachable, battery. Always `importance: high`.
+# Android fixes a channel's importance the FIRST time that channel is used and the app can NEVER raise
+# it afterwards -- per-notification `importance` is only a creation-time default. Everything used to
+# share one "Door lock" channel, a routine `importance: low` lock event created it, and every later
+# alert inherited silent: automations fired, services returned success, no error anywhere, and nothing
+# reached the phone. Hence: never put a routine event and an alert on the same channel, and never let a
+# non-high notification be the first thing on an alerts channel.
+# Renaming a channel is also the only way to un-poison one remotely -- a new name creates a new channel
+# at the importance we ask for, without the user digging through Android settings on every phone.
+automation:
+  # Warn when the door has sat unlocked for 15 minutes.
+  #
+  # Two triggers, same pattern as the garage: the state trigger fires promptly at the 15-minute mark, and
+  # the quarter-hourly time_pattern RE-ARMS it -- a `for:` state trigger fires only once per unlock, so
+  # without the pattern a warning you swiped away would never come back. The template condition is what
+  # actually enforces "unlocked for >= 15 min" for both, and it makes the re-arm nag every 15 minutes
+  # until the door is locked.
+  #
+  # Deliberately a WARNING only -- it does not auto-lock. Auto-locking a deadbolt can trap someone out,
+  # or drive the bolt into a door that is standing open; that is a decision for a human, so the
+  # notification carries a "Lock it" button instead.
+  - id: front_door_unlocked_warning
+    alias: "Front door: unlocked for 15 min"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "unlocked"
+        for: "00:15:00"
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        state: "unlocked"
+      - condition: template
+        value_template: >
+          {{ now() - states.lock.aqara_smart_lock_u200_us.last_changed >= timedelta(minutes=15) }}
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door unlocked"
+                message: >
+                  Unlocked for {{ ((now() - states.lock.aqara_smart_lock_u200_us.last_changed)
+                                    .total_seconds() // 60) | int }} minutes.
+                data:
+                  tag: "front-door-unlocked"
+                  channel: "Door lock alerts"
+                  importance: high
+                  image: "/api/camera_proxy/camera.front_door"
+                  clickAction: "/lovelace/0"
+                  actions:
+                    - action: "lock_front_door"
+                      title: "Lock it"
+      # Spoken as well as pushed. Added because a phone notification is easy to miss while you are
+      # in the house -- which is exactly when an unlocked front door matters. Goes through
+      # script.announce so it follows the same speaker as every other announcement.
+      #
+      # This lives in the EXISTING automation rather than a new one on purpose: the 15-minute
+      # trigger, the still-unlocked condition and the every-15-minute re-check are already here, and
+      # a second automation watching the same lock would announce twice.
+      - action: script.announce
+        data:
+          message: >
+            The front door has been unlocked for
+            {{ ((now() - states.lock.aqara_smart_lock_u200_us.last_changed).total_seconds() // 60) | int }}
+            minutes.
+          volume: 0.7
+
+  # The "Lock it" button. Kept separate from the notification_action_light handler so the two never race
+  # over the same event; that one self-selects on a `light_` prefix, this one on an exact action id.
+  - id: notification_action_lock
+    alias: "Notification action: lock the front door"
+    mode: single
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: "lock_front_door"
+    action:
+      - action: lock.lock
+        target:
+          entity_id: lock.aqara_smart_lock_u200_us
+
+  # Locking retires the warning rather than sending an "all clear" -- the useful signal is "is it unlocked
+  # right now". Same reasoning as the garage open/close pair.
+  - id: front_door_locked_clear_notification
+    alias: "Front door: locked -- clear the warning"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "locked"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-unlocked"
+
+  # JAMMED -- the bolt tried to move and failed. Treated as MORE urgent than a plain unlocked door,
+  # because the failure mode is silent: the app and the dashboard both showed an attempt to lock, so
+  # you believe the house is secure when it is not. Maximum priority, ttl 0 (deliver even if the phone
+  # is dozing), and no auto-retry -- re-driving a motor into whatever is binding is how a lock strips
+  # its gears or drains its cells.
+  #
+  # Re-armed hourly rather than every 15 min: a jam needs hands on the door, not a faster nag.
+  - id: front_door_jammed
+    alias: "Front door: lock JAMMED"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to: "jammed"
+      - platform: time_pattern
+        hours: "/1"
+    condition:
+      - condition: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        state: "jammed"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door lock JAMMED"
+                message: "The bolt did not throw -- the door is NOT secured. Check it by hand."
+                data:
+                  tag: "front-door-jammed"
+                  channel: "Door lock alerts"
+                  importance: high
+                  priority: high
+                  ttl: 0
+                  image: "/api/camera_proxy/camera.front_door"
+                  clickAction: "/lovelace/0"
+
+  # A jam that clears (locked OR unlocked -- either means the motor moved) retires the alert.
+  - id: front_door_jam_cleared
+    alias: "Front door: jam cleared"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        from: "jammed"
+        to:
+          - "locked"
+          - "unlocked"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-jammed"
+
+  # Low battery. A dead lock is a worse failure than a dead contact sensor -- it can strand you at the
+  # door -- so this warns EARLY (20%) and again at a genuinely urgent 10%, rather than once at the cliff.
+  # Numeric-state triggers fire only on a CROSSING, so each level announces itself exactly once; the
+  # separate tags let the 10% alert sit alongside the 20% one instead of quietly replacing it.
+  - id: front_door_lock_battery_low
+    alias: "Front door: lock battery low"
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.aqara_smart_lock_u200_us_battery
+        below: 20
+        id: "warn"
+      - platform: numeric_state
+        entity_id: sensor.aqara_smart_lock_u200_us_battery
+        below: 10
+        id: "urgent"
+    variables:
+      urgent: "{{ trigger.id == 'urgent' }}"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: >
+                  {{ 'Front door lock battery CRITICAL' if urgent else 'Front door lock battery low' }}
+                message: >
+                  {{ states('sensor.aqara_smart_lock_u200_us_battery') }}% remaining --
+                  {{ 'replace the batteries now.' if urgent else 'replace the batteries soon.' }}
+                data:
+                  tag: "{{ 'front-door-battery-urgent' if urgent else 'front-door-battery' }}"
+                  channel: "Door lock alerts"
+                  # Always `high`, even at the 20% warning. Android fixes a channel's importance when
+                  # the channel is FIRST created and the app can never raise it afterwards -- so if a
+                  # `default` battery warning happened to be the first alert ever sent, it would pin the
+                  # whole alerts channel at default and quietly demote the jam and unreachable alerts
+                  # with it. Urgency is carried by the title and tag instead, which we do control.
+                  importance: high
+                  clickAction: "/lovelace/0"
+
+  # UNREACHABLE -- the lock has stopped answering. This is the failure the rest of this file cannot
+  # see on its own: every other automation here gates on a concrete state (`unlocked`, `jammed`), and
+  # `unavailable` matches NONE of them, so a dead radio path silently switches the warnings off while
+  # everything still looks healthy on the dashboard.
+  #
+  # The likely cause is upstream of the lock: it is Matter-over-THREAD, and the Aqara W200 thermostat
+  # is currently the ONLY Thread border router in the house (verified by mDNS _meshcop._udp). If the
+  # W200 reboots or drops off, the lock goes dark with it -- so the message points there first.
+  # The bolt itself is unaffected; key and keypad still work.
+  #
+  # 30 minutes of grace: Thread children re-parent and matter-server re-subscribes after a hiccup, and
+  # a briefly-flapping node is not worth waking the house for. Re-armed every 2 hours, not every 15
+  # minutes -- there is no user action that fixes this quickly, so a fast nag is pure noise.
+  - id: front_door_lock_unreachable
+    alias: "Front door: lock unreachable"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        to:
+          - "unavailable"
+          - "unknown"
+        for: "00:30:00"
+      - platform: time_pattern
+        hours: "/2"
+    condition:
+      # `states.lock....` is None if the entity is removed outright (integration torn down), which
+      # would raise inside the timestamp comparison -- so prove the object exists before touching it.
+      - condition: template
+        value_template: >
+          {% set s = states.lock.aqara_smart_lock_u200_us %}
+          {{ s is not none
+             and s.state in ['unavailable', 'unknown']
+             and now() - s.last_changed >= timedelta(minutes=30) }}
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "Front door lock unreachable"
+                message: >
+                  No response for
+                  {{ ((now() - states.lock.aqara_smart_lock_u200_us.last_changed).total_seconds()
+                       // 60) | int }} minutes.
+                  Lock status and the unlocked/jam warnings are OFF until it returns.
+                  Check the Aqara W200 thermostat -- it is the only Thread border router.
+                data:
+                  tag: "front-door-unreachable"
+                  channel: "Door lock alerts"
+                  importance: high
+                  clickAction: "/lovelace/0"
+
+  # Back on the air -- retire the alert. Any real state (locked/unlocked/jammed) proves the path works.
+  - id: front_door_lock_reachable_again
+    alias: "Front door: lock reachable again"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        from:
+          - "unavailable"
+          - "unknown"
+        to:
+          - "locked"
+          - "unlocked"
+          - "jammed"
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                message: "clear_notification"
+                data:
+                  tag: "front-door-unreachable"
+
+  # Every lock/unlock -> a notification. Low-key by design: this fires on ordinary comings and goings,
+  # so it should read as a log line, not an alarm (an UNLOCK gets normal importance, a LOCK gets `low` --
+  # of the two, only one leaves the house open).
+  #
+  # The `from`/`to` lists are the important part: they restrict this to real locked<->unlocked
+  # transitions, so an HA restart or a Thread dropout coming back (unavailable/unknown -> locked) is
+  # NOT announced as if someone had just turned the bolt. Same lesson as the garage's `from: closed`.
+  #
+  # `changed_by` is the Matter LockOperation source. It is appended only when it says something --
+  # which, on THIS lock, is never. Keep the guard anyway: it costs nothing and a firmware update could
+  # start populating the field.
+  #
+  # MEASURED 2026-08-09 -- do NOT re-investigate "who unlocked the door" without new information.
+  # Raw LockOperation events captured off the matter-server WS during real operations:
+  #     {"lockOperationType": 1, "operationSource": 0, "userIndex": null,
+  #      "fabricIndex": null, "sourceNode": null, "credentials": null}
+  # Every field except the operation type is NULL. So this lock reports neither WHO (userIndex) nor
+  # even HOW (operationSource is 0 = Unspecified on manual, keypad, everything), and `changed_by`
+  # is permanently "Unspecified". Three independent dead ends, all verified:
+  #   1. HA's matter lock platform reads only `operationSource` and discards `userIndex` anyway.
+  #   2. The lock's Matter user table is EMPTY -- GetUser on indices 1-3 returns userName: null.
+  #      The people assigned in the Aqara app live in Aqara's cloud and are not mirrored into Matter.
+  #   3. The DoorLock FeatureMap (3475) does not set the fingerprint bit, so fingerprint unlocks are
+  #      not reportable as Matter user operations even in principle.
+  # Per-person attribution would require Aqara's CLOUD integration, which the local-first rule rejects.
+  - id: front_door_lock_state_changed
+    alias: "Front door: locked or unlocked"
+    mode: queued
+    max: 5
+    trigger:
+      - platform: state
+        entity_id: lock.aqara_smart_lock_u200_us
+        from:
+          - "locked"
+          - "unlocked"
+        to:
+          - "locked"
+          - "unlocked"
+    variables:
+      locked_now: "{{ trigger.to_state.state == 'locked' }}"
+      by: "{{ trigger.to_state.attributes.get('changed_by') | default('', true) }}"
+      # Treat Matter's placeholder as "no information" rather than printing it at the user.
+      by_text: >
+        {{ ' by ' ~ by if by and by | lower not in ['unspecified', 'unknown', 'none'] else '' }}
+    action:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - action: "{{ repeat.item }}"
+              data:
+                title: "{{ 'Front door locked' if locked_now else 'Front door unlocked' }}"
+                message: "{{ now().strftime('%-I:%M %p') }}{{ by_text }}"
+                data:
+                  # ONE tag for both directions, so each event REPLACES the previous card in place and
+                  # the single card on the phone always shows the door's current state.
+                  #
+                  # This replaced a per-direction tag plus a step that cleared the opposite card, which
+                  # measurably ate its own notifications (2026-08-09): unlock->lock pairs 3 and 4 seconds
+                  # apart deleted the unlock card before anyone could see it, and even a normal "unlock,
+                  # walk in, lock behind you" wiped it within a minute. That read as "notifications
+                  # aren't firing" when in fact all 7 transitions had fired with zero errors -- the
+                  # notifications were being posted and then destroyed by the next event.
+                  #
+                  # Replacement is what tidiness costs nothing: no stale card, no stack, nothing deleted.
+                  # The 15-min warning keeps its own tag on the alerts channel; the two are meant to
+                  # coexist, since a quiet "unlocked 4:21 PM" and a loud "unlocked for 15 minutes" say
+                  # different things.
+                  tag: "front-door-state"
+                  channel: "Door lock"
+                  importance: "{{ 'low' if locked_now else 'default' }}"
+                  image: "/api/camera_proxy/camera.front_door"
+                  clickAction: "/lovelace/0"
