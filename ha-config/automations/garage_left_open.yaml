@@ -1,0 +1,27 @@
+# Announce when the garage has been left open.
+#
+# `for:` means the door must stay open continuously for 15 minutes -- opening and closing within
+# that window never announces. It re-arms on every close, so leaving it open again announces again.
+#
+# mode: single with the repeat below: it keeps reminding every 15 minutes while still open, because
+# a single announcement for something you want closed is easy to miss.
+alias: Garage left open
+description: Announce if the garage door stays open for 15 minutes
+mode: single
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.garage_door_sensor_contact
+    to: "on"
+    for: "00:15:00"
+actions:
+  - repeat:
+      sequence:
+        - action: script.announce
+          data:
+            message: The garage door has been open for a while.
+            volume: 0.7
+        - delay: "00:15:00"
+      while:
+        - condition: state
+          entity_id: binary_sensor.garage_door_sensor_contact
+          state: "on"

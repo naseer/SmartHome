@@ -971,6 +971,48 @@ independently of the device. If the speaker is also used for music, frequent ale
 Pi's 3.5mm output (proven working end to end, see 4f) does not have that problem, so a sensible
 split is spoken alerts on the Nest Mini and anything frequent on the Pi.
 
+## 4o. Announcement automations (2026-08-20)
+
+All call `script.announce`, never a speaker directly, so the output can move without editing them.
+Definitions live in `ha-config/automations/` -- HA stores them in its own database, so the repo copy
+is the source of truth.
+
+| automation | trigger |
+|---|---|
+| Prayer reminder | `time_pattern` every minute, fires when a prayer is exactly 10 min away |
+| Doorbell pressed | `binary_sensor.outside_doorbell_visitor` off -> on |
+| Garage left open | garage contact `on` for 15 min, then repeats every 15 min while still open |
+
+**The prayer reminder uses a time_pattern, not five time triggers**, because the times change daily.
+The condition matches for exactly one minute, so it fires once per prayer without dedupe. Verified
+against today's times: reminders at 05:35, 13:50, 18:35, 20:05, 22:05.
+
+**The doorbell uses `visitor`, NOT `motion` or `person`** -- those fire whenever anyone walks past
+and would announce constantly. `visitor` is the button press.
+
+### FIRST: the Reolink integrations were dead, and had been for weeks
+
+All five were in `setup_error` with "Invalid credentials ... password wrong" -- they still held the
+camera password from BEFORE it was rotated earlier in this project. Every one of the 30 doorbell
+entities was `unavailable`, so no doorbell automation could ever have fired.
+
+Fixed by completing the pending reauth flows with the current password. The flow's form takes ONLY
+`username` and `password` -- passing host/port as well returns HTTP 400.
+
+Note that Frigate was unaffected throughout: it reads RTSP directly with credentials from its own
+config, so the cameras looked fine on the wall while every HA-side Reolink entity was dead. **A
+working camera feed does not mean the integration is working.**
+
+### NOT BUILT: "front door left open for 5 minutes" -- there is no sensor for it
+
+The front door has NO open/closed contact. What exists is `lock.aqara_smart_lock_u200_us` and
+`binary_sensor.aqara_smart_lock_u200_us_actuator`, which is the BOLT, not the door. A door can be
+wide open with the bolt retracted and nothing in HA can tell.
+
+Options: a contact sensor on the door (the only way to detect it properly), or announce on the lock
+being UNLOCKED for 5 minutes as a proxy -- different thing, and there is already an automation for
+unlocked-for-15-minutes, so check for overlap before adding one.
+
 ## 5. Open questions
 
 - Which calendar source? Nothing is configured yet.

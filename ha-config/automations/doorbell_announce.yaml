@@ -1,0 +1,21 @@
+# Announce when someone presses the doorbell.
+#
+# Uses the Reolink doorbell's `visitor` binary_sensor, which is the BUTTON PRESS -- not `motion` or
+# `person`, which fire whenever anyone walks past and would announce constantly.
+#
+# NOTE: these entities were dead for weeks because the Reolink integrations were still using the
+# camera password from before it was rotated. If announcements go quiet, check the integration first
+# (Settings -> Devices & Services -> Reolink) before suspecting the automation.
+alias: Doorbell pressed announcement
+description: Announce a doorbell press on the house speaker
+mode: single
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.outside_doorbell_visitor
+    from: "off"
+    to: "on"
+actions:
+  - action: script.announce
+    data:
+      message: Someone is at the front door.
+      volume: 0.7

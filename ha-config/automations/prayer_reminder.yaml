@@ -1,0 +1,28 @@
+# Announce 10 minutes before each Iqamah.
+#
+# WHY A time_pattern AND NOT five time triggers: the times change daily (they are scraped from
+# ajaxmasjid.ca into sensor.masjid_quba_prayers), so a static trigger would be wrong tomorrow.
+# This checks once a minute whether any prayer is exactly 10 minutes away.
+#
+# The condition matches for exactly ONE minute, so it fires once per prayer -- no dedupe needed.
+alias: Prayer reminder (10 minutes before Iqamah)
+description: Announce each prayer 10 minutes ahead, using the scraped Masjid Quba times
+mode: queued
+max: 5
+triggers:
+  - trigger: time_pattern
+    minutes: "/1"
+conditions:
+  - condition: template
+    value_template: >
+      {% set ps = state_attr('sensor.masjid_quba_prayers','prayers') or [] %}
+      {% set target = (now() + timedelta(minutes=10)).strftime('%H:%M') %}
+      {{ ps | selectattr('t24','eq',target) | list | count > 0 }}
+actions:
+  - action: script.announce
+    data:
+      message: >
+        {% set ps = state_attr('sensor.masjid_quba_prayers','prayers') or [] %}
+        {% set target = (now() + timedelta(minutes=10)).strftime('%H:%M') %}
+        {% set p = (ps | selectattr('t24','eq',target) | list | first) %}
+        {{ p.name }} Iqamah is in 10 minutes, at {{ p.iqamah }}.
