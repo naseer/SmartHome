@@ -77,6 +77,28 @@ some tiles are live and others frozen") would NEVER fire. `mode single_stream` i
 `STALLED: live=0 frozen=5`, then `all tiles healthy again` once cron restored it.
 
 
+## CORRECTION 2026-08-19: the blocker is real but SMALLER than first measured
+
+The first measurement compared frames with a pixel threshold that counts H.264 ENCODING NOISE as
+change. That inflated the source and made the compositor look about four times worse than it is.
+Re-measured with `mpdecimate`, which drops perceptually duplicate frames, over the same window:
+
+```
+east_gate_sub (source)     254 frames,  67 unique   ~3.7 unique fps
+east cell in wall_grid     361 frames,  38 unique   ~2.1 unique fps
+```
+
+So the compositor loses about 43% of the unique content -- worth fixing, but not the 4x it appeared.
+
+**AND THE MORE IMPORTANT FINDING: the SOURCE carries only ~3.7 fps of visually distinct content.**
+These scenes are mostly static, so the cameras encode 15fps of largely duplicate frames. That is why
+the wall reads as "updating about once a second" on the CLIENT-SIDE path too, and why raising the
+frame rate cannot make a still driveway look smoother. Motion (a car, a person) is a different
+matter and does benefit.
+
+**MEASURE WITH `mpdecimate`, NOT A PIXEL THRESHOLD.** A threshold low enough to catch real motion
+also catches encoder noise, and every conclusion drawn from it will be wrong.
+
 ## THE BLOCKER: nvcompositor re-samples its inputs ~4 times a second
 
 The stream carries a full 10fps, but most consecutive frames are DUPLICATES. Measured against the
