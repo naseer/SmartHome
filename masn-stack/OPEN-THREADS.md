@@ -875,3 +875,29 @@ stall rate measured at both 3ms and 64ms), and reverting the bitrate increase ch
 
 Do not spend more time on frame rate, bitrate, decode path or resolution. All four have now been
 measured and none of them is the constraint.
+
+## Wall stabilised 2026-08-19 (evening) -- two things were destabilising it
+
+Spinners returned. Two causes, both mine:
+
+1. **The Orin compositor was left running** while unused. It holds all five sub-streams open, so
+   every camera had 3 consumers (frigate detect + wall Pi + compositor) instead of 2. Stopped, and
+   its cron keepalive removed.
+2. **Frame rates were well above what the wall previously ran at.** Restored the earlier profile:
+   driveway 15fps, everything else 10fps, all with a 1-second GOP.
+
+After both: 12 consecutive samples over 90s with all five tiles showing video, no blanks.
+
+KEPT from today's work, because they fix real defects rather than tune load:
+- front_door at 512 kbps instead of 256 (it has 33% more pixels than the gates on the same budget)
+- front_door via an `ffmpeg:` go2rtc source (the doorbell sends SPS/PPS once, so new viewers got a
+  black tile without it)
+
+**To restart the compositor experiment later:** `orin-stack/wall-grid/setup-wall-grid.sh`. Do not
+leave it running while the wall uses client-side tiles -- it is pure extra load in that mode.
+
+### Why yesterday's 4K setup felt better
+
+Nothing about the 4K panel itself. It ran driveway 15 / others 10 with software decode and no
+compositor competing for streams -- which is exactly the state now restored. The intervening
+difference was the frame-rate increases and the compositor consuming streams alongside the wall.
