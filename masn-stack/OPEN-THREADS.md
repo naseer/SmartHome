@@ -943,3 +943,38 @@ STILL OPEN: nothing alerted. Nine days of no cameras and no recordings passed in
 now a working TTS/notify path (`script.announce`), so a "Frigate has been unreachable for N minutes"
 alert is cheap and is the obvious next thing.
 
+
+## Wall drop-rate baseline, measured 2026-08-30
+
+Reported as "still drops" after the Frigate recovery; a kiosk restart made the visible stutter go
+away. Measured 120 s immediately after that restart, via `tools/video-stats.py`:
+
+    tile           frames  dropped  drop%  waiting  stalled  rs   ahead
+    driveway         1800      264  14.7%        0        0   4    1.0s
+    front_door       1201      118   9.8%        0        0   4    0.9s
+    west/east gate   1159       25   2.2%        0        0   4    1.0s
+    west/east gate   1163       89   7.7%        0        0   4    1.0s
+    backyard         1202       84   7.0%        0        0   4    1.0s
+
+READ THIS CAREFULLY BEFORE CHASING IT. Zero `waiting`, zero `stalled`, readyState 4 and a full ~1 s
+of buffer on every tile: the network and the decoders are healthy and nothing is rebuffering. The
+browser is DECODING frames it then never paints. That is the documented renderer-thread ceiling --
+`top -H` at the same moment showed the Chromium renderer thread pegged at 92% of one core with the
+box overall 39% idle. Four cores do not help a single-threaded compositor.
+
+So ~8% average drop is the NORMAL state of this wall, not a regression. There is no "before" number
+from the complaint, so it is NOT established that the restart improved anything measurable -- the
+visible stutter went away, which is a different claim from the counters improving.
+
+Do NOT respond by lowering fps. Already tried (see the fps notes above): drop% stays roughly
+constant, so displayed fps = source fps x ~0.9 and lowering the source just makes motion worse.
+Driveway runs at 15 fps here (1800 frames/120 s) rather than 10 and is the worst dropper, but it is
+also the 2x2 tile -- reducing it trades away the smoothness of the biggest picture on the wall.
+
+The only real fix is to stop asking one thread to composite five video layers: server-side stitching
+(see the parked Orin nvcompositor work) or a client with more single-core performance.
+
+NOTE: `/etc/systemd/system/kiosk.service.d/debug-port.conf` is CURRENTLY INSTALLED on the Pi so this
+can be re-measured without a restart -- restarting to add the port would destroy the very state
+worth measuring. Loopback-only; reach it with `ssh -L 9223:127.0.0.1:9223 wallpi`. Remove with
+`sudo rm` + `systemctl restart kiosk` once this thread is closed.
