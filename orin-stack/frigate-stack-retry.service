@@ -1,0 +1,16 @@
+# /etc/systemd/system/frigate-stack-retry.service
+#
+# The healing half of frigate-stack.service. See tools/frigate-heal.sh for why this exists:
+# the boot unit gives up after 5 minutes, which on 2026-08-21 turned a NAS that stayed off after a
+# power cut into nine days of no cameras.
+#
+# Runs as root (system unit) because lock-down-api-port.sh needs iptables.
+[Unit]
+Description=Bring the Frigate stack up if it is not running
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/stack
+ExecStart=/opt/stack/tools/frigate-heal.sh

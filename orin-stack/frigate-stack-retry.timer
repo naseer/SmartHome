@@ -1,0 +1,20 @@
+# /etc/systemd/system/frigate-stack-retry.timer
+#
+# Retries forever, every 5 minutes. The thing being waited on is a NAS that may need a human to walk
+# over and press a button, so there is no upper bound worth setting -- "give up" is the bug this
+# fixes, not a feature to reintroduce with a bigger number.
+#
+# Persistent=false deliberately: this is a liveness check, not a missed-job catch-up. OnBootSec
+# starts it well after frigate-stack.service has had its own 5 minutes, so the two do not race to
+# run `docker compose up -d` at the same moment.
+[Unit]
+Description=Retry the Frigate stack every 5 minutes until it is up
+
+[Timer]
+OnBootSec=6min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=frigate-stack-retry.service
+
+[Install]
+WantedBy=timers.target

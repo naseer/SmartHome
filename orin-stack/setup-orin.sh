@@ -67,18 +67,24 @@ case "$PROVIDERS" in
   *) echo "!! GATE FAILED -- TensorrtExecutionProvider absent. STOP HERE; do not start Frigate."; exit 1 ;;
 esac
 
-echo ">> [7/7] Install the boot-ordering unit"
+echo ">> [7/7] Install the boot-ordering unit and its retry timer"
 # Without this Frigate does NOT survive a reboot: Docker mounts the cifs volume before the network
 # is up, the mount fails "network is unreachable", and Docker does not retry (Restarts=0) because
 # the failure is at volume-mount time rather than a container crash. Measured on 2026-08-08.
+#
+# The timer is the other half, and is NOT optional: the boot unit gives up after 5 minutes. On
+# 2026-08-21 the NAS stayed off after a power cut, the unit exhausted its retries, and Frigate was
+# down for nine days because nothing tried again. Installing one without the other reopens that.
+sudo cp "$STACK_DIR/frigate-stack-retry.service" "$STACK_DIR/frigate-stack-retry.timer" \
+        /etc/systemd/system/
 if [ ! -f /etc/systemd/system/frigate-stack.service ]; then
   sudo cp "$STACK_DIR/frigate-stack.service" /etc/systemd/system/
-  sudo systemctl daemon-reload
-  sudo systemctl enable frigate-stack.service
-  echo "   installed and enabled -- VERIFY BY REBOOTING, nothing else proves it"
+  echo "   boot unit installed -- VERIFY BY REBOOTING, nothing else proves it"
 else
-  echo "   already present"
+  echo "   boot unit already present"
 fi
+sudo systemctl daemon-reload
+sudo systemctl enable frigate-stack.service frigate-stack-retry.timer
 
 cat <<'EOF'
 

@@ -919,3 +919,27 @@ so it cannot tell a closed door from one standing wide open with the bolt retrac
 
 Until then the existing behaviour stands: warn at 15 minutes unlocked, by push and by announcement,
 with a "Lock it" button for a human to decide.
+
+## Frigate died with the NAS on 2026-08-21 and stayed dead for nine days
+
+A power cut took the whole rack down. The Orin came back; the NAS at `192.168.50.49` did not.
+`frigate-stack.service` retried the cifs volume mount 30 times over 5 minutes, got
+`no route to host` every time, exited 1 -- and never tried again. Found 2026-08-30, nine days later,
+because the WALL WAS SHOWING FIVE DEAD TILES and someone happened to look.
+
+Confirmed the NAS is off the network entirely, not renumbered: no ping and no ARP entry from either
+the Orin or the desk, no host answering :445 anywhere on the /24, and UniFi lists no client and no
+switch port carrying it. Switch and APs show 9.0 d uptime (they rebooted with the outage); the NAS
+simply never came back up. Most NAS units do not power themselves on after AC loss unless
+"restore on power loss" is set in the BIOS/UPS settings -- worth checking that it is.
+
+FIXED the "never tried again" half: `frigate-stack-retry.timer` + `tools/frigate-heal.sh` retry every
+5 minutes forever. The boot unit keeps its 5-minute bound so a dead NAS cannot block boot. Note the
+heal script also re-applies `lock-down-api-port.sh`: if the boot unit fails, its ExecStartPost never
+runs, so a stack healed later would otherwise have come up with the UNAUTHENTICATED :5000 API open
+to the whole LAN.
+
+STILL OPEN: nothing alerted. Nine days of no cameras and no recordings passed in silence. There is
+now a working TTS/notify path (`script.announce`), so a "Frigate has been unreachable for N minutes"
+alert is cheap and is the obvious next thing.
+

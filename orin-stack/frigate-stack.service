@@ -19,13 +19,22 @@
 # an address, NOT that the NAS is answering SMB. A NAS that is itself booting will still refuse.
 # 30 attempts x 10 s = 5 minutes of patience.
 #
+# 5 MINUTES IS NOT ENOUGH, and giving up afterwards was a bug. On 2026-08-21 a power cut took the
+# NAS down with everything else; the Orin came back, the NAS did not, this unit burned its 30
+# attempts, exited 1, and NOTHING EVER TRIED AGAIN. Frigate was down for nine days. The 5-minute
+# bound stays here so a NAS outage cannot block boot forever -- frigate-stack-retry.timer picks up
+# from there and retries every 5 minutes indefinitely. Do not raise the count here instead; a
+# Type=oneshot unit cannot use Restart=, which is why the healing lives in a timer.
+#
 # Deliberately NOT solved by bind-mounting the share via fstab: the docker cifs volume is what makes
 # Docker refuse to start Frigate when the NAS is unreachable, instead of silently recording to the
 # local NVMe. That hardening is worth keeping -- this unit fixes the ordering without weakening it.
 #
 # Install (needs sudo, on the Orin):
-#   sudo cp /opt/stack/frigate-stack.service /etc/systemd/system/
-#   sudo systemctl daemon-reload && sudo systemctl enable --now frigate-stack.service
+#   sudo cp /opt/stack/frigate-stack.service /opt/stack/frigate-stack-retry.service \
+#           /opt/stack/frigate-stack-retry.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now frigate-stack.service frigate-stack-retry.timer
 # Verify by actually rebooting -- that is the only test that counts.
 
 [Unit]
