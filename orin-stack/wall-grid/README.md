@@ -4,6 +4,12 @@
 about 4 times a second, so motion looked like ~4fps against 10fps sources. See "The blocker" at the
 bottom. The wall is back on five client-side tiles.
 
+**STATE AS OF 2026-08-30 -- NOT RUNNING, contrary to what the last line of this file used to say.**
+`/opt/stack/tools/wall-grid.sh` is still on the Orin and the `wall_grid` go2rtc stream is still in
+the frigate config, but the cron keepalive was removed, nothing is on :8099, and the log stops
+2026-08-20. Re-enable with `./setup-wall-grid.sh` -- it is idempotent and re-adds the keepalive.
+Do NOT run it while the wall is on client-side tiles: both paths pull the same sub-streams.
+
 # Server-side wall grid
 
 The Orin stitches the five camera sub-streams into ONE 1080p stream. Displays render a single video
@@ -135,5 +141,5 @@ one composited stream      ~4                   0%             45.5% of a core
 ```
 
 The composited path wins on CPU and drops, and loses on motion -- which is the thing you actually
-see. Hence the revert. Everything here stays deployed on the Orin (the pipeline and its keepalive
-keep running, costing ~2% of one core) so it can be picked up without rebuilding.
+see. Hence the revert. The script stays on the Orin so it can be picked up without rebuilding, but the
+keepalive was since removed and nothing is running -- see the state note at the top.
