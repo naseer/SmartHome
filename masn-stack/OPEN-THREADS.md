@@ -1046,3 +1046,52 @@ drift, not a fix. The fix is to stop asking one thread to composite five video l
 
 The residual ~4-11% dropped frames (avg ~7.7%) is the renderer-thread ceiling and is unchanged --
 that is the separate problem the wall-grid compositing work addresses.
+
+## The NAS was at 91% because of the share's RECYCLE BIN, 2026-08-31
+
+`df` said 7.3 TB used of an 8 TB quota. Frigate's database accounted for only 1.81 TB of recordings.
+The missing ~4.9 TB was `#recycle`, measured at 5.5 TB on the NAS:
+
+    5.5 TB (#recycle) + 1.8 TB (recordings) = 7.3 TB   -- exact
+
+UGOS moves SMB deletes into `/volume1/frigate/#recycle/` and HIDES that directory from SMB clients.
+So from the Orin the share looked like 2.4 TB of visible data while the volume was full, and every
+recording Frigate pruned over a month sat there consuming quota. Frigate's retention had been
+working perfectly the whole time; the space simply never came back.
+
+FIX: empty it, then untick Recycle Bin on that share (Control Panel -> Shared Folders -> frigate).
+A recycle bin on a security-recordings share is all cost -- Frigate deletes constantly and by
+design, nothing in there would ever be restored, and it doubles the storage.
+
+### How it was found, and two wrong turns
+
+The accidental decisive test: deleting ~380 GB of `orin-shadow` over SMB moved free space from
+794 GB to 791 GB -- it went DOWN, by roughly what new recordings wrote meanwhile. **Deleting data on
+that share returned no space at all.** That single observation was worth more than any amount of
+reasoning about growth rates, and it is the check to run first next time.
+
+- **Wrong turn 1: growth.** Estimated ~430 GB/day from a partial day that covered only busy daytime
+  hours, then reasoned from `df` that 8 TB / 15 days meant the array was designed to run near full,
+  and predicted it would fill in nine days. All wrong. Measure per-camera from the `recordings`
+  table, not from `df`: 283.8 GB/day over four full days, 291 GB/day over the last 12 h. 15 days is
+  **4.2 TB**, barely half the 8 TB quota. There was never a capacity problem.
+- **Wrong turn 2: snapshots.** Asserted twice as the leading explanation. Disproved by
+  `btrfs qgroup show -re /volume1`: the `frigate` subvolume showed `rfer` == `excl` == 7.23 TiB and
+  there were NO snapshot subvolumes at all. `excl` == `rfer` means nothing else references that
+  data -- if snapshots held it, `excl` would be far lower. The recycle bin had been dismissed twice
+  because no `#recycle` was visible at the SMB share root, which is precisely the symptom of UGOS
+  hiding it from SMB clients.
+
+### Useful commands
+
+```
+# growth rate, per camera, from Frigate's own accounting (NOT df)
+docker exec frigate python3 -c "import sqlite3; ..."   # sum(segment_size)/1024 GB by camera/day
+
+# on the NAS -- what is actually holding the space
+sudo btrfs qgroup show -re /volume1        # rfer vs excl; snapshots appear as subvolumes
+sudo du -sh /volume1/<share>/* /volume1/<share>/.[!.]*   # .[!.]* catches dotted dirs
+```
+
+The NAS is a UGREEN DXP4800PRO running UGOS Pro (Debian, btrfs). Identified from its TLS cert
+(`O=UGREEN`) on :443; SSH is open on :22.
