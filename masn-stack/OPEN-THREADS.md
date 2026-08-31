@@ -978,3 +978,60 @@ NOTE: `/etc/systemd/system/kiosk.service.d/debug-port.conf` is CURRENTLY INSTALL
 can be re-measured without a restart -- restarting to add the port would destroy the very state
 worth measuring. Loopback-only; reach it with `ssh -L 9223:127.0.0.1:9223 wallpi`. Remove with
 `sudo rm` + `systemctl restart kiosk` once this thread is closed.
+
+## The wall's stalling was driveway running at 15 fps, 2026-08-30
+
+Reported as "the main garage stream stalls every few seconds, visible on the second counter". Two
+wrong turns before the real cause, both recorded here so they are not repeated.
+
+**Wrong turn 1 -- the wifi.** The Pi had genuinely re-associated 14 times since boot on a 5-minute
+metronome (see `wallpi-stack/wifi-pin.md`), so it looked like the cause. Pinning the BSSID fixed the
+roaming and did NOT fix the stalling. The link was then measured clean -- 0% loss over 120 pings,
+p50 2 ms, max 7.6 ms -- which is what ruled it out. The pin is still worth keeping; it was a real
+fault, just not this one.
+
+**Wrong turn 2 -- telling the user compositing would not help.** That advice was derived from the
+wifi theory (more bitrate over a flapping link) and was wrong once the link was proven clean. The
+stalls were renderer-induced, which is exactly what compositing targets. Their instinct was right.
+
+**The cause.** `driveway_sub` was the only camera still at 15 fps; every other one had been moved to
+10. It is also 896x512 against 640x360 for the small tiles, rendered into the 2x2 hero cell -- about
+three times the pixel load of any other tile. `tune-substreams.py` had been run before but this one
+did not take (or was reverted when the camera was re-provisioned after the credential rotation).
+ALWAYS `--dry-run` it and read every line; "1 camera changed" is easy to miss.
+
+Measured over 300 s, before and after (plus a frigate restart to pick up the new stream description,
+and a kiosk restart to drop the dead MSE sessions):
+
+```
+                 BEFORE                              AFTER
+tile        frames  drop%  waiting  rs  ahead    frames  drop%  waiting  rs  ahead
+driveway      4502   5.7%     122   2   1.1s       3002   9.0%       0   4   0.9s
+front_door    3010  47.0%    2250   2   0.5s       3003  10.9%       0   4   1.0s
+gate(w/e)     1003   2.3%       0   4 229.5s       2921   4.1%       0   4   1.0s
+gate(w/e)     2108  10.5%      66   2   1.9s       3025   7.7%       0   4   1.0s
+backyard      2991   4.9%     136   2   1.7s       3001   6.9%       0   4   1.0s
+                            -----                              -----
+                             2574 rebuffers                        0
+```
+
+Read the `ahead` column, not just the drop%. One gate tile had buffered **229 seconds** -- nearly
+four minutes behind live -- while still reporting readyState 4 "healthy". Frames were arriving
+faster than the renderer could paint them and nothing catches the buffer up. A tile can be four
+minutes stale and look fine to every other metric.
+
+Note front_door was painting less than HALF the frames it received (47% dropped) and is now at 11%.
+
+The sources were fine throughout: pulled over a wired path straight from go2rtc, every camera held
+10.0-10.4 fps with zero stalled seconds. Do not go looking upstream for this class of fault before
+running that check -- `srcstall.sh` style per-second frame counting separates source from client in
+about a minute.
+
+**NOT YET PROVEN: that the fps change is what fixed it.** An earlier measurement taken right after a
+kiosk restart ALSO showed 0 rebuffers, and degraded over the following ~2.5 hours. So "restart
+clears it temporarily" is not yet excluded. The distinguishing test is a re-measure several hours
+from now with NO restart in between: if rebuffers are still 0, the fps change is the fix; if they
+have crept back, the wall degrades over time and wants a scheduled nightly kiosk restart.
+
+The residual ~4-11% dropped frames (avg ~7.7%) is the renderer-thread ceiling and is unchanged --
+that is the separate problem the wall-grid compositing work addresses.
