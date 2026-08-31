@@ -1,0 +1,9 @@
+# /etc/systemd/system/kiosk-restart.service
+#
+# Nightly kiosk restart. See kiosk-restart.timer for why.
+[Unit]
+Description=Restart the wall kiosk to clear accumulated renderer drift
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart kiosk.service

@@ -1,0 +1,28 @@
+# /etc/systemd/system/kiosk-restart.timer
+#
+# WHY: the wall degrades with uptime. Measured 2026-08-31 with tools/video-stats.py, same tiles,
+# same 10 fps sources, same wifi, NO restart in between -- only the clock differs:
+#
+#     uptime      rebuffers (waiting) in 300s   worst tile drop%   renderer thread   chromium RSS
+#     minutes                     0                 10.9%              92.3%           493 MB
+#     16 hours                  660                 22.1%              99.9%           594 MB
+#
+# Nothing upstream changed: sources measured 10.0-10.4 fps with zero stalled seconds over a wired
+# path at both ends of that window, and the wifi held 0% loss with no roams. The renderer thread
+# simply saturates as Chromium's memory grows, and a restart resets it. This is a WORKAROUND for
+# that drift, not a fix -- the fix is to stop asking one thread to composite five video layers
+# (see orin-stack/wall-grid/).
+#
+# 04:10 rather than 04:00: away from the top of the hour, where the prayer-times scrape and other
+# cron work cluster. A restart is a ~20 s black screen, so it wants to be somewhere nobody looks.
+# Persistent=true so a Pi that was off overnight still does it once on the next boot.
+[Unit]
+Description=Restart the wall kiosk nightly
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

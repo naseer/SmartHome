@@ -1027,11 +1027,22 @@ The sources were fine throughout: pulled over a wired path straight from go2rtc,
 running that check -- `srcstall.sh` style per-second frame counting separates source from client in
 about a minute.
 
-**NOT YET PROVEN: that the fps change is what fixed it.** An earlier measurement taken right after a
-kiosk restart ALSO showed 0 rebuffers, and degraded over the following ~2.5 hours. So "restart
-clears it temporarily" is not yet excluded. The distinguishing test is a re-measure several hours
-from now with NO restart in between: if rebuffers are still 0, the fps change is the fix; if they
-have crept back, the wall degrades over time and wants a scheduled nightly kiosk restart.
+**RESOLVED 2026-08-31: BOTH were real.** Re-measured at 16 h uptime with no restart in between --
+same tiles, same 10 fps sources, same wifi (0 roams, 0% loss). Only the clock differed:
+
+```
+uptime     rebuffers/300s   worst drop%   renderer thread   chromium RSS
+minutes           0            10.9%          92.3%            493 MB
+16 hours        660            22.1%          99.9%            594 MB
+```
+
+So the fps fix was a large real gain (2574 -> 660 rebuffers) AND the wall degrades with uptime on
+top of it. The renderer thread saturates as Chromium's memory grows, and a restart resets it.
+Sources measured 10.0-10.4 fps with zero stalled seconds at both ends of that window, so nothing
+upstream is involved.
+
+Mitigated with `wallpi-stack/kiosk-restart.timer` -- nightly at 04:10. That is a WORKAROUND for the
+drift, not a fix. The fix is to stop asking one thread to composite five video layers.
 
 The residual ~4-11% dropped frames (avg ~7.7%) is the renderer-thread ceiling and is unchanged --
 that is the separate problem the wall-grid compositing work addresses.
