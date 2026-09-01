@@ -298,7 +298,70 @@ objects:
   # total event volume may not fall by the full motorcycle share. Measure, do not assume.
   #
   # To revert: set this back to `track: [person]`. The driveway_lane speed zone stays either way.
-  track: [person, car]
+  #
+  # EXPANDED 2026-09-01, from [person, car]. The Frigate+ model emits 46 classes on EVERY inference
+  # whether or not they are tracked, so the DETECTOR cost of this change is exactly zero -- measured
+  # baseline before the change was GR3D 51.7% mean / CPU 10.1% of capacity at max clock. What scales
+  # is everything downstream: tracking, consolidation, events, snapshots, DB rows, NAS writes. So the
+  # expensive labels are the ones that FIRE OFTEN, not the ones that merely exist -- `bear` and
+  # `kangaroo` are free because they never trigger; `bird` and `squirrel` would not be.
+  #
+  # Upstream is explicit that tracking everything is wrong: "only include the object types you care
+  # about, as tracking fewer objects reduces compute requirements and false positives"
+  # (docs.frigate.video/plus). So this is curated, not exhaustive.
+  #
+  # DELIBERATELY OMITTED:
+  #   motorcycle    see the 2026-08-06 removal above -- 786 events in 3 days, all on `driveway`,
+  #                 misclassified parked cars, and it mislabelled half the Frigate+ training set.
+  #                 The model has been retrained since (2026-08-08) so it MIGHT behave now, but
+  #                 that is a separate experiment with its own before/after, not a freebie here.
+  #   bus           remapped onto `car` by coco-80.txt -- see above.
+  #   bird squirrel rabbit rodent possum   would fire constantly in the backyard. Pure review noise.
+  #   kangaroo cow horse goat bear boat    do not exist in Ajax.
+  #   waste_bin bbq_grill umbrella robot_lawnmower   permanent fixtures. Cheap (stationary objects
+  #                 are re-checked only every 50th frame) but they would clutter Explore forever.
+  #   baby baby_stroller school_bus garbage_truck    marginal; add later if wanted.
+  #
+  # ATTRIBUTES (face, license_plate, and the courier logos) MUST be listed here to work at all --
+  # "in order to have Frigate start using these attribute labels, you will need to add them to the
+  # list of objects to track". They attach to person/car rather than standing alone, and do NOT
+  # generate review items directly, so they add context without adding noise. Note `threshold` does
+  # not apply to them; tune `min_score` instead.
+  #
+  # `face` here also matters for cost later: frigate/data_processing/real_time/face.py does
+  #     requires_face_detection = "face" not in self.config.objects.all_objects
+  # so with `face` tracked, enabling face RECOGNITION reuses these boxes instead of running a
+  # separate YuNet 320x320 detector on every person crop.
+  #
+  # WATCH `bicycle` -- it is the one addition in the same confusion family as the motorcycle
+  # failure. Check its event rate against the driveway baseline (car ~30/h, person ~3/h):
+  #   select label, count(*) from event where camera='driveway'
+  #     and start_time > strftime('%s','now')-86400 group by label order by 2 desc;
+  track:
+    # existing
+    - person
+    - car
+    # the ask: packages and deliveries
+    - package
+    # pets and the wildlife that is actually worth reviewing here
+    - dog
+    - cat
+    - raccoon
+    - skunk
+    - deer
+    - fox
+    # on watch -- see the note above
+    - bicycle
+    # attributes: attach to person/car, no review items of their own
+    - face
+    - license_plate
+    - amazon
+    - ups
+    - fedex
+    - canada_post
+    - purolator
+    - usps
+    - dhl
 
   # Size gate against YOLO-NAS's false "person" hits on fixed objects ACROSS THE STREET
   # (a porch column on the neighbour's house, a post by their driveway). Measured over the

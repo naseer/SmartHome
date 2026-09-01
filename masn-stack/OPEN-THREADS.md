@@ -1217,3 +1217,56 @@ TESTING NOTES, learned the hard way:
 
 Timings: 15 min of patience before paging (a frigate restart blanks recordings ~90 s), re-nag every
 6 hours while broken, and a recovery notification that replaces the fault card via a shared `tag`.
+
+### Tracked labels expanded 2 -> 19, 2026-09-01
+
+`[person, car]` -> `person, car, package, dog, cat, raccoon, skunk, deer, fox, bicycle` plus the
+attributes `face, license_plate, amazon, ups, fedex, canada_post, purolator, usps, dhl`.
+
+Measured either side of the change, 60 s averages:
+
+```
+             GPU (GR3D)        CPU (normalised to max clock)
+before       51.7% mean        10.1%
+after        50.1% mean        14.3%
+```
+
+DETECTOR COST IS ZERO AND THIS IS WHY: the Frigate+ model emits all 46 classes on every inference
+regardless of what is tracked. GPU is unchanged (the 1.6-point drop is noise). The CPU rise is the
+downstream pipeline -- tracking, consolidation, events, snapshots, DB, NAS writes -- so **the
+expensive labels are the ones that FIRE OFTEN, not the ones that exist.** `bear` and `kangaroo`
+would be free; `bird` and `squirrel` would not be. That is the whole basis for curating rather than
+enabling all 46, and it matches upstream: "only include the object types you care about, as
+tracking fewer objects reduces compute requirements and false positives".
+
+ATTRIBUTES MUST BE LISTED IN `track` TO WORK AT ALL -- upstream docs are explicit, and the code
+(`objects.py:parse_all_objects`) only unions the `track` lists, so attributes are NOT implicit.
+They attach to person/car, generate no review items of their own, and ignore `threshold` (use
+`min_score`). Do not "clean them out of" the track list on the assumption they are automatic.
+
+NOT ADDED, on evidence rather than taste:
+- `motorcycle` -- the 2026-08-06 removal stands. 786 events in 3 days, all on `driveway`, zero
+  elsewhere, from misclassified parked cars, and it mislabelled 47 of the first 96 Frigate+
+  training images. The model was retrained 2026-08-08 so it may behave now, but that needs its own
+  before/after, not a free ride on this change.
+- `bus` -- coco-80.txt remaps it onto `car`; listing it logs "not supported" and is dropped.
+- `bird squirrel rabbit rodent possum` -- would fire constantly in the backyard.
+- `waste_bin bbq_grill umbrella robot_lawnmower` -- permanent fixtures. Cheap once stationary
+  (re-checked every 50th frame) but they clutter Explore forever.
+
+Event baseline the change must be judged against, last 24 h before it:
+
+```
+driveway car 20   front_door car 19   backyard person 9   west_gate car 7
+driveway person 6   front_door person 3          TOTAL 64
+```
+
+WATCH `bicycle` -- the one addition in the same confusion family as the motorcycle failure:
+
+```sql
+select label, count(*) from event where camera='driveway'
+  and start_time > strftime('%s','now')-86400 group by label order by 2 desc;
+```
+
+Alerts are unaffected: `review.alerts.labels` is `[person, car]` globally and on every camera, so
+none of the new labels can reach a phone. They land as detections only.
