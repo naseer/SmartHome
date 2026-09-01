@@ -1059,9 +1059,31 @@ So from the Orin the share looked like 2.4 TB of visible data while the volume w
 recording Frigate pruned over a month sat there consuming quota. Frigate's retention had been
 working perfectly the whole time; the space simply never came back.
 
-FIX: empty it, then untick Recycle Bin on that share (Control Panel -> Shared Folders -> frigate).
-A recycle bin on a security-recordings share is all cost -- Frigate deletes constantly and by
-design, nothing in there would ever be restored, and it doubles the storage.
+FIXED 2026-09-01. Emptied, and the recycle bin disabled on the share. `[frigate]` in
+`/etc/samba/smbshare.conf` no longer carries a `vfs objects` line at all.
+
+    share, from frigate:   8.0T quota, 1.9T used, 6.2T free   (was 7.3T used, 91%)
+    volume, from the NAS:   13T,       2.0T used,  11T free
+
+VERIFY IT EMPIRICALLY, NOT FROM THE CONFIG FILE. Samba binds vfs objects at TREE-CONNECT, and the
+Orin holds a long-lived cifs mount, so an existing session can keep the old behaviour after the
+config changes. The check that actually proves it:
+
+    docker exec frigate sh -c 'echo x > /media/frigate/t.txt && rm /media/frigate/t.txt'
+    ssh nas 'find "/volume1/frigate/#recycle" -name "t.txt"'     # empty = genuinely off
+
+Why it grew without bound, from the config that was there:
+  recycle:maxsize = 0    no size limit -- every file goes in, video segments included
+  recycle:versions = Yes repeated deletes of a path accumulate rather than replace
+  (no expiry of any kind -- nothing purges by age or size, so it only ever grows)
+
+Against a service that deletes continuously by design, that is unbounded growth. 5.5 TB in a month.
+
+STILL ON for `masjidmapper` and `media`. They churn far less so they will not bite the same way,
+but anything that deletes on a schedule against those shares has the same failure mode.
+
+Do NOT hand-edit smbshare.conf: `ugos_serv` regenerates it from UGOS's PostgreSQL config store, so
+an edit is silently undone on the next share change or firmware update.
 
 ### How it was found, and two wrong turns
 
