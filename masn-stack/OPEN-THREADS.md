@@ -1270,3 +1270,56 @@ select label, count(*) from event where camera='driveway'
 
 Alerts are unaffected: `review.alerts.labels` is `[person, car]` globally and on every camera, so
 none of the new labels can reach a phone. They land as detections only.
+
+### backyard "person" false positives were the BBQ, masked 2026-09-01
+
+83 events in 7 days (~12/day), all `person`, all the SAME box: x = 0.892-0.895, i.e. varying by
+0.003. It is the covered BBQ under the gazebo, bottom-right of frame.
+
+**Only location separates it. Measured over 7 days, fixed object vs everything else:**
+
+```
+          fixed object (n=83)    everything else (n=274)   verdict
+score     up to 0.94             0.56-0.97                 overlap
+ratio     0.95-1.26              0.56-1.24                 overlap
+area      19.5k-24.8k            5.8k-31.3k                overlap
+box x     0.892-0.895            anywhere                  SEPARATES
+```
+
+A score threshold CANNOT fix this -- it reaches 0.94, higher than plenty of genuine people. Neither
+`min_area` nor a ratio filter can either. Both were checked before reaching for the mask; do not
+re-litigate that ground.
+
+Frigate matches the BOTTOM CENTRE of the box against an object mask, not the whole box. Measured
+bottom centres for the fixed object: x 0.915-0.947, y 0.773-0.818. The mask
+`0.90,0.74,1.0,0.74,1.0,0.87,0.90,0.87` covers that with margin and, replayed against 7 days of
+history, swallows **0 of the 274 other detections** on that camera. The blind spot is real but
+demonstrably unused.
+
+THIS IS TEMPORARY. Remove it once a Frigate+ model trained on the submitted false positives is
+installed -- a retrained model fixes this without blinding the corner at all.
+
+### A trap worth remembering: the container logs UTC
+
+A 335-event "spike" on backyard for 2026-08-30 looked like a mass false positive. Pulling the
+snapshots showed two people actually in the garden -- the events were 18:09 LOCAL, not 22:09.
+`datetime.fromtimestamp` inside the container is UTC. The real false-positive rate was ~12/day, not
+hundreds. **Pull the snapshot before theorising about a detection.** `/api/events/<id>/snapshot.jpg`
+settles in seconds what statistics can only suggest.
+
+### Frigate+ retraining status, 2026-09-01
+
+136 events carry a `plus_id`: driveway 86, backyard 29, front_door 13, west_gate 5, east_gate 3.
+By label: car 50, motorcycle 43, person 43. NOTE `plus_id` means SUBMITTED, not verified -- only
+verified images train, and the verified count is visible only in the Frigate+ UI.
+
+The current model (2026-08-08) was trained on 96 verified with only THREE from backyard, which is
+why backyard is the weak camera. Upstream targets ~100 verified images PER CAMERA and an 80/20
+true/false split, and specifically advises that for an area-based false positive you also submit
+TRUE positives near that area in similar lighting, so the model learns what the area looks like
+empty.
+
+MOTORCYCLE: retry only AFTER a new model, never against the current one -- the current model was
+trained WITH the mislabelled motorcycle annotations (47 of the first 96), so it has been taught the
+mistake. Re-enable as its own experiment against the documented baseline (driveway car ~30/h,
+motorcycle ~24/h, person ~3/h).

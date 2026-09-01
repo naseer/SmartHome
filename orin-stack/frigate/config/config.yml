@@ -665,6 +665,26 @@ cameras:
       height: 576
       fps: 5
     motion: {}
+    objects:
+      # TEMPORARY -- the covered BBQ under the gazebo reads as `person`. 83 events in 7 days,
+      # ~12/day. REMOVE THIS once a Frigate+ model trained on the submitted false positives is in.
+      #
+      # Nothing but LOCATION separates it, which is why this is a mask and not a filter. Measured
+      # over 7 days, fixed object vs everything else on that camera:
+      #
+      #   score   up to 0.94        vs  0.56-0.97      overlap
+      #   ratio   0.95-1.26         vs  0.56-1.24      overlap
+      #   area    19.5k-24.8k       vs  5.8k-31.3k     overlap
+      #   box x   0.892-0.895       vs  anywhere       SEPARATES -- x varies by 0.003
+      #
+      # A score threshold CANNOT fix this (it hits 0.94, higher than plenty of real people), and
+      # neither min_area nor ratio filters can. Do not try; that ground is covered.
+      #
+      # Frigate tests the BOTTOM CENTRE of the box against the mask, not the whole box. Measured
+      # bottom centres: fixed object x 0.915-0.947, y 0.773-0.818. The rectangle below covers that
+      # with margin and, checked against 7 days of history, swallows 0 of the 274 other detections
+      # on this camera -- so the blind spot it creates is real but demonstrably unused.
+      mask: 0.90,0.74,1.0,0.74,1.0,0.87,0.90,0.87
     zones:
       backyard_zone:
         coordinates: 
