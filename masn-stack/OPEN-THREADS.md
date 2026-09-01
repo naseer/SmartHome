@@ -1117,3 +1117,67 @@ sudo du -sh /volume1/<share>/* /volume1/<share>/.[!.]*   # .[!.]* catches dotted
 
 The NAS is a UGREEN DXP4800PRO running UGOS Pro (Debian, btrfs). Identified from its TLS cert
 (`O=UGREEN`) on :443; SSH is open on :22.
+
+## Recording was DEAD for 25 hours after the recycle-bin delete, 2026-09-01
+
+Found while investigating a "no frames have been received" message on the live view. The message was
+a red herring; this was underneath it.
+
+**Frigate wrote no recordings at all between 2026-08-31 18:08 UTC and 2026-09-01 19:13 UTC.** The
+newest row in `recordings` was 25 hours old and there was no `2026-09-01` directory on the NAS.
+Segments were still being produced into `/tmp/cache` the whole time -- they were being DISCARDED.
+
+Cause chain, and it was self-inflicted:
+
+```
+13:47-14:18 EDT   5.5 TB recycle-bin delete saturates the NAS
+18:08 UTC         last recording successfully written
+18:10 UTC         watchdogs fire for ALL SIX cameras at once:
+                  "No new valid recording segments were created ... Restarting the ffmpeg record process"
+18:15 UTC         "Too many unprocessed recording segments in cache" begins, and never stops
+                  (35,825 occurrences before it was noticed)
+```
+
+Something wedged during that mass ffmpeg restart and never recovered. `docker restart frigate` fixed
+it immediately -- recordings resumed within 90 s, discard warnings went to zero.
+
+### Why the warning means what it means
+
+From `/opt/frigate/frigate/record/maintainer.py`:
+
+```python
+camera_info = self.object_recordings_info[camera]
+most_recently_processed_frame_time = camera_info[-1][0] if len(camera_info) > 0 else 0
+processed_segment_count   = segments with start_time < most_recently_processed_frame_time
+unprocessed_segment_count = len(segments) - processed_segment_count
+if unprocessed_segment_count > MAX_SEGMENTS_IN_CACHE:   # 6
+    warn "Too many unprocessed recording segments in cache ..." and DELETE the rest
+```
+
+**If `object_recordings_info[camera]` is empty the time is 0, so EVERY segment counts as unprocessed
+and everything past the newest 6 is deleted.** That is silent, permanent recording loss, reported
+only as a WARNING. Note this also means a camera with `detect: enabled: false` (driveway_tele here)
+warns permanently by design.
+
+### Lessons
+
+- **Heavy NAS maintenance can take recording down and leave it down.** Stop Frigate before doing
+  anything that saturates the NAS, or check recording afterwards. Do not assume it self-heals -- the
+  ffmpeg watchdogs restarted cleanly and the container stayed `healthy` the entire time.
+- **`healthy` is not "recording".** The container health check, `/api/stats`, camera_fps, and
+  skipped_fps ALL looked perfect throughout: 5.0-5.1 fps on every camera, 0.0 skipped, detectors at
+  36 ms. Nothing in the obvious places showed a problem. The only honest check is
+  `select max(start_time) from recordings` against wall-clock.
+- **Nothing alerted. Again.** Third time this week: nine days of no Frigate, then this. A recording
+  freshness alert is now clearly overdue -- if `max(start_time)` is more than a few minutes old,
+  something is badly wrong.
+
+### The original question, answered
+
+"No frames have been received on the {cameraName} `detect` stream" is Frigate's OWN UI string
+(`/opt/frigate/web/locales/en/components/player.json`, key `streamOffline`), shown as a
+"Stream Offline" overlay. It is NOT the Home Assistant Frigate integration -- it is seen inside HA
+only because the integration embeds Frigate's web UI as a sidebar panel. Chasing the integration
+would have been the wrong component entirely. NOT PROVEN whether the overlay was caused by the same
+wedge; the timing fits but the UI gate is separate code. Watch for it recurring now that Frigate has
+been restarted.
