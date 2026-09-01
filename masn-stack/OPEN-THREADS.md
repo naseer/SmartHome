@@ -1181,3 +1181,39 @@ only because the integration embeds Frigate's web UI as a sidebar panel. Chasing
 would have been the wrong component entirely. NOT PROVEN whether the overlay was caused by the same
 wedge; the timing fits but the UI gate is separate code. Watch for it recurring now that Frigate has
 been restarted.
+
+### Recording-freshness alert, added 2026-09-01
+
+`ha-config/packages/frigate_recording_watch.yaml`. Six REST sensors (one per camera) polling
+`/api/<camera>/recordings?after=&before=` over a 15-minute window, a `binary_sensor.frigate_
+recording_stalled` rollup, and an automation pushing to `notify.mobile_app_mna` and
+`notify.mobile_app_zaid_s_pixel`. Notification only -- deliberately no TTS, because this can fire at
+3 a.m. and a spoken alert then is worse than useless.
+
+WATCHES RECORDINGS, NOT HEALTH, and that is the whole point. During the 25-hour outage the container
+reported `healthy`, /api/stats answered in <2 s on 40 consecutive polls, camera_fps sat at 5.0-5.1
+on every camera and skipped_fps at 0.0. A watchdog on any of those would have said "fine" for 25
+hours. Only "are new segments landing" tells the truth.
+
+Both failure shapes are covered and BOTH WERE TESTED by forcing sensor states via the HA API:
+
+    sensor forced to 9999   -> binary_sensor on, "backyard (167m)"   (the 25-hour shape:
+                                                                      answering, but stale)
+    sensor forced unavailable -> binary_sensor on, "backyard (no answer)"  (the nine-day shape:
+                                                                            frigate gone entirely)
+
+`unavailable`/`unknown` counting as stalled is load-bearing -- when Frigate is entirely gone the
+sensors go unavailable rather than large, so treating that as healthy would miss the nine-day case.
+
+TESTING NOTES, learned the hard way:
+- Template entities need ~5-10 s to re-render after a forced state change. A 4-second check reported
+  `off` and looked like a detection bug that was not there. WAIT before concluding.
+- `homeassistant.reload_all` does NOT reload the `rest` platform. The sensors simply do not appear
+  and the rollup honestly reports "no answer" for everything. A full HA restart is required.
+- The automation uses `trigger.id | default('manual')` so it can be fired by hand for a delivery
+  test. Without that, a manual trigger raises on the undefined `trigger` and the alert is
+  untestable -- which is precisely how the outage it exists to catch went unnoticed.
+- Restore a forced sensor with `homeassistant.update_entity`, do not wait out the 5-minute poll.
+
+Timings: 15 min of patience before paging (a frigate restart blanks recordings ~90 s), re-nag every
+6 hours while broken, and a recovery notification that replaces the fault card via a shared `tag`.

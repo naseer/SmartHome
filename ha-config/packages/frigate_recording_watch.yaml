@@ -1,0 +1,209 @@
+# Frigate recording-freshness watch.
+#
+# WHY THIS EXISTS: on 2026-09-01 Frigate was found to have written NO RECORDINGS FOR 25 HOURS.
+# Segments were still being produced into /tmp/cache the whole time and then silently DISCARDED
+# (see masn-stack/OPEN-THREADS.md). Nobody noticed. The week before, Frigate was down for NINE DAYS
+# after a power cut, and nobody noticed that either.
+#
+# WHAT MAKES THIS HARD, AND WHY IT WATCHES RECORDINGS RATHER THAN ANYTHING EASIER: during those 25
+# hours EVERY obvious health signal was perfect. The container reported `healthy`. /api/stats
+# answered in under 2 s on 40 consecutive polls. camera_fps sat at 5.0-5.1 on all six cameras and
+# skipped_fps at 0.0, because the cameras genuinely were streaming and detection genuinely was
+# running -- only the write to disk was broken. A watchdog on fps, on the API, or on container
+# health would have reported everything fine for 25 hours. The ONLY signal that tells the truth is
+# whether new recording segments are actually landing.
+#
+# Polls the newest segment per camera over a 15-minute window. No segments in that window (or an
+# unreachable Frigate, which makes the sensor unavailable) is a fault.
+#
+# 9999 is the "no segments at all" sentinel -- it reads as ~2.8 hours and is deliberately far past
+# any threshold, so a missing answer can never be mistaken for a fresh one.
+
+rest:
+  - resource_template: >-
+      http://192.168.50.200:5000/api/driveway/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate driveway recording age
+        unique_id: frigate_recording_age_driveway
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+  - resource_template: >-
+      http://192.168.50.200:5000/api/driveway_tele/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate driveway_tele recording age
+        unique_id: frigate_recording_age_driveway_tele
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+  - resource_template: >-
+      http://192.168.50.200:5000/api/front_door/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate front_door recording age
+        unique_id: frigate_recording_age_front_door
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+  - resource_template: >-
+      http://192.168.50.200:5000/api/west_gate/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate west_gate recording age
+        unique_id: frigate_recording_age_west_gate
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+  - resource_template: >-
+      http://192.168.50.200:5000/api/east_gate/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate east_gate recording age
+        unique_id: frigate_recording_age_east_gate
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+  - resource_template: >-
+      http://192.168.50.200:5000/api/backyard/recordings?after={{ (now().timestamp() - 900) | int }}&before={{ now().timestamp() | int }}
+    scan_interval: 300
+    timeout: 25
+    sensor:
+      - name: Frigate backyard recording age
+        unique_id: frigate_recording_age_backyard
+        unit_of_measurement: s
+        state_class: measurement
+        value_template: >-
+          {% set ends = (value_json or []) | map(attribute='end_time') | list %}
+          {% if ends | length > 0 %}
+            {{ [ (now().timestamp() - (ends | max)), 0 ] | max | round(0) }}
+          {% else %}
+            9999
+          {% endif %}
+
+template:
+  - binary_sensor:
+      - name: Frigate recording stalled
+        unique_id: frigate_recording_stalled
+        device_class: problem
+        # `unavailable`/`unknown` MUST count as stalled. The nine-day outage had Frigate entirely
+        # gone, which makes these sensors unavailable rather than large -- treating that as "fine"
+        # would miss the exact failure this was built for.
+        state: >-
+          {% set ns = namespace(bad=false) %}
+          {% for c in 'driveway', 'driveway_tele', 'front_door', 'west_gate', 'east_gate', 'backyard' %}
+            {% set s = states('sensor.frigate_' ~ c ~ '_recording_age') %}
+            {% if s in ['unknown','unavailable','none','None',''] or (s | float(9999)) > 600 %}
+              {% set ns.bad = true %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.bad }}
+        attributes:
+          stale: >-
+            {% set ns = namespace(l=[]) %}
+            {% for c in 'driveway', 'driveway_tele', 'front_door', 'west_gate', 'east_gate', 'backyard' %}
+              {% set s = states('sensor.frigate_' ~ c ~ '_recording_age') %}
+              {% if s in ['unknown','unavailable','none','None',''] %}
+                {% set ns.l = ns.l + [c ~ ' (no answer)'] %}
+              {% elif (s | float(9999)) > 600 %}
+                {% set ns.l = ns.l + [c ~ ' (' ~ ((s | float(0)) / 60) | round(0) | int ~ 'm)'] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.l | join(', ') if ns.l else 'none' }}
+
+automation:
+  - alias: Frigate recording stalled
+    id: frigate_recording_stalled_alert
+    mode: single
+    # 15 minutes of patience: a frigate restart blanks recordings for ~90 s and an HA restart leaves
+    # these sensors unknown briefly. Neither should page anyone.
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.frigate_recording_stalled
+        to: 'on'
+        for: '00:15:00'
+        id: stalled
+      - platform: state
+        entity_id: binary_sensor.frigate_recording_stalled
+        to: 'off'
+        for: '00:05:00'
+        id: recovered
+      # Re-nag every 6 hours while still broken, so a fault cannot be dismissed once and forgotten.
+      - platform: time_pattern
+        hours: '/6'
+        id: renag
+    # `trigger.id | default(...)` throughout: without it a MANUAL trigger raises on the undefined
+    # `trigger`, which makes the alert impossible to test. An alert nobody can test is how the
+    # 25-hour outage went unnoticed in the first place -- so this stays testable on purpose.
+    condition: >-
+      {{ trigger.id | default('manual') != 'renag'
+         or is_state('binary_sensor.frigate_recording_stalled','on') }}
+    action:
+      - variables:
+          tid: "{{ trigger.id | default('manual') }}"
+          stale: "{{ state_attr('binary_sensor.frigate_recording_stalled','stale') or 'test' }}"
+          msg: >-
+            {% if tid == 'recovered' %}
+              Frigate recording is back to normal.
+            {% else %}
+              No new recordings from: {{ stale }}. Footage is being DISCARDED, not queued.
+            {% endif %}
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_zaid_s_pixel
+          sequence:
+            - service: "{{ repeat.item }}"
+              data:
+                title: >-
+                  {{ 'Frigate recording recovered' if tid == 'recovered' else 'Frigate is NOT recording' }}
+                message: "{{ msg }}"
+                data:
+                  # Android: keep the fault visible until acted on, and let the recovery replace it
+                  # rather than stack a second card.
+                  tag: frigate_recording
+                  channel: Frigate
+                  importance: high
+                  sticky: "{{ 'false' if tid == 'recovered' else 'true' }}"
+                  color: "{{ '#2e7d32' if tid == 'recovered' else '#c62828' }}"
