@@ -560,6 +560,28 @@ cameras:
         friendly_name: Front Zone
     review:
       alerts:
+        # PERSON ONLY (2026-09-06), the same fix `driveway` got on 2026-08-05 and for the same
+        # reason. This camera was left on the global [person, car] default and became the single
+        # loudest source of alerts in the system: 853 car alerts in 7 days, more than every other
+        # alert on every other camera combined.
+        #
+        # WHY THE ZONE DID NOT ALREADY STOP IT: `front_zone` is an INCLUDE gate, and the street is
+        # inside it. The zone's top edge runs y=0.584..0.684 and traffic on the road lands with its
+        # box bottom-centre at y 0.585..0.837 (median 0.617) -- i.e. a few hundredths INSIDE the
+        # boundary. Measured over 7 days: of 1928 front_door car events, 837 had their bottom-centre
+        # inside front_zone and 789 of those were alert severity. Cars driving past were, correctly
+        # by Frigate's rules, "in" the zone.
+        #
+        # DO NOT "FIX" THIS BY SHRINKING front_zone. The same zone gates PERSON alerts on this
+        # camera (required_zones below), so pulling its top edge down far enough to exclude the road
+        # would also stop alerting on people at the front of the property -- trading a noise problem
+        # for a coverage hole. The label gate costs nothing by comparison.
+        #
+        # Cars are still TRACKED and still generate events; they land at `detection` severity
+        # instead of `alert`. Nothing is lost for Frigate+ training or the flicker measurement.
+        # Vehicle notifications, when re-enabled, come from `automation.frigate_vehicle_notifications`
+        # via the speed-gated `driveway_lane` zone on the driveway camera -- not from this camera.
+        labels: [person]
         required_zones: front_zone
   west_gate:
     ffmpeg:

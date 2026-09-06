@@ -1323,3 +1323,50 @@ MOTORCYCLE: retry only AFTER a new model, never against the current one -- the c
 trained WITH the mislabelled motorcycle annotations (47 of the first 96), so it has been taught the
 mistake. Re-enable as its own experiment against the documented baseline (driveway car ~30/h,
 motorcycle ~24/h, person ~3/h).
+
+### front_door was the loudest alert source in the system -- fixed 2026-09-06
+
+853 `car` alerts in 7 days on `front_door`, against 257 person alerts on the same camera and ~500
+alerts across every other camera combined. It was the only camera still on the global
+`[person, car]` alert labels; `driveway` had been gated to `[person]` on 2026-08-05 and the fix was
+never carried across.
+
+**Why the zone did not stop it, which is the whole confusion:** `required_zones` is an INCLUDE gate,
+not an exclude. The street is *inside* `front_zone`. Its top edge runs y=0.584..0.684 and passing
+traffic lands with box bottom-centre at y 0.585..0.837, median 0.617 -- a few hundredths inside the
+boundary. Measured over 7 days: of 1928 front_door car events, 837 had bottom-centre inside
+front_zone, 789 of them alert severity. Frigate was behaving exactly as configured.
+
+FIX: `review.alerts.labels: [person]` on front_door. Cars stay tracked and still produce events at
+`detection` severity, so Frigate+ training images and the flicker measurement are unaffected.
+
+**DO NOT instead shrink `front_zone`.** The same zone gates PERSON alerts on that camera. Pulling
+its top edge below the road would also stop alerting on people at the front of the property --
+trading noise for a coverage hole. The label gate costs nothing.
+
+Vehicle notifications, when wanted, come from `automation.frigate_vehicle_notifications` via the
+speed-gated `driveway_lane` zone on the driveway camera (currently `initial_state: false`), not
+from front_door.
+
+Alert-label state across cameras after this change:
+
+```
+front_door  [person]                driveway  [person]
+backyard    global [person, car]    east_gate global [person, car]    west_gate global [person, car]
+```
+
+east_gate had 54 car alerts in 7 days and west_gate 6 -- worth watching, but nowhere near the
+front_door volume, and both face the property rather than the road.
+
+### THE UTC TRAP CAUGHT ME A SECOND TIME -- read this before reading any Frigate timestamp
+
+**The Orin host itself runs UTC, not just the container** (`date` on the host returns UTC; the
+container's /etc/timezone is Etc/UTC). So sqlite's `datetime(start_time,'unixepoch','localtime')`
+returns UTC there, and labelling that column "local" is wrong by 4 hours (EDT).
+
+The user asked about events "around 0142". Querying 01:42 by the Orin's clock returned a burst that
+was really 21:42 the previous evening. The camera OSD burned into the snapshot is the ground truth:
+it read `09/05/2026 21:45:53` while the query claimed 01:45:51.
+
+Convert explicitly -- `datetime(start_time,'unixepoch','-4 hours')` for EDT -- and cross-check
+against the OSD in the snapshot before drawing any conclusion about when something happened.
