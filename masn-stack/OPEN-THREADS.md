@@ -1370,3 +1370,35 @@ it read `09/05/2026 21:45:53` while the query claimed 01:45:51.
 
 Convert explicitly -- `datetime(start_time,'unixepoch','-4 hours')` for EDT -- and cross-check
 against the OSD in the snapshot before drawing any conclusion about when something happened.
+
+### east_gate double-check, and alert labels made global -- 2026-09-06
+
+The user was right to question east_gate: it does NOT face the road. Pulling the snapshots showed
+what the 54 car alerts actually were:
+
+```
+east_gate  54 alerts   52 = a REAL car parked BEYOND the gate, visible through the railings
+                            (scores 0.73-0.94, median 0.89, box clustered at y<0.2)
+                        2 = the GATE ITSELF read as a car (score 0.71)
+backyard    9 alerts   the covered HOT TUB, scored 0.60-0.78 as a car
+west_gate   6 alerts   negligible -- 504 car EVENTS but its zone already excludes the road at the
+                       top of frame, so only 6 reached alert severity. Working as intended.
+```
+
+So not one car alert anywhere on this property was a vehicle actually arriving. They were all
+static: parked cars re-detected, a gate, a hot tub, and road traffic that fell inside a zone.
+
+FIX: `review.alerts.labels: [person]` is now set GLOBALLY (top-level `review:` block) instead of
+per-camera. The per-camera copies on driveway and front_door were removed -- **the per-camera
+approach is what caused this**: driveway was gated 2026-08-05, front_door was missed for a month and
+reached 853 alerts/week. A default that has to be re-applied per camera will be missed again.
+
+THE INVARIANT NOW: a car never raises an alert on any camera. Vehicle alerting is exclusively
+`automation.frigate_vehicle_notifications`, which gates on entering the speed-gated `driveway_lane`
+zone plus trajectory directness, and never consults Frigate severity -- so nothing depends on car
+alerts existing. Cars stay tracked at `detection` severity; Frigate+ training is unaffected.
+
+A REAL PARKED CAR IS STILL A FALSE ALERT. Worth stating because east_gate's 52 were genuine
+detections of a genuine car -- the model was right and the alert was still noise. Correctness of the
+detector and usefulness of the alert are different questions; judge alerts on whether a human needs
+to act.

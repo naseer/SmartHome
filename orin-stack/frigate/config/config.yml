@@ -250,6 +250,27 @@ record:
   detections:
     retain: {days: 30}
 
+# ALERT SEVERITY IS PERSON-ONLY, EVERYWHERE. Frigate's built-in default is [person, car]; this
+# overrides it globally rather than per-camera, because the per-camera approach had already failed
+# twice -- `driveway` was gated on 2026-08-05 and `front_door` was missed until 2026-09-06, by which
+# point it was generating 853 car alerts a week, more than every other alert combined.
+#
+# THE INVARIANT: a car never raises an alert on any camera. Vehicle alerting is exclusively the job
+# of `automation.frigate_vehicle_notifications`, which gates on entering the speed-gated
+# `driveway_lane` zone and on trajectory directness -- not on Frigate's severity at all. So nothing
+# depends on car alerts existing.
+#
+# WHY, from 7 days of measured evidence -- every car alert on this property was a STATIC object:
+#   front_door  853  traffic on the road; the street sits inside `front_zone` (an INCLUDE gate)
+#   east_gate    54  52 = a real car parked beyond the gate, re-detected; 2 = the gate itself
+#   backyard      9  the covered HOT TUB, scored 0.60-0.78 as a car
+#   west_gate     6  negligible; its zone already excludes the road at the top of frame
+# Not one was a vehicle actually arriving. Cars remain TRACKED and still produce events at
+# `detection` severity, so Frigate+ training images and the flicker measurement are unaffected.
+review:
+  alerts:
+    labels: [person]
+
 snapshots:
   enabled: true
   retain: {default: 14}
@@ -512,8 +533,10 @@ cameras:
         # BORDER on the tile in Frigate's Live view, permanently.
         # Cars are still tracked and still generate events; they just land at `detection` severity
         # instead of `alert`. No data is lost -- the flicker measurement and the Frigate+ training
-        # images both still work. Only THIS camera is overridden; the others keep [person, car].
-        labels: [person]
+        # images both still work.
+        #
+        # The `labels: [person]` that used to sit here is now the GLOBAL default (see the top-level
+        # `review:` block) -- leaving per-camera copies is what let front_door drift for a month.
         required_zones: front
   front_door:
     ffmpeg:
@@ -581,7 +604,8 @@ cameras:
         # instead of `alert`. Nothing is lost for Frigate+ training or the flicker measurement.
         # Vehicle notifications, when re-enabled, come from `automation.frigate_vehicle_notifications`
         # via the speed-gated `driveway_lane` zone on the driveway camera -- not from this camera.
-        labels: [person]
+        #
+        # The label gate is now GLOBAL (top-level `review:` block), not repeated here.
         required_zones: front_zone
   west_gate:
     ffmpeg:
