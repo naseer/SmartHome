@@ -1402,3 +1402,57 @@ A REAL PARKED CAR IS STILL A FALSE ALERT. Worth stating because east_gate's 52 w
 detections of a genuine car -- the model was right and the alert was still noise. Correctness of the
 detector and usefulness of the alert are different questions; judge alerts on whether a human needs
 to act.
+
+### "It didn't move, why did it alert?" -- the box moved, the object didn't (2026-09-06)
+
+The instinct is right and FRIGATE AGREES WITH IT. `frigate/review/maintainer.py` has two explicit
+guards before anything can become a review item:
+
+```python
+if (o["motionless_count"] >= camera_config.detect.stationary.threshold
+        and not o["pending_loitering"]):
+    continue        # no stationary objects unless loitering
+if o["position_changes"] == 0:
+    continue        # object must have moved at least once
+```
+
+So a genuinely stationary object CANNOT raise an alert. The hot tub got past both guards because
+**its bounding box moved even though the hot tub did not.**
+
+Proof, from `data.path_data` on two of the events -- the track oscillates between two fixed points
+rather than travelling anywhere:
+
+```
+0.2578, 0.6771          0.1712, 0.5538
+0.2598, 0.6771          0.1712, 0.5556
+0.1953, 0.5938   <--    0.2025, 0.6823   <--
+0.2559, 0.6788          0.1712, 0.5538   <--
+0.1888, 0.5851   <--    0.2038, 0.6806
+0.2559, 0.6788
+0.1888, 0.5868
+
+directness 0.204        directness 0.331
+```
+
+The detector alternates between two readings of where the "car" is -- roughly the tub body vs the
+tub plus its steps -- and every jump resets `motionless_count` and increments `position_changes`.
+Frigate therefore classifies it as a moving object, correctly by its own rules.
+
+**THIS IS THE SAME ROOT CAUSE AS THE PARKED-CAR FLICKER IN THREAD 1**, which recorded a parked car's
+box oscillating between two fixed spots and fabricating 5-11 km/h. Same mechanism, different object.
+Directness 0.20/0.33 sits right in the flicker band (real motion ~1.0, flicker <=0.13-0.33).
+
+So it is a MODEL problem, not a config one: an object the detector cannot localise consistently.
+The person-only alert gate treats the symptom. The actual fix is a Frigate+ retrain with these
+submitted as false positives -- which also fixes the parked cars and the east_gate gate-post.
+
+Two dead ends checked and excluded first:
+- NOT triggered by people: 0 of 9 hot-tub events had a person event within 30 s on that camera.
+- NOT "the event was too short to go stationary": only 3 of 9 were under the 10 s threshold, so
+  duration does not explain it. The box jitter does.
+
+`average_estimated_speed` reads 0 on these, but that is NOT evidence the object was measured as
+stationary -- `backyard_zone` has no `distances`, so speed is never estimated there. Do not cite it.
+
+A zone `speed_threshold` (as on `driveway_lane`) would filter this, but it would also stop alerting
+on a person standing still in the backyard, so it is the wrong tool here.
