@@ -1456,3 +1456,66 @@ stationary -- `backyard_zone` has no `distances`, so speed is never estimated th
 
 A zone `speed_threshold` (as on `driveway_lane`) would filter this, but it would also stop alerting
 on a person standing still in the backyard, so it is the wrong tool here.
+
+### Frigate health check, 2026-09-10 -- healthy at the median, occasional multi-second stalls
+
+Investigated "seems slow to load". **Frigate itself is healthy.** Container up 4 days, 0 restarts,
+`healthy`; all six cameras 5.0-5.1 fps with skipped_fps 0.0; detectors ~38 ms; recording fresh
+(2-13 s); storage 3.0 T of 8 T (38%). Orin load is UNCHANGED from the 2026-09-01 baseline:
+
+```
+              GPU (GR3D)      CPU (normalised)
+2026-09-01    51.7% mean      10.1%
+2026-09-10    48.2% mean      11.1%
+```
+
+Everything measured server-side is fast: API 0.01-0.29 s, thumbnails 65 ms avg over 12, snapshots
+60 ms, UI JS bundles 5-18 ms. So the *median* experience is not slow, and neither the Orin nor the
+network is loaded.
+
+**The slowness is intermittent.** A 3-minute probe of `/api/events?limit=25` every 2 s:
+
+```
+samples=86  errors=0
+p50=0.013s   p90=0.127s   p99=2.499s   max=2.499s
+one sample over 1s
+```
+
+A 190x spike against the median. Point measurements miss this -- probe over minutes, not once.
+
+**Two concrete contributors, both measured:**
+
+1. **The SQLite WAL is not checkpointing.** `/config/frigate.db-wal` is 18 MB and growing ~20 KB/s,
+   against `wal_autocheckpoint = 1000` pages x 4096 B = **4 MB**. It is 4.5x past the threshold that
+   should trigger a checkpoint, which means readers are essentially never all clear. A fat WAL makes
+   every read scan more frames and produces exactly this kind of occasional multi-second stall when
+   a checkpoint finally lands. The DB is on local NVMe (`/opt/stack/frigate/config`, 400 G free), so
+   this is not the NAS. 552,608 recordings rows over 30 days, 24,116 events, 365 MB.
+
+2. **`clips/` has 60,470 inodes on the CIFS share**, 11 GB. Directory operations there are brutal:
+
+   ```
+   ls clips       35.1s  (cold)    4.5s (warm)
+   ls recordings   0.064s
+   ```
+
+   23,314 files in the flat top level (11,655 snapshot .jpg + 11,655 .webp) plus 10,602 review
+   thumbs. That is 70x slower than `recordings` warm, ~550x cold. Snapshots retain 14 days and
+   event volume roughly doubled after the 2026-09-01 label expansion (~400/day -> 800-2200/day), so
+   this grows.
+
+**Recommended, in order:**
+- Restart Frigate. A clean shutdown checkpoints and truncates the WAL, which is the cheapest test of
+  hypothesis 1 -- if the p99 improves afterwards, the WAL was it.
+- Consider moving `clips/` to the Orin's local NVMe (400 G free) with a separate bind mount. Clips
+  are small, latency-sensitive and frequently read; recordings are large, sequential and belong on
+  the NAS. This is the architectural fix for hypothesis 2.
+- Or trim `snapshots.retain` from 14 days, which halves the file count for a proportional loss of
+  history.
+
+NOT the cause, checked and excluded: Orin CPU/GPU load, NAS free space, camera fps, detector speed,
+API latency at the median, UI asset size, recording freshness.
+
+Unrelated but noted: **34 ffmpeg restarts in 24 h** (driveway 10, west_gate 8, backyard 8,
+east_gate 6, driveway_tele 2, front_door 0) with `bad cseq` / `More than 1000 frames duplicated` on
+east_gate. That is the long-running multi-camera dropout thread, not this.
