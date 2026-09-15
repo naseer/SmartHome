@@ -1,6 +1,6 @@
-# Zaid's floor + location, feeding the Presence dashboard (dashboards/presence.json).
-# From Zaid's handoff ~/HOME-ASSISTANT-PLAN.md, Steps 1-2. The notification script and automations
-# (Steps 3-4) are NOT built yet -- this is display only.
+# Zaid's floor + location, the Presence dashboard (dashboards/presence.json), and the household
+# messages when either changes. From Zaid's handoff ~/HOME-ASSISTANT-PLAN.md, Steps 1-4, except the
+# sticky floor-button notification on Zaid's phone, which is not built.
 # person.zaid is a UI person (Settings -> People), linked to user "zaid" and device_tracker.zaid_s_pixel.
 
 # Defined here rather than as a UI helper so it is version controlled. No `initial:`, so the last
@@ -14,7 +14,7 @@ input_select:
       - Downstairs
       - Basement
 
-# The one entity every card (and, later, every notification) reads.
+# The one entity every card and message reads.
 template:
   - sensor:
       - name: "Zaid location"
@@ -24,3 +24,126 @@ template:
           {% set f = states('input_select.zaid_floor') %}
           {{ 'mdi:home-export-outline' if not is_state('person.zaid', 'home')
              else {'Upstairs': 'mdi:home-floor-1', 'Downstairs': 'mdi:home-floor-0', 'Basement': 'mdi:home-floor-negative-1'}.get(f, 'mdi:home') }}
+
+script:
+  # ONE place that knows who hears about Zaid and when the speaker stays quiet.
+  # The plan sent phone messages only to people who are home. Dropped: person.naseer / person.sara
+  # have read `unknown` since 2026-09-01 (their phones stopped reporting location), so that gate
+  # would block every message. Put the `if home` back once their presence is reliable.
+  notify_household_about_zaid:
+    alias: Notify household about Zaid
+    description: Push to Naseer and Sara, and speak it on the house speaker outside 11pm-5am.
+    mode: queued
+    max: 10
+    fields:
+      message:
+        description: Text of the notification and announcement
+        example: Zaid is home
+        required: true
+        selector:
+          text:
+      channel:
+        description: Android notification channel, so each person can mute one kind of message
+        example: Zaid arrivals
+        required: true
+        selector:
+          text:
+      importance:
+        description: default, low, high or min
+        example: default
+        selector:
+          text:
+    sequence:
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+          sequence:
+            - action: "{{ repeat.item }}"
+              continue_on_error: true
+              data:
+                message: "{{ message }}"
+                data:
+                  channel: "{{ channel }}"
+                  importance: "{{ importance | default('default') }}"
+                  # Shared tag: each new message replaces the last instead of stacking.
+                  tag: zaid-status
+                  notification_icon: mdi:home-account
+      - if:
+          - condition: time
+            after: "05:00:00"
+            before: "23:00:00"
+        then:
+          - action: script.announce
+            continue_on_error: true
+            data:
+              message: "{{ message }}."
+
+automation:
+  - id: zaid_arrives_home
+    alias: Zaid arrives home
+    description: Sets his floor to Downstairs and tells the household.
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: person.zaid
+        to: home
+        not_from:
+          - unknown
+          - unavailable
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.zaid_floor
+        data:
+          option: Downstairs
+      - action: script.notify_household_about_zaid
+        data:
+          message: Zaid is home
+          channel: Zaid arrivals
+          importance: default
+
+  # The 20-second condition skips the automatic Downstairs set on arrival, so arrival is one message.
+  - id: zaid_changed_floor
+    alias: Zaid changed floor
+    description: Announces a floor change while Zaid is home.
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_select.zaid_floor
+        to:
+          - Upstairs
+          - Downstairs
+          - Basement
+    conditions:
+      - condition: state
+        entity_id: person.zaid
+        state: home
+        for:
+          seconds: 20
+    actions:
+      - action: script.notify_household_about_zaid
+        data:
+          message: >-
+            {{ {'Upstairs': 'Zaid is upstairs', 'Downstairs': 'Zaid is downstairs', 'Basement': 'Zaid is in the basement'}[trigger.to_state.state] }}
+          channel: Zaid floor changes
+          importance: default
+
+  # Silent on phones (low-importance channel); still spoken on the speaker outside quiet hours.
+  - id: zaid_left_home
+    alias: Zaid left home
+    description: Updates the household quietly.
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: person.zaid
+        from: home
+        not_to:
+          - unknown
+          - unavailable
+    actions:
+      - action: script.notify_household_about_zaid
+        data:
+          message: Zaid is not home
+          channel: Zaid departures
+          importance: low
