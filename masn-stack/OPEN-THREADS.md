@@ -1519,3 +1519,45 @@ API latency at the median, UI asset size, recording freshness.
 Unrelated but noted: **34 ffmpeg restarts in 24 h** (driveway 10, west_gate 8, backyard 8,
 east_gate 6, driveway_tele 2, front_door 0) with `bad cseq` / `More than 1000 frames duplicated` on
 east_gate. That is the long-running multi-camera dropout thread, not this.
+
+### "Why is the GPU at 99%?" -- it is bursty, and 99% is a sample, not a level (2026-09-15)
+
+Measured 10:41 EDT (daytime, so a fair sample):
+
+```
+GR3D over 60s:   p10=0%   p50=64%   p90=99%   mean=53.6%   max=99%
+                 30% of one-second samples read >=95%, and p10 reads 0%
+```
+
+Both extremes are real. Inference is BURSTY: each detector pass saturates the GPU for its ~40 ms,
+and between passes the GPU idles and railgates (`railgate_enable=1`). A one-second sample landing in
+a burst reads 99%; one landing in a gap reads 0%. **Frigate's own `gpu_usages` field showed 0.0% on
+one poll and 70.3% on another a few minutes later** -- same bursty signal, same sampling artefact.
+The mean is the only number worth quoting.
+
+**It is not saturated.** The signal that would prove saturation is frame skipping, and there is none:
+
+```
+mean det_fps   17.6 /s        peak det_fps   24.6 /s
+mean inference 41.8 ms  -> 3-detector capacity ~72 /s
+utilisation    24% mean, 34% peak
+skipped_fps    0.00 mean, 0.00 peak
+frame-skip messages in 24 h of logs: 0
+```
+
+So roughly two-thirds of detector capacity is spare even at the peak of this sample. Compare the
+2026-08-17 daytime peak that justified the third detector: det_fps 58.3 against a two-detector
+capacity of ~64/s (91%), WITH skipping on five cameras. Nothing like that is happening now.
+
+**MY OWN ERROR, RECORDED SO IT IS NOT REPEATED:** I read `cur_freq` once, saw 408 MHz against a
+1300.5 MHz max, and started writing up "the GPU is clocked at a third of maximum". Wrong -- the
+clock is dynamic (306-1300.5 MHz, governor `nvhost_podgov`) and 408 MHz was an idle-gap dip. A
+second read moments later showed 1020 MHz. `nvpmodel` is pmode 0 = **MAXN**, no power cap. Never
+diagnose a dynamically-scaled value from a single sample; that is the same mistake as reading 99%
+GR3D and calling the GPU pegged.
+
+**What would actually indicate a GPU problem**, in order of reliability:
+1. `skipped_fps > 0` on any camera -- detection cannot keep up. This is the real signal.
+2. `inference_speed` climbing away from its ~38-42 ms baseline.
+3. Frigate logging that it is skipping frames.
+Not: a high GR3D sample, and not Frigate's `gpu_usages` percentage.
