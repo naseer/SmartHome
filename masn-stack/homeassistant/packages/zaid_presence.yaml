@@ -1,0 +1,26 @@
+# Zaid's floor + location, feeding the Presence dashboard (dashboards/presence.json).
+# From Zaid's handoff ~/HOME-ASSISTANT-PLAN.md, Steps 1-2. The notification script and automations
+# (Steps 3-4) are NOT built yet -- this is display only.
+# person.zaid is a UI person (Settings -> People), linked to user "zaid" and device_tracker.zaid_s_pixel.
+
+# Defined here rather than as a UI helper so it is version controlled. No `initial:`, so the last
+# chosen floor survives a restart.
+input_select:
+  zaid_floor:
+    name: Zaid floor
+    icon: mdi:stairs
+    options:
+      - Upstairs
+      - Downstairs
+      - Basement
+
+# The one entity every card (and, later, every notification) reads.
+template:
+  - sensor:
+      - name: "Zaid location"
+        unique_id: zaid_location
+        state: "{{ states('input_select.zaid_floor') if is_state('person.zaid', 'home') else 'Not home' }}"
+        icon: >-
+          {% set f = states('input_select.zaid_floor') %}
+          {{ 'mdi:home-export-outline' if not is_state('person.zaid', 'home')
+             else {'Upstairs': 'mdi:home-floor-1', 'Downstairs': 'mdi:home-floor-0', 'Basement': 'mdi:home-floor-negative-1'}.get(f, 'mdi:home') }}

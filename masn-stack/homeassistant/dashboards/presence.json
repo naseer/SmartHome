@@ -1,0 +1,77 @@
+{
+  "title": "Presence",
+  "views": [
+    {
+      "title": "Presence",
+      "path": "presence",
+      "type": "sections",
+      "max_columns": 1,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "tile",
+              "entity": "sensor.zaid_location",
+              "name": "Zaid",
+              "state_content": ["state", "last_changed"],
+              "vertical": true,
+              "grid_options": {"columns": "full"}
+            },
+            {
+              "type": "horizontal-stack",
+              "visibility": [
+                {"condition": "user", "users": ["42b629ab28cf43f39a7d39530ee48321"]}
+              ],
+              "cards": [
+                {
+                  "type": "button",
+                  "name": "Upstairs",
+                  "icon": "mdi:home-floor-1",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "input_select.select_option",
+                    "target": {"entity_id": "input_select.zaid_floor"},
+                    "data": {"option": "Upstairs"}
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Downstairs",
+                  "icon": "mdi:home-floor-0",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "input_select.select_option",
+                    "target": {"entity_id": "input_select.zaid_floor"},
+                    "data": {"option": "Downstairs"}
+                  }
+                },
+                {
+                  "type": "button",
+                  "name": "Basement",
+                  "icon": "mdi:home-floor-negative-1",
+                  "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "input_select.select_option",
+                    "target": {"entity_id": "input_select.zaid_floor"},
+                    "data": {"option": "Basement"}
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {"type": "heading", "heading": "Who's home"},
+            {"type": "tile", "entity": "person.naseer", "state_content": ["state", "last_changed"]},
+            {"type": "tile", "entity": "person.sara", "state_content": ["state", "last_changed"]},
+            {"type": "tile", "entity": "person.zaid", "state_content": ["state", "last_changed"]},
+            {"type": "tile", "entity": "person.ammaar", "state_content": ["state", "last_changed"]}
+          ]
+        }
+      ]
+    }
+  ]
+}

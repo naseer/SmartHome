@@ -10,6 +10,7 @@ token at `~/.ha_token` (no sudo required).
 |------|-------------------|-------------|
 | `overview.json` | `-` (the built-in default **Overview**) | Everyone -- the single family landing page |
 | `all-entities.json` | `all-entities` | Admin only -- HA's auto-generated "everything" view |
+| `presence.json` | `dashboard-presence` | Everyone -- Zaid's floor + who's home. Floor buttons visible to Zaid's user only. Needs `packages/zaid_presence.yaml` |
 
 ```sh
 ./apply-dashboard.sh - ../homeassistant/dashboards/overview.json           # default Overview
