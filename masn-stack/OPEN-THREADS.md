@@ -1561,3 +1561,51 @@ GR3D and calling the GPU pegged.
 2. `inference_speed` climbing away from its ~38-42 ms baseline.
 3. Frigate logging that it is skipping frames.
 Not: a high GR3D sample, and not Frigate's `gpu_usages` percentage.
+
+### WAL fixed 2026-09-16; the clips migration was RETRACTED as unnecessary
+
+**FIXED -- the SQLite WAL was never checkpointing.** A `docker restart frigate` checkpoints and
+truncates on clean shutdown:
+
+```
+              WAL        DB
+before      20.7 MB    434.2 MB
+after        3.9 MB    349.3 MB
+```
+
+And it now HOLDS at 3.94 MB -- watched over 90 s, seven samples, not a byte of growth. That is the
+`wal_autocheckpoint = 1000 pages x 4096 B = 4 MB` threshold working as designed: fill to 4 MB,
+checkpoint, reuse the space. Before it was climbing without bound (18 MB on 09-10, 20.7 MB on
+09-16). The DB also compacted by 85 MB.
+
+**WATCH THIS.** The unbounded growth means a reader was holding an old snapshot open and blocking
+checkpoints; the restart cleared that reader, it did not fix whatever creates it. If the WAL is
+again several times 4 MB in a week or two, the restart is only a periodic band-aid and the real
+answer is finding the long-running reader. Check with:
+
+    ls -l /opt/stack/frigate/config/frigate.db-wal      # should hover around 4 MB
+
+**RETRACTED: moving `clips/` to local NVMe.** I proposed this on 2026-09-10 off the back of
+`ls /media/frigate/clips` taking 35 s. On inspection that operation is **on no hot path at all**:
+
+- Serving a snapshot or thumbnail is a direct path open from the DB-stored path -- measured 60 ms,
+  and unaffected by how many siblings the file has.
+- Event/snapshot expiry is entirely DB-driven: `frigate/events/cleanup.py` queries
+  `Event.select(...)` and calls `media_path.unlink(missing_ok=True)` on specific paths. It never
+  enumerates the directory.
+- The ONLY `listdir`/`glob` against CLIPS_DIR in the whole codebase is
+  `record/cleanup.py:41`, and it globs `CLIPS_DIR/cache` -- a subdirectory that currently holds
+  **zero** files.
+
+So the 35 s listing was an artefact of my own diagnostic `ls`, not something Frigate ever does.
+Migrating 60,470 files, adding a second storage location and giving up the NAS's redundancy for
+snapshots would have bought nothing. The `actimeo=1` CIFS mount option is likewise just the kernel
+default and not worth raising, since nothing lists that directory.
+
+LESSON: a slow operation is only worth fixing once you have shown something actually performs it.
+`grep` for the call site before optimising.
+
+Still unverified: whether the WAL was the cause of the p99 2.5 s spike measured 2026-09-10 at 22:42.
+Both the before and after probes on 09-16 ran at ~07:31 (p99 0.265 s then 0.153 s) -- a quiet hour
+where the spike does not reproduce either way. Re-probe in the evening under load to actually settle
+it.
