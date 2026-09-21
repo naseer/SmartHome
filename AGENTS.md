@@ -91,6 +91,15 @@ smart home is operational. What's running:
   `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)
 - **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
   detector upgrade — the weak ssdlite model false-fired on parked-car box flicker.
+  **Person alerts are TWO-STAGE as of 2026-09-21** (`packages/person_notifications.yaml`): the instant
+  zone-entry push clicks through to `/lovelace/cameras`, and a second automation
+  (`frigate_person_clip_ready`) re-sends the same `tag` after the event `end` -- only if `has_clip` is
+  true -- to swap in the clip link. WHY: Frigate publishes MQTT from its in-memory tracker but only
+  writes the event to its DB once `has_clip`/`has_snapshot` turns true, which never happens for an
+  object that does not move, so the old clip `clickAction` 404'd on 6 of the last 9 real taps. The
+  snapshot endpoint's live-frame fallback made the notification look healthy anyway. Full measurement
+  + the 404-body-size decoder in `masn-stack/OPEN-THREADS.md` §3a. Do NOT link a clip before `end`:
+  an in-progress event renders start->now unbounded (368 MB in 25 s observed).
   Garage + front-door-lock alerts live in `packages/garage_door.yaml` and `packages/door_lock.yaml`.
   House style for these, worth copying: a two-trigger pattern (a `for:` state trigger to fire promptly
   plus a `time_pattern` to RE-ARM, because a `for:` trigger fires only once per state entry), an action

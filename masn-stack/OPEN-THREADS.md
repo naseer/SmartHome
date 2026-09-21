@@ -251,6 +251,75 @@ Tapping an old push whose clip has aged out shows `{"success":false,"message":"E
 (needs `command_line` / `python_script`). Interim: set the notification `clickAction` to `/lovelace/cameras`
 so a dead tap lands somewhere useful instead of erroring.
 
+### 3a. FIXED 2026-09-21 — the common case was never expiry, it was an event Frigate never stored
+
+Expiry (above) is real but RARE. The failure the user actually hits is a different one with the same
+404 body, and it fires within SECONDS of the push. **Do not conflate them.**
+
+**Frigate publishes `frigate/events` from its in-memory tracker, but only writes the event to its
+DATABASE once `has_clip` or `has_snapshot` turns true.** Both are false for an object whose box never
+moved: `track/object_processing.py` `should_retain_recording()` and `should_save_snapshot()` both bail
+on `position_changes == 0`, and `events/maintainer.py` `should_update_db()` requires one of them. So a
+STATIC object misread as a person produces an MQTT event, and a push, for an event row that is never
+created — and `clip.mp4` 404s `{"success":false,"message":"Event not found"}` forever.
+
+**WHY IT PRESENTS AS A BROKEN STREAM AND NOT A MISSING EVENT** — this is the part that misleads you.
+`api/media.py` `event_snapshot()` looks up only COMPLETED events and, on miss, falls back to the live
+tracked-object frame. So the notification IMAGE renders perfectly while the object is in view. There
+is no such fallback in `event_clip()`. A notification can therefore look entirely healthy and still
+carry a dead link. Tell-tale in Frigate's access log — the same event id, seconds apart:
+
+    GET /api/events/<id>/snapshot.jpg  200 84306   <- live-frame fallback, object still tracked
+    GET /api/events/<id>/clip.mp4      404 45      <- "Event not found"
+    GET /api/events/<id>/snapshot.jpg  404 54      <- "Ongoing event not found", object gone
+
+Body SIZE identifies which 404 you have: **45** = `Event not found` (no DB row), **47** = `Clip not
+available` (row exists, has_clip false), **54** = `Ongoing event not found` (snapshot fallback miss).
+
+**MEASURED — every real notification tap in the 7 days to 2026-09-21** (`docker logs frigate | grep
+clip.mp4 | grep "Home Assistant/"`). 6 of 9 failed:
+
+| tap | result | event in DB? | lag from event start |
+|---|---|---|---|
+| 09-17 03:35 | 200 | yes | 29 s |
+| 09-18 01:14 | **404** | no | 788 s |
+| 09-18 04:29 | **404** | no | **9 s** |
+| 09-18 11:56 | **404** | no | **14 s** |
+| 09-21 03:33 | **404** | no | 412 s |
+| 09-21 10:53 | **404** | no | 161 s |
+| 09-21 16:16 | 200 | yes | 233 s |
+| 09-21 23:12 | 200 | yes | 12 s |
+| 09-21 23:12 | **400** | yes, still in progress | **4 s** |
+
+The 9 s and 14 s rows are what rule expiry out. A 7-min MQTT capture then caught it live: a `person`
+on `backyard` with `has_clip=False` at zone entry AND at `end`, clip still 404 two minutes later.
+
+**SECOND, MILDER MODE — tapping while the event is still open.** `event_clip()` computes
+`end_ts = now()` when `end_time is None`, so an in-progress event renders start→now with no bound. A
+75-minute in-progress event served **368 MB in 25 s** and never finished; a tap 4 s in got a bare
+HTTP 400 (no recording segments yet). Either way the phone's player just fails.
+
+**THE FIX (deployed): a two-stage notification, `packages/person_notifications.yaml`.**
+`frigate_person_notifications` keeps firing instantly on zone entry but its `clickAction` is now
+`/lovelace/cameras` — always valid, and the more useful destination while the person is still there.
+A new `frigate_person_clip_ready` then waits for the `end` message, requires `has_clip` true, waits
+15 s, and re-sends the SAME `tag` so Android REPLACES the card with one whose `clickAction` is the
+clip. `alert_once: true` on both keeps the replacement silent. If `has_clip` is false at `end`, it
+does nothing and the card keeps its live-view link: **a dead clip link is never published.**
+
+Two things not to re-derive:
+- **`has_clip` must be read at `end`, not at zone entry.** It flips false→true mid-event (observed
+  on `driveway` car `h01l37`), so gating the stage-1 push on it would silently drop real alerts.
+- **15 s is measured, not guessed.** Across six events, the clip became fetchable 0.3-6.7 s after the
+  `end` message. The MQTT publish in `object_processing.py:end()` happens BEFORE the maintainer's DB
+  write, so some delay is mandatory, not optional.
+
+**WORTH KNOWING: `has_clip == False` at `end` is a strong false-positive signal** — it means the box
+never changed position, i.e. a static object read as a person (cf. the backyard BBQ and hot tub
+already masked). Those notifications are the bogus ones, so the broken clips correlated with the
+bogus alerts. Suppressing the push outright is NOT possible from the zone-entry message (see above),
+but a short hold before pushing would trade alert latency for precision. Not done — user's call.
+
 ## 4. Ring-style timeline scrubbing
 
 Smooth scrubbing doesn't work in the current UI. The `custom:advanced-camera-card` (Cameras view) is

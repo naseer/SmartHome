@@ -62,6 +62,90 @@ automation:
                   image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
                   tag: "{{ id }}"
                   channel: "Person detection"
+                  # NOT the clip -- at this instant there is nothing to play, and for some events
+                  # there never will be. See `frigate_person_clip_ready` below, which swaps this
+                  # for the clip once one exists. Live view is the useful destination anyway while
+                  # the person is still in frame.
+                  clickAction: "/lovelace/cameras"
+                  # Lets the clip-ready automation replace this card in the tray silently.
+                  alert_once: true
+                  actions:
+                    - action: "URI"
+                      title: "Live view"
+                      uri: "/lovelace/cameras"
+                    - action: "light_{{ camera }}"
+                      title: "Light on"
+
+  # STAGE 2 of the person alert: re-send the SAME `tag` once a clip actually exists, so the card in
+  # the tray gains a working clickAction. Diagnosed 2026-09-21; this is the fix for "the notification
+  # opens and the stream fails to load".
+  #
+  # WHY the zone-entry push cannot link to a clip. Frigate publishes `frigate/events` straight from
+  # its in-memory tracker, but it only writes the event to its DATABASE once `has_clip` or
+  # `has_snapshot` turns true (events/maintainer.py should_update_db). Both are false for an object
+  # whose box never moved -- track/object_processing.py should_retain_recording() and
+  # should_save_snapshot() bail on `position_changes == 0` -- so a static object misread as a person
+  # generates an MQTT event, and a push, for an event row that is NEVER created. `clip.mp4` then
+  # returns 404 {"success":false,"message":"Event not found"} forever.
+  #
+  # MEASURED, last 7 days of real taps: 5 of 9 hit that 404, two of them within 14 s of the push --
+  # so this is NOT clip expiry (that is OPEN-THREADS thread 3, a different and rarer thing). A 7-min
+  # MQTT capture caught it live: a `person` on backyard with has_clip=False at entry AND at end,
+  # clip still 404 two minutes later.
+  #
+  # WHY IT LOOKS LIKE A STREAM FAULT rather than a missing event: the snapshot endpoint falls back to
+  # the live tracked-object frame when the DB row is absent (api/media.py event_snapshot), so the
+  # notification IMAGE renders perfectly. clip.mp4 has no such fallback.
+  #
+  # WHY WE WAIT FOR `end` AND NOT A TIMER. While an event is in progress Frigate renders the clip
+  # from start to now() (api/media.py event_clip), so an early tap streams an unbounded mp4 -- a
+  # 75-min in-progress event served 368 MB in 25 s here and never finished. Tapping 4 s into an event
+  # also produced a plain HTTP 400 (no segments yet). Waiting for `end` avoids both.
+  #
+  # WHY has_clip IS TESTED AT `end`, NOT AT ENTRY: it can flip false -> true mid-event (observed), so
+  # gating the stage-1 push on it would silently drop real alerts. Only the value at `end` is final.
+  #
+  # The 15 s delay covers measured clip readiness after `end` (0.3-6.7 s over six events). If
+  # has_clip is false at `end` we do nothing at all, and the card keeps its live-view clickAction --
+  # a dead link is never published.
+  - id: frigate_person_clip_ready
+    alias: "Frigate: person clip ready"
+    mode: parallel
+    max: 10
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >
+          {% set a = trigger.payload_json['after'] %}
+          {{ trigger.payload_json['type'] == 'end'
+             and a['label'] == 'person'
+             and (a['entered_zones'] | default([])) | count > 0
+             and a['has_clip'] | default(false) }}
+    variables:
+      id: "{{ trigger.payload_json['after']['id'] }}"
+      camera: "{{ trigger.payload_json['after']['camera'] }}"
+      cam_name: "{{ camera | replace('_', ' ') | title }}"
+    action:
+      - delay: {seconds: 15}
+      - repeat:
+          for_each:
+            - notify.mobile_app_mna
+            - notify.mobile_app_sara_phone
+            - notify.mobile_app_pixel_8_pro
+          sequence:
+            - service: "{{ repeat.item }}"
+              data:
+                title: "Person detected"
+                message: "Person at {{ cam_name }}"
+                data:
+                  image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
+                  # Same tag as stage 1 -> Android REPLACES that card rather than stacking a second
+                  # one, and alert_once keeps the replacement silent.
+                  tag: "{{ id }}"
+                  channel: "Person detection"
+                  alert_once: true
                   clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
                   actions:
                     - action: "URI"
