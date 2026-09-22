@@ -76,3 +76,24 @@ and the card shows a generic "configuration error" (the JS never loads). Fix: cr
 
 Either edit the JSON here and re-apply, or edit in the HA UI and pull the config back down
 into these files so the repo stays authoritative.
+
+## WARNING: overview.json has DRIFTED from live -- do not blind-apply it (found 2026-09-21)
+
+`apply-dashboard.sh - overview.json` would make TWO changes nobody asked for:
+
+| | live in HA | this repo file |
+|---|---|---|
+| views | Home, Cameras | Home, Cameras, **Review** |
+| `cameras` view type | `masonry` | `panel` |
+
+So applying it RE-ADDS a Review view that is not live any more, and flips Cameras from masonry to
+panel. Neither is intended; both were discovered only because a dry run reported "current: 2 view(s)"
+against "new: 3 view(s)". Always read that line before writing.
+
+The `Wall display` section (cast buttons) was therefore applied SURGICALLY -- read the live config,
+append the one section, save it back -- rather than by pushing this file. That kept both live views
+and the masonry type intact.
+
+UNRESOLVED: which side is authoritative. Either the Review view should come back (apply this file) or
+it is gone deliberately (this file should drop it and set `cameras` to masonry). Decide before the
+next dashboard change, because until then this file cannot safely be applied at all.

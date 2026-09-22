@@ -1,0 +1,42 @@
+# script.cast_wall -- put the wall dashboard on a Cast device on demand.
+#
+# WHY A SCRIPT AND NOT A BARE SERVICE CALL ON THE BUTTON: the target is a field with a default, so
+# the same script serves the dashboard button, any automation, and voice, and a second TV needs no
+# new code -- just a different `target`.
+#
+# PERFORMANCE CAVEAT, measured 2026-09-21. Home Assistant Cast computes its own URL as
+#     hass_url = get_url(hass, require_ssl=True, prefer_external=True)
+# so it needs https and PREFERS external_url. With external_url still being the Nabu Casa address,
+# the Cast device fetches the dashboard and every camera stream from the CLOUD -- masn was measured
+# pushing 2.8 Mbit/s upstream with a standing 7.5 kB send-queue backlog, which is the buffering seen
+# on the TV. It is a network round trip, NOT the renderer-thread frame drops that affect the wall Pi;
+# same symptom, unrelated cause.
+#
+# The fix is external_url pointing at a LAN-resolving https name (ha.naseer.dev -> 192.168.50.50 with
+# a real cert). Nothing here changes when that lands -- Cast simply stops leaving the house.
+alias: Cast the wall display
+description: Show the wall camera dashboard on a Cast device
+mode: single
+icon: mdi:cast-variant
+fields:
+  target:
+    name: Cast target
+    description: Which Cast device to show the wall on
+    required: false
+    example: media_player.family_room_tv
+    selector:
+      entity:
+        filter:
+          domain: media_player
+sequence:
+  # Audio-only Cast devices accept the call and then sit there, so fail loudly instead.
+  - variables:
+      dev: "{{ target | default('media_player.family_room_tv', true) }}"
+  - condition: template
+    value_template: "{{ state_attr(dev, 'device_class') != 'speaker' }}"
+    alias: Refuse to cast a dashboard at a speaker
+  - action: cast.show_lovelace_view
+    data:
+      entity_id: "{{ dev }}"
+      dashboard_path: wall-display
+      view_path: cameras

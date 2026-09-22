@@ -221,6 +221,59 @@
               }
             }
           ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading_style": "title",
+              "heading": "Wall display",
+              "icon": "mdi:cast-variant"
+            },
+            {
+              "type": "tile",
+              "entity": "media_player.family_room_tv",
+              "name": "Family Room TV",
+              "features": [
+                {
+                  "type": "media-player-volume-slider"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "name": "Cast wall to TV",
+              "icon": "mdi:cast-variant",
+              "show_state": false,
+              "grid_options": {
+                "columns": 6
+              },
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.cast_wall",
+                "data": {
+                  "target": "media_player.family_room_tv"
+                }
+              }
+            },
+            {
+              "type": "button",
+              "name": "Stop cast",
+              "icon": "mdi:cast-off",
+              "show_state": false,
+              "grid_options": {
+                "columns": 6
+              },
+              "tap_action": {
+                "action": "perform-action",
+                "perform_action": "script.cast_wall_stop",
+                "data": {
+                  "target": "media_player.family_room_tv"
+                }
+              }
+            }
+          ]
         }
       ]
     },
