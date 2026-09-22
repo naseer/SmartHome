@@ -67,3 +67,26 @@ Nothing alerts on a missing display. The tile watchdog explicitly defers this ca
 mailbox-watchdog, which only checks the VideoCore firmware mailbox; the mailbox was healthy, so it
 did nothing, eight days running. Whichever watchdog takes it, "no wl_output for N minutes" should
 reach a human -- the notify path (`script.announce`) already exists.
+
+## Fallback while the wall is down: HA Cast works, and it DOES render custom cards
+
+Verified 2026-09-21 on `media_player.family_room_tv` (Google Cast video target):
+
+    cast.show_lovelace_view
+      entity_id: media_player.family_room_tv
+      dashboard_path: wall-display
+      view_path: cameras
+
+The TV woke, the receiver authenticated and loaded `Wall: Cameras`, and a photograph of the screen
+confirms `custom:grid-layout`, `custom:advanced-camera-card` and card-mod ALL RENDERED -- live camera
+tiles, the clock, the weather emoji and the prayer table. This contradicts the common claim that HA
+Cast cannot load custom Lovelace resources; the official docs say nothing either way. Do not assume
+it cannot be done.
+
+Prerequisite that IS real: HA Cast needs an https URL. Satisfied here by Nabu Casa
+(`external_url` is the ui.nabu.casa address); it would fail on the bare LAN address.
+
+WHAT DOES NOT SURVIVE THE TRIP is the geometry. The grid is sized in `vh` for a 2560x1440 panel, so
+on a 1080p 16:9 TV the info column overflows and squeezes `west` and `front_door` into slivers, the
+status tiles truncate to single letters ("Garage/Closed" -> "G C"), and advanced-camera-card draws
+playback controls that are suppressed on the wall Pi. A TV needs its own view, not this one.
