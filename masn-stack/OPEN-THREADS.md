@@ -403,6 +403,26 @@ monotonic in practice, and a second push would carry the same 120 s bucket tag a
 the one card anyway. Ten transition cases are covered by the check in this thread's tooling; the two
 that matter are *in zone but not moved yet* (hold) and *then starts moving* (fire).
 
+**VERIFIED ON LIVE TRAFFIC 2026-09-22 00:52 UTC** -- one person crossing the property, which is the
+exact burst this work targets:
+
+    20:52:50  front_door person   -> NEW CARD + buzz     tag=person-14916986
+    20:52:56  driveway   person   -> coalesced, SILENT   tag=person-14916986
+    20:53:01  front_door END      -> clip swap onto that card, clip link HTTP 200
+    20:53:20  driveway   END      -> clip swap onto that card, clip link HTTP 200
+
+Three detections, two cameras, **one card and one buzz**; stage 2 fired and both clip links resolved
+(955 KB video/mp4 on the earlier backyard event). Gate latency on both real people: **+0.00 s** --
+`has_clip` was already true on the zone-entry message, as designed. The card settles on `driveway`,
+the most recently ENDED event, which is the accepted wart behaving correctly.
+
+Caveats on that run, so nobody over-reads it: n=2 for the latency figure, and no static object came
+through in the window AFTER the gate went live, so suppression is proven by the transition tests and
+by a pre-gate observation (`backyard` 00:40:55, `has_clip=False`, which did buzz all three phones)
+rather than by a post-gate observation. A dedicated watcher checking that
+`automation.frigate_person_detected.last_triggered` does NOT move on a static event is the outstanding
+confirmation.
+
 **This also shrinks thread 3 itself.** The static-object alerts were the bulk of the dead-clip taps,
 and they are no longer sent, so auto-dismiss is now only needed for genuinely aged-out clips.
 
