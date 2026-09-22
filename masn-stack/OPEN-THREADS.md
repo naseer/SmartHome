@@ -416,12 +416,37 @@ Three detections, two cameras, **one card and one buzz**; stage 2 fired and both
 `has_clip` was already true on the zone-entry message, as designed. The card settles on `driveway`,
 the most recently ENDED event, which is the accepted wart behaving correctly.
 
-Caveats on that run, so nobody over-reads it: n=2 for the latency figure, and no static object came
-through in the window AFTER the gate went live, so suppression is proven by the transition tests and
-by a pre-gate observation (`backyard` 00:40:55, `has_clip=False`, which did buzz all three phones)
-rather than by a post-gate observation. A dedicated watcher checking that
-`automation.frigate_person_detected.last_triggered` does NOT move on a static event is the outstanding
-confirmation.
+**SUPPRESSION CONFIRMED 2026-09-22 01:32-02:07 UTC, against HA's recorder** (not by polling, see the
+gotcha below). Seven person zone-entry detections in 35 minutes:
+
+| event | camera | has_clip | automation | card |
+|---|---|---|---|---|
+| zwoh0k | backyard | true | fired +0.97 s | person-14917006 |
+| ehaub9 | driveway | true | fired +1.95 s | person-14917006 |
+| a91p2b | front_door | true | fired +1.50 s | person-14917006 |
+| 1wsz5r | backyard | **false** | **SUPPRESSED** | - |
+| mr7ohy | backyard | **false** | **SUPPRESSED** | - |
+| w1i9ek | backyard | **false** | **SUPPRESSED** | - |
+| 9cpepm | backyard | true | fired +1.04 s | person-14917023 |
+
+`automation_triggered` in Postgres holds exactly four rows for this span and `notify.mobile_app_*`
+three calls against each -- so every real person alerted to all three phones, and the three static
+`backyard` detections produced **no automation fire and no push at all**. The three real events inside
+`person-14917006` spanned THREE cameras (backyard, driveway, front_door) over 36 s and collapsed into
+one card. Net for the window: **7 detections -> 2 cards, 2 buzzes** where it would previously have
+been 7 cards, 7 buzzes, 21 pushes shown across the phones (-71%).
+
+Gate latency across all four real events: **+0.03 s**, i.e. `has_clip` was already true on the
+zone-entry message every time. The gate costs nothing for people who are actually walking.
+
+**GOTCHA THAT WILL BITE YOU AGAIN -- do not verify a trigger by polling `last_triggered`.** The first
+pass at this check read `automation.frigate_person_detected.last_triggered` over the REST API right
+after seeing the MQTT message, and reported `alerted=False` for 3 of the 4 REAL events, which looks
+exactly like the gate wrongly suppressing real people. It was a race: HA consumes the same MQTT
+message in parallel, and the HTTP round trip often lands AFTER the automation has already bumped
+`last_triggered`, so the "before" snapshot already contained the new value. Verify against the
+recorder's `automation_triggered` / `call_service` rows instead -- they are timestamped by HA itself
+and cannot race.
 
 **This also shrinks thread 3 itself.** The static-object alerts were the bulk of the dead-clip taps,
 and they are no longer sent, so auto-dismiss is now only needed for genuinely aged-out clips.
