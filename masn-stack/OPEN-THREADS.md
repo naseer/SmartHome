@@ -314,6 +314,52 @@ Two things not to re-derive:
   `end` message. The MQTT publish in `object_processing.py:end()` happens BEFORE the maintainer's DB
   write, so some delay is mandatory, not optional.
 
+### 3b. Person alerts are COALESCED on a 120 s global window (2026-09-21)
+
+The complaint was back-to-back person pushes. **Measured first, because the obvious fix is the wrong
+one:** 2472 zoned person events in 7 days = **353/day = 1059 pushes across three phones**. Of
+consecutive pairs less than 30 s apart, **1034 were on a DIFFERENT camera vs 780 on the same one** --
+one person crossing driveway -> front_door -> east_gate is the dominant burst. A per-camera debounce
+would not have touched it. Scope is therefore GLOBAL.
+
+**Mechanism: a stateless time-bucket tag. No helpers, no stored state.**
+
+    alert_tag: "person-{{ (trigger.payload_json['after']['start_time'] / 120) | int }}"
+
+Every person event whose `start_time` falls in the same 120 s bucket gets the same `tag`, so Android
+keeps ONE card and updates it in place; `alert_once: true` means only the first in the bucket makes a
+sound. **Nothing is suppressed** -- later detections still arrive, they just refresh the card.
+
+Two things that make this work and must not be "simplified":
+- **The bucket comes from the event's own `start_time`, never `now()`.** Stage 2 (the clip swap) runs
+  ~15 s after the event ENDS and would otherwise fall in a later bucket and spawn a second card.
+  Verified on the wire: `start_time` is byte-identical in the zone-entry and `end` messages.
+- **The expression is duplicated in both automations and must stay identical.** HA has no
+  package-level variables, and a jinja macro in `custom_templates/` would add a reload path that
+  `homeassistant.reload_all` does not cover.
+
+**Simulated against the real 7 days:**
+
+| | |
+|---|---|
+| zoned person events | 2472 (353/day) |
+| distinct 120 s buckets = cards AND buzzes | 586 (**84/day**) |
+| reduction in buzzes | **76%** |
+| buckets holding >1 detection | 446 of 586 (76%) |
+| buckets spanning >1 camera | 344 |
+| largest single bucket | 21 detections -> one card |
+
+Note the NOTIFY CALL count does not change (353/day of `notify.mobile_app_*` still fire); what drops
+is cards shown and sounds made. Fixed buckets give 84/day where a sliding 120 s window would give 67 --
+the difference is events straddling a bucket boundary, which fails safe toward notifying.
+
+ACCEPTED WART: within one bucket the card shows whichever push landed last, so an earlier event's
+clip swap can briefly overwrite a later event's card. It settles on the most recently ENDED event,
+with a working clip. Fixing it properly needs per-bucket state; user accepted the trade 2026-09-21.
+
+NOT DONE, if 84/day is still too many: widen to 300 s (would be ~41/day), or gate alerts on
+`has_clip` at `end` to drop the static-object false positives -- see the note just below.
+
 **WORTH KNOWING: `has_clip == False` at `end` is a strong false-positive signal** — it means the box
 never changed position, i.e. a static object read as a person (cf. the backyard BBQ and hot tub
 already masked). Those notifications are the bogus ones, so the broken clips correlated with the

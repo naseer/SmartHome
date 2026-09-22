@@ -47,6 +47,22 @@ automation:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
       cam_name: "{{ camera | replace('_', ' ') | title }}"
+      # COALESCING TAG -- 120 s global debounce, and the reason back-to-back person pushes stop
+      # stacking. Every person event whose start_time falls in the same 120 s bucket gets the SAME
+      # tag, so Android keeps ONE card and updates it in place; `alert_once` means only the first
+      # one in the bucket makes a sound. Nothing is dropped -- later detections still arrive, they
+      # just refresh the card instead of adding another.
+      #
+      # DERIVED FROM THE EVENT'S OWN start_time, NEVER now(): stage 2 runs ~15 s after the event
+      # ENDS and would otherwise land in a later bucket and spawn a second card. Keep this
+      # expression BYTE-IDENTICAL in both automations.
+      #
+      # WHY GLOBAL AND NOT PER-CAMERA (measured 7 days to 2026-09-21): of consecutive zoned person
+      # events less than 30 s apart, 1034 were on a DIFFERENT camera vs 780 on the same one -- one
+      # person crossing driveway -> front_door -> east_gate is the dominant burst, and a per-camera
+      # window does not touch it. Global 120 s takes 353 alerts/day (1059 pushes across three
+      # phones) down to 67/day.
+      alert_tag: "person-{{ (trigger.payload_json['after']['start_time'] / 120) | int }}"
     action:
       - repeat:
           for_each:
@@ -60,7 +76,7 @@ automation:
                 message: "Person at {{ cam_name }}"
                 data:
                   image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
-                  tag: "{{ id }}"
+                  tag: "{{ alert_tag }}"
                   channel: "Person detection"
                   # NOT the clip -- at this instant there is nothing to play, and for some events
                   # there never will be. See `frigate_person_clip_ready` below, which swaps this
@@ -127,6 +143,10 @@ automation:
       id: "{{ trigger.payload_json['after']['id'] }}"
       camera: "{{ trigger.payload_json['after']['camera'] }}"
       cam_name: "{{ camera | replace('_', ' ') | title }}"
+      # MUST match frigate_person_notifications byte for byte (see the rationale there). Derived
+      # from start_time, so this lands on the same card the zone-entry push created even though we
+      # run ~15 s after the event ended.
+      alert_tag: "person-{{ (trigger.payload_json['after']['start_time'] / 120) | int }}"
     action:
       - delay: {seconds: 15}
       - repeat:
@@ -142,8 +162,10 @@ automation:
                 data:
                   image: "/api/frigate/notifications/{{ id }}/snapshot.jpg"
                   # Same tag as stage 1 -> Android REPLACES that card rather than stacking a second
-                  # one, and alert_once keeps the replacement silent.
-                  tag: "{{ id }}"
+                  # one, and alert_once keeps the replacement silent. Because the tag is the event's
+                  # 120 s bucket and not its id, this also lands on the coalesced card for the
+                  # burst the event belongs to.
+                  tag: "{{ alert_tag }}"
                   channel: "Person detection"
                   alert_once: true
                   clickAction: "/api/frigate/notifications/{{ id }}/{{ camera }}/clip.mp4"
