@@ -91,6 +91,14 @@ smart home is operational. What's running:
   `dashboard-westacott` was deleted 2026-08-02 — one source of truth now.)
 - **Notifications**: person alerts live. **Vehicle alerts AND vehicle *detection* are DISABLED** pending a
   detector upgrade — the weak ssdlite model false-fired on parked-car box flicker.
+  **Person alerts are GATED AND COALESCED as of 2026-09-21**: the trigger is "entered a zone AND
+  `has_clip`" (not just "entered a zone"), because `has_clip` is Frigate's own "did this object move"
+  -- it kills the static-object false positives (hot tub, BBQ, parked cars) that were **18% of all
+  person alerts, 79/day**. And every person event in the same 120 s bucket shares one notification
+  `tag`, so a burst updates ONE card instead of stacking. Net: **433 -> 84 cards/buzzes per day
+  (-81%)**. Scope is GLOBAL, not per-camera, because cross-camera bursts dominate (1034 of the
+  sub-30 s consecutive pairs were on a different camera vs 780 same). Full measurements in
+  `masn-stack/OPEN-THREADS.md` §3b/§3c.
   **Person alerts are TWO-STAGE as of 2026-09-21** (`packages/person_notifications.yaml`): the instant
   zone-entry push clicks through to `/lovelace/cameras`, and a second automation
   (`frigate_person_clip_ready`) re-sends the same `tag` after the event `end` -- only if `has_clip` is

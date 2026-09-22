@@ -357,8 +357,54 @@ ACCEPTED WART: within one bucket the card shows whichever push landed last, so a
 clip swap can briefly overwrite a later event's card. It settles on the most recently ENDED event,
 with a working clip. Fixing it properly needs per-bucket state; user accepted the trade 2026-09-21.
 
-NOT DONE, if 84/day is still too many: widen to 300 s (would be ~41/day), or gate alerts on
-`has_clip` at `end` to drop the static-object false positives -- see the note just below.
+If 84/day is still too many, the remaining lever is a wider window: 300 s would give ~41/day.
+
+### 3c. Static objects no longer alert at all -- the `has_clip` gate (2026-09-21)
+
+18% of person alerts were objects that never moved. The trigger is no longer "first entered a zone"
+but **"first entered a zone AND `has_clip`"**, because `has_clip` is Frigate's own answer to *did this
+object actually move*: `should_retain_recording()` returns false on `position_changes == 0`, on
+`false_positive`, or when the object never reached alert/detection severity. A covered hot tub, a BBQ
+or a parked car read as a person all sit still, so they never clear it.
+
+**MEASURED, 7 days to 2026-09-21** -- HA's own `automation_triggered` history cross-referenced against
+Frigate's event table. This is the honest baseline; the 353/day figure quoted in 3b counts only
+clip-bearing events, so it understated the real push volume:
+
+| | total | per day |
+|---|---|---|
+| person alerts actually fired | 3013 | **433** |
+| of those, events that got a clip | 2466 | 354 |
+| **static, no clip ever -- now suppressed** | **547** | **79 (18%)** |
+
+Cumulative effect on cards shown and sounds made:
+
+| | cards/day |
+|---|---|
+| before any of this work | 433 |
+| + 120 s coalescing (3b) | 109 (-75%) |
+| + `has_clip` gate (3c) | **84 (-81%)** |
+
+The gate removes 25 cards/day *on top of* coalescing -- less than the 79 alerts it drops, because many
+static detections shared a bucket with a real one.
+
+**WHY A TRANSITION AND NOT A `for:` OR A DELAY.** `has_clip` flips false -> true the moment the object
+moves, so testing it on the first zone-entry message would drop real people who had not moved yet. The
+condition therefore fires on the transition INTO (in-zone AND has_clip):
+
+    {% set now_open = (a['entered_zones']|default([]))|count > 0 and a['has_clip']|default(false) %}
+    {% set was_open = (b is mapping) and ((b['entered_zones']|default([]))|count > 0)
+                      and (b['has_clip']|default(false)) %}
+    {{ a['label'] == 'person' and now_open and not was_open }}
+
+Costs no fixed delay -- for a walking person `has_clip` is already true on the zone-entry message --
+and a genuinely static object simply never opens the gate. It cannot double-fire: `has_clip` is
+monotonic in practice, and a second push would carry the same 120 s bucket tag and silently refresh
+the one card anyway. Ten transition cases are covered by the check in this thread's tooling; the two
+that matter are *in zone but not moved yet* (hold) and *then starts moving* (fire).
+
+**This also shrinks thread 3 itself.** The static-object alerts were the bulk of the dead-clip taps,
+and they are no longer sent, so auto-dismiss is now only needed for genuinely aged-out clips.
 
 **WORTH KNOWING: `has_clip == False` at `end` is a strong false-positive signal** — it means the box
 never changed position, i.e. a static object read as a person (cf. the backyard BBQ and hot tub
