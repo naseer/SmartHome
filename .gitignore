@@ -11,3 +11,4 @@ masn-stack/zigbee2mqtt/data/
 # screenshot.sh output
 wall*.png
 osd-regions.png
+masn-stack/reverse-proxy/certs/

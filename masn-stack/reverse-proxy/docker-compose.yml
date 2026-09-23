@@ -1,0 +1,41 @@
+# A SEPARATE compose project from /opt/stack/docker-compose.yml, deliberately.
+#
+# The main stack runs Home Assistant, Mosquitto, Postgres, matter-server and Z2M -- the things the
+# house depends on. Adding services to that file means every `docker compose up -d` for a TLS tweak
+# risks recreating a container the doors, lights and alarms run through. Keeping this independent
+# means `docker compose -p tls up -d` can never touch them.
+#
+# Deploy:  docker compose -p tls -f docker-compose.yml up -d
+name: tls
+
+services:
+  # Issues and renews the certificate over DNS-01 against deSEC. No inbound port is opened and the
+  # ACME server never connects to this house -- which is what makes this compatible with the
+  # no-port-forwarding rule. Squarespace has no API, so _acme-challenge.ha.naseer.dev is a CNAME to
+  # a deSEC zone; Let's Encrypt follows it there and Squarespace is never written to again.
+  acme:
+    container_name: acme
+    image: neilpang/acme.sh:latest
+    restart: unless-stopped
+    # daemon mode runs acme.sh's own cron, which renews at ~60 days. Certificates last 90, so a
+    # failed renewal has a month of headroom before anything breaks -- and .dev being HSTS-preloaded
+    # means an expired cert has NO http fallback, so that headroom matters.
+    command: daemon
+    volumes:
+      - ./certs:/acme.sh
+    environment:
+      # Supplied from .env -- NEVER committed. See setup-tls.sh.
+      DEDYN_TOKEN: "${DEDYN_TOKEN}"
+      DEDYN_NAME: "${DEDYN_NAME}"
+
+  nginx:
+    container_name: ha-tls
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    # host networking so proxy_pass can reach Home Assistant on 127.0.0.1:8123 -- HA itself runs
+    # host-networked for mDNS/SSDP discovery, so there is no bridge address to talk to.
+    network_mode: host
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/ha.conf:ro
+      - ./certs:/certs:ro
+    depends_on: [acme]
