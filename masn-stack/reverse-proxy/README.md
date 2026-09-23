@@ -29,12 +29,24 @@ The LAN address has to BE `external_url`.
   and the name is useless outside the house. Both acceptable; Nabu Casa still covers remote.
 - **DNS-01, not HTTP-01.** HTTP-01 and TLS-ALPN-01 need inbound 80/443, i.e. port-forwarding, which
   this project does not do. DNS-01 opens nothing.
-- **Challenge delegated to deSEC.** Squarespace hosts this zone and has no API, so renewals cannot be
-  automated against it. `_acme-challenge.ha.naseer.dev` is a CNAME into a free deSEC zone, which does
-  have one. Two one-time records in Squarespace and it is never touched again -- crucially, Google
-  Workspace mail, DKIM, the apex site and the GitHub Pages www record all stay exactly where they are.
+- **Challenge delegated to DuckDNS.** Squarespace hosts this zone and has no API, so renewals cannot
+  be automated against it. `_acme-challenge.ha.naseer.dev` is a CNAME into a free DuckDNS domain,
+  which does have one. Two one-time records in Squarespace and it is never touched again -- Google
+  Workspace mail, DKIM, the apex site and the www GitHub Pages record all stay where they are.
   Migrating the whole zone was the alternative and was rejected: DKIM failures are silent, and a zone
   cannot be enumerated from outside, so any subdomain not guessed would have been dropped.
+  deSEC was the first choice; **dedyn.io registration is suspended (2026-09-23)**. If it reopens,
+  deSEC is the better host -- a proper REST API and real RRset support rather than one TXT slot.
+  NOTE: deSEC's "own domain" option is NOT the answer either, since it delegates naseer.dev's
+  nameservers to deSEC, which is the migration being avoided.
+
+  Two DuckDNS quirks are load-bearing:
+    1. **The TXT lives at the APEX of `<name>.duckdns.org`**, not under an `_acme-challenge` label,
+       so the CNAME target carries NO `_acme-challenge` prefix. Pointing at
+       `_acme-challenge.<name>.duckdns.org` resolves to nothing and issuance fails.
+    2. **One TXT per DuckDNS domain**, so one certificate NAME per DuckDNS domain. A multi-name (SAN)
+       certificate must satisfy every challenge at once and the second value would overwrite the
+       first. A second name needs a second DuckDNS domain with its own CNAME.
 - **A proxy, not TLS inside HA.** About a dozen things speak plain http to `:8123` -- the wall Pi
   kiosk URL, `masjid-prayer-times.py`, `apply-dashboard.sh`, `ha-reload.sh`, every diagnostic here.
   Enabling HA's own `ssl_certificate` breaks all of them at once. HA stays http; nginx sits beside it.
@@ -43,15 +55,13 @@ The LAN address has to BE `external_url`.
 
 ## Setup
 
-1. deSEC: free account, choose the **dynDNS / free domain** option and register `<name>.dedyn.io`,
-   then create an API token. Do NOT use deSEC's "own domain" option -- that delegates `naseer.dev`'s
-   nameservers to deSEC, which is the full-zone migration this design exists to avoid.
-   acme.sh is invoked with `--challenge-alias <name>.dedyn.io`; without that flag it tries to write
-   the TXT into Squarespace, which has no API, and issuance fails.
+1. DuckDNS: sign in, register a domain `<name>.duckdns.org`, copy the account token.
+   acme.sh is invoked with `--challenge-alias <name>.duckdns.org`; without that flag it tries to
+   write the TXT into Squarespace, which has no API, and issuance fails.
 2. Squarespace, once:
 
        ha                  A      192.168.50.50
-       _acme-challenge.ha  CNAME  _acme-challenge.<name>.dedyn.io
+       _acme-challenge.ha  CNAME  <name>.duckdns.org      # NO _acme-challenge prefix on the target
 
 3. On masn: `./setup-tls.sh <name>` -- it verifies both records BEFORE issuing (Let's Encrypt
    rate-limits repeated failures), prompts for the token on stdin, issues, and starts nginx.
