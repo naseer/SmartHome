@@ -77,23 +77,25 @@ and the card shows a generic "configuration error" (the JS never loads). Fix: cr
 Either edit the JSON here and re-apply, or edit in the HA UI and pull the config back down
 into these files so the repo stays authoritative.
 
-## WARNING: overview.json has DRIFTED from live -- do not blind-apply it (found 2026-09-21)
+## Dashboard drift, 2026-09-21 -- RESOLVED, and the rule that came out of it
 
-`apply-dashboard.sh - overview.json` would make TWO changes nobody asked for:
+The live Overview had lost its `Review` view and `Cameras` had flipped from `panel` to `masonry`,
+while `Home` matched this repo byte-for-byte across several commits -- the signature of a UI save
+(HA's editor rewrites the whole config) rather than a bad apply. No Lovelace history and no HA
+backups exist, so it could not be dated or attributed. Most likely another automated session.
 
-| | live in HA | this repo file |
-|---|---|---|
-| views | Home, Cameras | Home, Cameras, **Review** |
-| `cameras` view type | `masonry` | `panel` |
+RESOLVED: the repo is the source of truth. Live was re-applied from this file and now matches it
+exactly. See the dashboards rule in AGENTS.md -- do not edit dashboards in the HA UI.
 
-So applying it RE-ADDS a Review view that is not live any more, and flips Cameras from masonry to
-panel. Neither is intended; both were discovered only because a dry run reported "current: 2 view(s)"
-against "new: 3 view(s)". Always read that line before writing.
+While restoring it, the `Review` view turned out to be pointing at `http://192.168.50.50:8971`, which
+is MASN. Frigate moved to the Orin on 2026-08-09 and masn's copy is stopped, so that iframe had been
+dead since then -- masn:8971 returns nothing, orin:8971 returns HTTP 200. Corrected to
+`http://192.168.50.200:8971`. Restoring a view is a good moment to check it still works.
 
-The `Wall display` section (cast buttons) was therefore applied SURGICALLY -- read the live config,
-append the one section, save it back -- rather than by pushing this file. That kept both live views
-and the masonry type intact.
+KNOWN FUTURE BREAKAGE: that iframe is plain http. Once Home Assistant is served over
+`https://ha.naseer.dev` (see `masn-stack/reverse-proxy/`), browsers will block it as mixed content
+and the Review view will go blank. Fixing it means proxying Frigate through the same TLS front door
+rather than iframing its LAN address directly.
 
-UNRESOLVED: which side is authoritative. Either the Review view should come back (apply this file) or
-it is gone deliberately (this file should drop it and set `cameras` to masonry). Decide before the
-next dashboard change, because until then this file cannot safely be applied at all.
+ALWAYS read the `current: N view(s)` vs `new: N view(s)` line from `--dry-run`. That mismatch is the
+only warning before clobbering someone's change.

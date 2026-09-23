@@ -331,6 +331,16 @@ cameras + SLZB-06 arrived — see the top "Status" section for current live stat
 
 ## Conventions (also see `~/.claude/CLAUDE.md`)
 
+- **Dashboards: THE REPO IS THE SOURCE OF TRUTH.** Change
+  `masn-stack/homeassistant/dashboards/*.json` and deploy with `tools/apply-dashboard.sh`. Do NOT
+  edit a dashboard in the HA UI and do NOT write Lovelace config straight over the websocket --
+  HA's editor rewrites the WHOLE config, so a UI save silently reverts anything not also in the repo.
+  That has already happened once: found 2026-09-21, the live Overview had lost its `Review` view
+  entirely and `Cameras` had flipped from `panel` to `masonry`, while `Home` still matched the repo
+  byte-for-byte across several commits. There is no Lovelace history and no HA backups, so the change
+  could not be dated or attributed. If the repo and live disagree, the repo wins.
+  ALWAYS read the `current: N view(s)` vs `new: N view(s)` line from `--dry-run` before writing --
+  that mismatch is the only warning you get that you are about to clobber someone's change.
 - **Secrets**: never commit. `.env` gitignored; `.env.example` committed with placeholders. Same
   for mosquitto `passwd` and the Z2M network key.
 - **No emojis** in code/docs. Immutability. Many small files. **Conventional commits** (`feat:`,
