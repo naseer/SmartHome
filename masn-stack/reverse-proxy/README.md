@@ -43,7 +43,11 @@ The LAN address has to BE `external_url`.
 
 ## Setup
 
-1. deSEC: free account, register `<name>.dedyn.io`, create an API token.
+1. deSEC: free account, choose the **dynDNS / free domain** option and register `<name>.dedyn.io`,
+   then create an API token. Do NOT use deSEC's "own domain" option -- that delegates `naseer.dev`'s
+   nameservers to deSEC, which is the full-zone migration this design exists to avoid.
+   acme.sh is invoked with `--challenge-alias <name>.dedyn.io`; without that flag it tries to write
+   the TXT into Squarespace, which has no API, and issuance fails.
 2. Squarespace, once:
 
        ha                  A      192.168.50.50

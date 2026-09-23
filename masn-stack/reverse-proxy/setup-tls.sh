@@ -38,7 +38,12 @@ echo ">> wrote .env (0600, gitignored)"
 mkdir -p certs
 docker compose -p tls up -d acme
 echo ">> issuing the certificate (DNS-01 via deSEC; propagation wait is normal)"
-docker exec acme acme.sh --issue --dns dns_desec -d "$DOMAIN" --server letsencrypt
+# --challenge-alias is THE load-bearing flag. Without it acme.sh tries to write the TXT record at
+# _acme-challenge.ha.naseer.dev, which lives in Squarespace and has no API, and issuance fails. With
+# it, acme.sh writes _acme-challenge.$NAME.dedyn.io in deSEC instead, and Let's Encrypt follows the
+# one-time CNAME there. This flag is the entire reason the delegation works.
+docker exec acme acme.sh --issue --dns dns_desec -d "$DOMAIN" \
+  --challenge-alias "$NAME.dedyn.io" --server letsencrypt
 
 # acme.sh's own layout is not what nginx should read directly -- --install-cert gives a stable path
 # that survives renewal, and reloads nginx in place so a renewed cert is actually served.
